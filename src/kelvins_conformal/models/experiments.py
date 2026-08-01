@@ -220,6 +220,22 @@ def run_e8(cfg: Config, data: R.SequenceData, *, budget: R.SearchBudget) -> Expe
     }
     levels = cfg.bayesian.nominal_levels
 
+    # A reference run fixes the promotion threshold on VALIDATION, exactly as in
+    # E6/E7. Without it E8's point predictions never cross -6, F2 is 0 and the
+    # challenge loss is undefined — so E8 could not appear in the comparison table
+    # at all. The interval/coverage audit below is untouched by this: it uses the
+    # raw predictive distribution, not the promoted point estimate.
+    ref = train_sequence_model(
+        data.fit_X, data.fit_len, data.fit_y, data.val_X, data.val_len, data.val_y,
+        seed=cfg.seed, n_features=data.fit_X.shape[2],
+        max_epochs=cfg.sequence.max_epochs,
+        early_stopping_rounds=max(5, cfg.train.early_stopping_rounds // 5),
+        feature_names=data.feature_names, **params,
+    )
+    tau, tau_sweep = R.select_promotion_threshold(
+        cfg, data.val_y, ref.predict(data.val_X, data.val_len)
+    )
+
     members, coverage_rows, pit_rows = [], [], []
     per_seed_dists = {}
 
@@ -284,24 +300,33 @@ def run_e8(cfg: Config, data: R.SequenceData, *, budget: R.SearchBudget) -> Expe
     pit_rows.append({"method": "deep ensemble", "seed": -1,
                      "KS statistic": ks, "KS p": p})
 
-    # Point-prediction scores, so E8 sits in the same comparison table.
-    seed_rows = []
+    # Point-prediction scores, so E8 sits in the same comparison table. The same
+    # validation-selected promotion rule as E6/E7 is applied, so the three rows are
+    # comparable; the coverage audit above used the raw distribution.
+    seed_rows, promoted_preds = [], {}
     for seed, dist in per_seed_dists.items():
-        row = R.score(cfg, data.test_y, dist.mean, seed=seed)
+        promoted = R.apply_promotion(
+            dist.mean, tau, threshold=cfg.high_risk_threshold,
+            margin=cfg.decision_rule.promotion_margin,
+        )
+        promoted_preds[seed] = promoted
+        row = R.score(cfg, data.test_y, promoted, seed=seed)
         row["seed"] = seed
         seed_rows.append(row)
 
     return ExperimentResult(
         experiment="E8", budget=budget,
-        selection={"params": params, "n_mc_samples": cfg.bayesian.n_mc_samples},
+        selection={"params": params, "n_mc_samples": cfg.bayesian.n_mc_samples,
+                   "promotion_tau": tau},
         seed_rows=seed_rows,
         summary=R.aggregate_seeds(seed_rows, "E8 MC-dropout (point)"),
-        test_predictions={s: d.mean for s, d in per_seed_dists.items()},
+        test_predictions=promoted_preds,
         extras={
             "coverage": pd.DataFrame(coverage_rows),
             "pit": pd.DataFrame(pit_rows),
             "distributions": per_seed_dists,
             "ensemble": ens,
             "pit_values_ensemble": pit_ens,
+            "tau_sweep": tau_sweep,
         },
     )

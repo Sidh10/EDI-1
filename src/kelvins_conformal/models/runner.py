@@ -214,25 +214,43 @@ def select_promotion_threshold(
 
 
 def score(cfg: Config, y_true: np.ndarray, y_pred: np.ndarray, *, seed: int) -> dict:
-    """Challenge metric + event-level bootstrap CIs, using the E5-validated code."""
+    """Challenge metric + event-level bootstrap CIs, using the E5-validated code.
+
+    If the loss is undefined (F2 == 0, i.e. the model never correctly flags a true
+    high-risk event) the point estimate is still reported honestly as +inf and
+    ``defined`` is set False, with NaN interval bounds. The metric core keeps
+    raising in that situation — this wrapper catches it so a *report* surfaces the
+    degenerate result instead of aborting, which is the difference between hiding
+    a finding and printing it.
+    """
     s = challenge_score(
         y_true, y_pred,
         threshold=cfg.high_risk_threshold, beta=cfg.metric.f_beta,
         clip_epsilon=cfg.metric.prediction_clip_epsilon,
     )
-    boot = bootstrap_challenge_score(
-        y_true, y_pred,
-        threshold=cfg.high_risk_threshold, beta=cfg.metric.f_beta,
-        clip_epsilon=cfg.metric.prediction_clip_epsilon,
-        n_resamples=cfg.bootstrap.n_resamples, level=0.95, seed=seed,
-    )
-    return {
-        "L": s.loss, "L_lo": boot["loss"].lo, "L_hi": boot["loss"].hi,
-        "MSE_HR": s.mse_hr, "MSE_HR_lo": boot["mse_hr"].lo, "MSE_HR_hi": boot["mse_hr"].hi,
-        "F2": s.f2, "F2_lo": boot["f2"].lo, "F2_hi": boot["f2"].hi,
+    out = {
+        "L": s.loss, "MSE_HR": s.mse_hr, "F2": s.f2,
         "TP": s.counts.tp, "FP": s.counts.fp, "FN": s.counts.fn, "TN": s.counts.tn,
-        "n_HR": s.n_high_risk_true,
+        "n_HR": s.n_high_risk_true, "defined": s.is_defined,
     }
+    try:
+        boot = bootstrap_challenge_score(
+            y_true, y_pred,
+            threshold=cfg.high_risk_threshold, beta=cfg.metric.f_beta,
+            clip_epsilon=cfg.metric.prediction_clip_epsilon,
+            n_resamples=cfg.bootstrap.n_resamples, level=0.95, seed=seed,
+        )
+        out.update({
+            "L_lo": boot["loss"].lo, "L_hi": boot["loss"].hi,
+            "MSE_HR_lo": boot["mse_hr"].lo, "MSE_HR_hi": boot["mse_hr"].hi,
+            "F2_lo": boot["f2"].lo, "F2_hi": boot["f2"].hi,
+        })
+    except ValueError:
+        # Every resample was undefined — a real, reportable degeneracy.
+        nan = float("nan")
+        out.update({"L_lo": nan, "L_hi": nan, "MSE_HR_lo": nan,
+                    "MSE_HR_hi": nan, "F2_lo": nan, "F2_hi": nan})
+    return out
 
 
 def aggregate_seeds(rows: list[dict], label: str) -> dict:
