@@ -269,6 +269,52 @@ def load_events(cfg: Config) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+def training_pool_splits(events: pd.DataFrame, cfg) -> dict[str, np.ndarray]:
+    """Partition the TRAINING POOL into the four event-level subsets Phase 2+ needs.
+
+    Returns ``{"fit_inner", "val_inner", "calibration", "self_test"}``, all disjoint
+    and all drawn from the training split only — the official test set is never
+    touched here.
+
+    Layering (invariant I3, and Q-SEL-02's resolved self-split design):
+
+      * the training pool is first split into ``fit`` / ``calibration`` /
+        ``self_test`` using ``cfg.splits.self_split_fractions``;
+      * ``fit`` is then sub-split into ``fit_inner`` / ``val_inner`` using
+        ``cfg.model_split.inner_validation_fraction``.
+
+    The nesting matters. Phase 2 does all early stopping and hyperparameter
+    selection on ``val_inner``, which is carved out of ``fit`` — so the Phase-3
+    ``calibration`` and ``self_test`` subsets stay genuinely untouched and remain
+    exchangeable with fresh data when the conformal layer is built. Validating on
+    ``calibration`` instead would quietly destroy that property.
+
+    Deterministic given ``cfg.seed``.
+    """
+    train_uids = events.loc[events["split"] == "train", "event_uid"].unique()
+    if len(train_uids) == 0:
+        raise ValueError("no training events available to split")
+
+    fractions = dict(cfg.raw["splits"]["self_split_fractions"])
+    outer = split_events(train_uids, fractions, seed=cfg.seed)
+
+    inner_val_frac = cfg.model_split.inner_validation_fraction
+    inner = split_events(
+        outer["fit"],
+        {"fit_inner": 1.0 - inner_val_frac, "val_inner": inner_val_frac},
+        seed=cfg.seed,
+    )
+
+    out = {
+        "fit_inner": inner["fit_inner"],
+        "val_inner": inner["val_inner"],
+        "calibration": outer["calibration"],
+        "self_test": outer["self_test"],
+    }
+    assert_events_disjoint(out)
+    return out
+
+
 def challenge_eligible_events(
     events: pd.DataFrame,
     *,

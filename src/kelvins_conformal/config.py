@@ -99,6 +99,62 @@ class PowerConfig:
 
 
 @dataclass(frozen=True)
+class FeaturesConfig:
+    """Feature-building policy, governed by feature_dictionary.yaml (E2)."""
+
+    last_k: int
+    max_sequence_length: int
+    risk_history: bool
+    include_ambiguous: bool
+    hard_excluded: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ModelSplitConfig:
+    inner_validation_fraction: float
+
+
+@dataclass(frozen=True)
+class TrainConfig:
+    n_seeds: int
+    seeds: tuple[int, ...]
+    hpo_budget_trials: int
+    early_stopping_rounds: int
+
+
+@dataclass(frozen=True)
+class GbmConfig:
+    quantile_levels: tuple[float, ...]
+    num_boost_round: int
+
+
+@dataclass(frozen=True)
+class DecisionRuleConfig:
+    """Validation-selected promotion threshold shared by E6/E7/E8."""
+
+    promotion_thresholds: tuple[float, ...]
+    promotion_margin: float
+
+
+@dataclass(frozen=True)
+class SequenceConfig:
+    cell: str
+    hidden_size: int
+    num_layers: int
+    dropout: float
+    batch_size: int
+    max_epochs: int
+    learning_rate: float
+
+
+@dataclass(frozen=True)
+class BayesianConfig:
+    n_mc_samples: int
+    ensemble_size: int
+    nominal_levels: tuple[float, ...]
+
+
+@dataclass(frozen=True)
 class PcToleranceConfig:
     abs_log10_risk: float
     min_proportion_within: float
@@ -133,6 +189,13 @@ class Config:
     baselines: BaselinesConfig
     baseline_validation: dict[str, Any]
     power: PowerConfig
+    features: FeaturesConfig
+    model_split: ModelSplitConfig
+    train: TrainConfig
+    gbm: GbmConfig
+    decision_rule: DecisionRuleConfig
+    sequence: SequenceConfig
+    bayesian: BayesianConfig
     pc_spike: PcSpikeConfig
     config_hash: str = field(compare=False)
 
@@ -289,6 +352,106 @@ def validate(raw: dict[str, Any]) -> Config:
         if not (0.0 < frac < 1.0):
             raise ConfigError(f"power.calibration_fractions must be in (0, 1), got {frac}")
 
+    ft_raw = _require(raw, "features", dict, "root")
+    excl = _require(ft_raw, "hard_excluded", list, "features")
+    if not all(isinstance(c, str) for c in excl):
+        raise ConfigError("features.hard_excluded must be a list of column names")
+    features = FeaturesConfig(
+        last_k=_require(ft_raw, "last_k", int, "features"),
+        max_sequence_length=_require(ft_raw, "max_sequence_length", int, "features"),
+        risk_history=_require(ft_raw, "risk_history", bool, "features"),
+        include_ambiguous=_require(ft_raw, "include_ambiguous", bool, "features"),
+        hard_excluded=tuple(excl),
+    )
+    if features.last_k < 1:
+        raise ConfigError(f"features.last_k must be >= 1, got {features.last_k}")
+    if features.max_sequence_length < 1:
+        raise ConfigError("features.max_sequence_length must be >= 1")
+
+    ms_raw = _require(raw, "model_split", dict, "root")
+    model_split = ModelSplitConfig(
+        inner_validation_fraction=_as_float(
+            ms_raw, "inner_validation_fraction", "model_split"
+        ),
+    )
+    if not (0.0 < model_split.inner_validation_fraction < 1.0):
+        raise ConfigError("model_split.inner_validation_fraction must be in (0, 1)")
+
+    tr_raw = _require(raw, "train", dict, "root")
+    seeds_raw = _require(tr_raw, "seeds", list, "train")
+    if not seeds_raw or not all(
+        isinstance(s, int) and not isinstance(s, bool) for s in seeds_raw
+    ):
+        raise ConfigError("train.seeds must be a non-empty list of ints")
+    train = TrainConfig(
+        n_seeds=_require(tr_raw, "n_seeds", int, "train"),
+        seeds=tuple(int(s) for s in seeds_raw),
+        hpo_budget_trials=_require(tr_raw, "hpo_budget_trials", int, "train"),
+        early_stopping_rounds=_require(tr_raw, "early_stopping_rounds", int, "train"),
+    )
+    if len(train.seeds) < train.n_seeds:
+        raise ConfigError(
+            f"train.seeds lists {len(train.seeds)} seeds but n_seeds={train.n_seeds}"
+        )
+    if train.n_seeds < 3:
+        raise ConfigError("train.n_seeds must be >= 3 for manuscript results (CLAUDE.md §9)")
+
+    gb_raw = _require(raw, "gbm", dict, "root")
+    q_raw = _require(gb_raw, "quantile_levels", list, "gbm")
+    if not q_raw or not all(
+        isinstance(q, (int, float)) and not isinstance(q, bool) and 0.0 < q < 1.0
+        for q in q_raw
+    ):
+        raise ConfigError("gbm.quantile_levels must be a non-empty list of floats in (0, 1)")
+    quantiles = tuple(float(q) for q in q_raw)
+    if list(quantiles) != sorted(quantiles):
+        raise ConfigError(f"gbm.quantile_levels must be ascending, got {quantiles}")
+    gbm = GbmConfig(
+        quantile_levels=quantiles,
+        num_boost_round=_require(gb_raw, "num_boost_round", int, "gbm"),
+    )
+
+    dr_raw = _require(raw, "decision_rule", dict, "root")
+    pt_raw = _require(dr_raw, "promotion_thresholds", list, "decision_rule")
+    if not pt_raw or not all(
+        isinstance(v, (int, float)) and not isinstance(v, bool) for v in pt_raw
+    ):
+        raise ConfigError("decision_rule.promotion_thresholds must be a non-empty numeric list")
+    decision_rule = DecisionRuleConfig(
+        promotion_thresholds=tuple(float(v) for v in pt_raw),
+        promotion_margin=_as_float(dr_raw, "promotion_margin", "decision_rule"),
+    )
+    if decision_rule.promotion_margin <= 0:
+        raise ConfigError("decision_rule.promotion_margin must be > 0")
+
+    sq_raw = _require(raw, "sequence", dict, "root")
+    sequence = SequenceConfig(
+        cell=_require(sq_raw, "cell", str, "sequence"),
+        hidden_size=_require(sq_raw, "hidden_size", int, "sequence"),
+        num_layers=_require(sq_raw, "num_layers", int, "sequence"),
+        dropout=_as_float(sq_raw, "dropout", "sequence"),
+        batch_size=_require(sq_raw, "batch_size", int, "sequence"),
+        max_epochs=_require(sq_raw, "max_epochs", int, "sequence"),
+        learning_rate=_as_float(sq_raw, "learning_rate", "sequence"),
+    )
+    if sequence.cell not in ("gru", "lstm"):
+        raise ConfigError(f"sequence.cell must be 'gru' or 'lstm', got {sequence.cell!r}")
+    if not (0.0 <= sequence.dropout < 1.0):
+        raise ConfigError(f"sequence.dropout must be in [0, 1), got {sequence.dropout}")
+
+    by_raw = _require(raw, "bayesian", dict, "root")
+    lv_raw = _require(by_raw, "nominal_levels", list, "bayesian")
+    if not lv_raw or not all(
+        isinstance(v, (int, float)) and not isinstance(v, bool) and 0.0 < v < 1.0
+        for v in lv_raw
+    ):
+        raise ConfigError("bayesian.nominal_levels must be a non-empty list of floats in (0, 1)")
+    bayesian = BayesianConfig(
+        n_mc_samples=_require(by_raw, "n_mc_samples", int, "bayesian"),
+        ensemble_size=_require(by_raw, "ensemble_size", int, "bayesian"),
+        nominal_levels=tuple(float(v) for v in lv_raw),
+    )
+
     ps_raw = _require(raw, "pc_spike", dict, "root")
     tol_raw = _require(ps_raw, "tolerance", dict, "pc_spike")
     edges_raw = _require(ps_raw, "risk_strata_edges", list, "pc_spike")
@@ -334,6 +497,13 @@ def validate(raw: dict[str, Any]) -> Config:
         baselines=baselines,
         baseline_validation=copy.deepcopy(bv_raw),
         power=power,
+        features=features,
+        model_split=model_split,
+        train=train,
+        gbm=gbm,
+        decision_rule=decision_rule,
+        sequence=sequence,
+        bayesian=bayesian,
         pc_spike=pc_spike,
         config_hash=compute_config_hash(raw),
     )

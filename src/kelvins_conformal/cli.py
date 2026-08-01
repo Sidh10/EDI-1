@@ -144,5 +144,23 @@ def power(
     typer.echo("[power] Gate 1 table rendered. Review, then Sidh records the gate decision.")
 
 
+@app.command()
+def baselines_phase2(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E6/E7/E8: train the Phase-2 baselines and audit MC-dropout coverage.
+
+    Renders ``reports/02_baselines.html``. Slow by design — three hyperparameter
+    searches plus multi-seed training on CPU (EXPERIMENT_PLAN estimates hours).
+    """
+    cfg = load_config(config)
+    _ensure_kernel()
+    _run_notebook(
+        REPO_ROOT / "notebooks" / "02_baselines.ipynb",
+        cfg.path("reports_dir") / "02_baselines.html",
+    )
+    typer.echo("[phase2] E6/E7/E8 report rendered. Review, then Sidh records the checkpoint.")
+
+
 if __name__ == "__main__":
     app()

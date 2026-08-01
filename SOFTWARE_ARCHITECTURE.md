@@ -63,9 +63,14 @@ flowchart TB
 |---|---|---|
 | `ingest` | Download Zenodo zip, verify md5 `d19dc8875229f2f6893253c38adddc87`, unpack, freeze permissions, record provenance manifest. | Aborts loudly on checksum/schema mismatch. Runs once. |
 | `data` | Parse CSVs → event-grouped typed structures; schema validation; missingness handling policy; canonical train/calib/test split logic (event-level, seeded, temporal option). | Single source of split truth — no other module may split. |
-| `features` | Last-k-CDM tabular features for tree models; padded/masked sequence tensors for RNNs. | Deterministic; no target leakage (asserted by test). |
-| `baselines` | Persistence, constant, LightGBM point + quantile predictors. | Reproduces published challenge-loss numbers within tolerance before anything else proceeds. |
-| `seqmodels` | GRU/LSTM regressor; MC-dropout variant; small ensemble. | Seeded; ≥3-seed runs; checkpoints hashed. |
+| `features` | Last-k-CDM tabular features for tree models; padded/masked sequence tensors for RNNs. | Deterministic; no target leakage (asserted by test). Every column is checked against `feature_dictionary.yaml` at build time, so a barred column aborts the pipeline rather than only failing a test. |
+| `baselines` | Persistence (LRP) and constant (CRP) — the challenge's own naive baselines. | Reproduces published challenge-loss numbers within tolerance before anything else proceeds (done at E5). |
+| `models/gbm` | LightGBM point predictor + quantile heads (heads feed Phase-3 CQR). | Seeded and single-threaded for bitwise reproducibility. |
+| `models/sequence` | GRU/LSTM regressor over the CDM sequence. | Seeded; ≥3-seed runs; padded positions provably inert (masking test). |
+| `models/bayesian` | MC-dropout variant + small deep ensemble; predictive distributions and calibration diagnostics. | Steelmanned: tuned for its own coverage with a search budget equal to E6/E7's (Q-BASE-02). |
+| `models/runner`, `models/experiments` | Shared dataset assembly, hyperparameter search, multi-seed training, single final test pass; E6/E7/E8 drivers. | The official test set is read exactly once per experiment; all selection happens on `val_inner`. |
+
+> **Layout note (2026-08-01).** The Phase-2 brief specified `src/kelvins_conformal/models/{gbm,sequence,bayesian}.py`, which supersedes the flat `baselines.py`/`seqmodels.py` sketch this document originally carried. `baselines.py` is retained for the two *naive* challenge baselines only. Recorded here so code and architecture stay in sync (CLAUDE.md §6).
 | `conformal` | Split conformal, CQR wrapper, group-conditional calibration, **weighted CP with likelihood-ratio weights derived from the documented test-set selection mechanism**. | Weighted CP is written in-house and unit-tested against analytic shift toy cases (this is a paper contribution — no black-box dependency for it). |
 | `labelnoise` | Foster-type Pc recomputation from CDM state/covariance fields; covariance scaling grid (≈0.8×–2.0×); regenerated label sets. | Cross-validated against NASA CARA's public CA code on sample cases; Phase-0 feasibility spike decides viability (Assumption A4). |
 | `metrics` | Official challenge loss (F2-based), MSE_HR, coverage, interval width, reliability/PIT, bootstrap CI engine (event-level, ≥2,000 resamples). | Unit-tested vs. hand-computed cases; validated against published baseline scores. |
@@ -95,8 +100,13 @@ kelvins-conformal/
 │   ├── ingest.py
 │   ├── data.py
 │   ├── features.py
-│   ├── baselines.py
-│   ├── seqmodels.py
+│   ├── baselines.py          # naive challenge baselines (persistence, constant)
+│   ├── models/               # learned baselines (Phase 2; layout set by the E6-E8 brief)
+│   │   ├── gbm.py            # LightGBM point + quantile heads  (was: baselines.py trees)
+│   │   ├── sequence.py       # GRU/LSTM point predictor          (was: seqmodels.py)
+│   │   ├── bayesian.py       # MC-dropout + deep ensemble        (was: seqmodels.py)
+│   │   ├── runner.py         # shared dataset/tuning/scoring pipeline
+│   │   └── experiments.py    # E6/E7/E8 drivers
 │   ├── conformal/
 │   │   ├── split.py
 │   │   ├── cqr.py

@@ -329,6 +329,99 @@ revision of the 5 pp bar and the 90% nominal level (Q-STAT-01/02); the final gro
 
 ---
 
+## Phase 2 Pre-registration (PROPOSED — awaiting Sidh's confirmation)
+
+### 2026-08-01 — Q-COMP-01: compute inventory (factual record, not a judgement)
+**Inventory measured on the development machine:** Windows 11, Intel 12-logical-core CPU,
+15.7 GB RAM, **no CUDA GPU** (`torch.cuda.is_available() == False`; torch installed as
+`2.13.0+cpu`, 8 compute threads).
+**Consequence:** Phase 2 runs CPU-only. This is the R11 fallback contemplated in
+`PROJECT_KNOWLEDGE.md` §14 ("dataset is small; tree-based models carry the paper if deep models are
+cut") and is adequate here — the training pool is ~13k events and the sequence model is small.
+Multi-seed budgets stay at the Q-STAT-05 (a) freeze already in config (3 seeds, 2,000 resamples);
+no upgrade to (5, 5,000) is proposed, since the binding constraint at Gate 1 was the *evaluation*
+set size, not compute.
+**Decided by:** factual inventory recorded by Claude Code; **no judgement call is being made** — the
+only decision this enables (whether to cut deep models) is not needed, since the sequence model
+trains acceptably on CPU.
+
+### 2026-08-01 — CONFLICT FLAGGED: `feature_dictionary.yaml`'s `risk` verdict vs. E6/E7 as specified
+**Status:** PROPOSED. Written **before** any model was trained, per CLAUDE.md §3. This is a
+documented conflict between two project artifacts, surfaced rather than silently resolved
+(CLAUDE.md §6: "If code and a planning document diverge, that is a bug in one of them — flag the
+conflict explicitly").
+
+**The conflict.** `feature_dictionary.yaml` classifies the `risk` column **unsafe**, with the
+rationale: *"Only strictly pre-cutoff observed risk values may be used, and only as the explicit
+persistence baseline input (E5), **not as a generic feature**."* Read literally, no model in E6/E7
+may use any historical risk value. But:
+- `EXPERIMENT_PLAN.md` E6 specifies "last-k-CDM features" and hypothesises that the model
+  *outperforms the persistence baseline*. Persistence **is** the last pre-cutoff risk value, so a
+  model forbidden from seeing risk history is being asked to beat a baseline built from exactly the
+  information it is denied. The hypothesis is untestable under the literal reading.
+- Using strictly pre-cutoff risk is **not leakage**: those CDMs are, by the challenge's own §4.2
+  cutoff rule, available to a forecaster at prediction time. E5 already scored persistence on the
+  official test set on precisely this basis, and that pass reproduced the published figure exactly.
+- Prior art does the same. Uriot et al. §5.1 report that 65% of teams "framed the learning problem
+  as a static one, summarizing the information contained in the time series as an aggregation of
+  attributes (e.g. using summary statistics, or simply the latest available CDM)".
+
+**Proposed resolution (requires Sidh's confirmation):** treat the dictionary's carve-out as scoped
+to *concurrent/final-CDM* risk, and permit **strictly pre-cutoff** risk history as a feature in
+E6/E7. Concretely, the feature builder enforces:
+1. the final-CDM risk (the target) can never enter — asserted in `tests/test_features.py`;
+2. `event_id` never enters (dictionary: unsafe, and it would memorise events);
+3. only CDMs satisfying `time_to_tca >= cutoff_days_before_tca` contribute anything;
+4. the two **ambiguous** columns (`max_risk_estimate`, `max_risk_scaling`) are **EXCLUDED**, taking
+   the dictionary's own stated conservative option. These are not re-litigated.
+
+**Both variants are built and compared on the INTERNAL VALIDATION split only**, so the cost of the
+strict reading is quantified without spending a second pass on the official test set. The single
+final test-set pass per baseline uses the primary (pre-cutoff-risk-permitted) variant.
+
+**If Sidh rejects this resolution**, the strict variant is already implemented and its validation
+numbers are reported alongside; re-running the final pass under the strict feature set is a
+one-command change (`features.risk_history: false` in config).
+**Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh.**
+**Supersedes:** none — it interprets, and does not modify, `feature_dictionary.yaml`.
+
+### 2026-08-01 — E6/E7 decision rule: a validation-selected promotion threshold — PROPOSED
+**Status:** PROPOSED, awaiting Sidh. Written **before** the promoted variant was scored on the
+official test set (the raw variant had been scored and is reported alongside).
+
+**The problem, measured.** The regression target is dominated by the risk floor: **62.9%** of
+training events sit at −30 and only **2.6%** are high-risk (≥ −6). An L2-trained regressor
+therefore shrinks its predictions toward that mass — the plain LightGBM point model puts only
+**1 of 2167** test predictions above −6, so TP ≈ 0, **F2 = 0**, and the challenge loss
+`L = MSE_HR / F2` is **undefined (+inf)**. This is not a code defect: it is METRICS.md §1's
+documented `F2 = 0` edge case firing on real data, and it is the same pathology the challenge
+paper describes — *"the F2 score puts emphasis on ... promoting borderline low-risk events to
+high-risk events, thus improving recall (at the cost of penalizing precision)"* (Uriot et al.
+§5.3.1). The winning team's first three submitted steps were exactly such promotions
+("raise to −5.95", "raise to −5.60", "raise to −5.00", Table 4).
+
+**Proposed rule.** On top of the regressor, apply a promotion threshold `tau`:
+
+    y_hat_final = max(y_hat, threshold + margin)   where y_hat >= tau
+    y_hat_final = y_hat                            otherwise
+
+`tau` is selected **on `val_inner` only**, by minimising the validation challenge loss over a
+fixed grid; `margin` is a small positive constant so a promoted event lands just above −6. The
+official test set is not consulted in the selection.
+
+**Both variants are reported.** The raw L2 model (L = +inf, F2 = 0) and the promoted model appear
+side by side in the E6/E7 tables. Reporting only the promoted one would hide the metric pathology;
+reporting only the raw one would produce a strawman baseline that no challenge participant would
+have submitted. The same rule and the same grid apply to E6, E7 and E8's point predictions, so the
+three stay comparable.
+
+**Why pre-register.** `tau` is a threshold, and CLAUDE.md §10 forbids choosing a threshold after
+inspecting the results it will be judged against. Fixing the grid and the selection split in
+advance, in config (`gbm.promotion_thresholds`), is what makes the later number admissible.
+**Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh.**
+
+---
+
 ## Observations Log
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*

@@ -108,6 +108,73 @@ baseline_validation:
     secondary_abs: 0.01   # "close but not exact" -> partial match, investigate
     crp_abs: 0.05         # CRP L is published to 2 significant figures only
 
+# --- E6/E7/E8: feature building and model training ---------------------------
+features:
+  # Number of most-recent admissible CDMs summarised into the tabular feature set
+  # (EXPERIMENT_PLAN E6: "last-k-CDM features").
+  last_k: 3
+  # Maximum sequence length for the recurrent models (E7/E8). Events with more
+  # admissible CDMs keep the k most recent; shorter ones are padded and MASKED.
+  max_sequence_length: 10
+  # Whether STRICTLY PRE-CUTOFF risk history may be used as a model feature.
+  # See DECISIONS.md "CONFLICT FLAGGED: feature_dictionary.yaml's risk verdict"
+  # — PROPOSED, awaiting Sidh. The final-CDM (target) risk is NEVER usable under
+  # either setting; that is enforced by assertion, not by this flag.
+  risk_history: true
+  # The dictionary's two 'ambiguous' columns. Its own stated conservative option
+  # is exclusion, which is what `false` here means. Not re-litigated (E2).
+  include_ambiguous: false
+  # Columns the feature builder must never emit, whatever else changes.
+  # Mirrors feature_dictionary.yaml's `unsafe` verdicts.
+  hard_excluded: [event_id, risk]
+
+# Internal split of the TRAINING POOL only. The official test set is not part of
+# this and is untouched until each experiment's single final scoring pass.
+# The Phase-3 `calibration` and `self_test` shares (Q-SEL-02) are carved here too
+# and left ALONE in Phase 2, so early stopping never contaminates them.
+model_split:
+  inner_validation_fraction: 0.20   # share of the `fit` pool held out for early stopping / HPO
+
+train:
+  n_seeds: 3                    # >=3 seeds for every reported model number (CLAUDE.md §9)
+  seeds: [42, 43, 44]
+  # Hyperparameter search budget. Held EQUAL across E6/E7/E8 so the E8 steelman
+  # is auditable rather than asserted (Q-BASE-02 option (c)).
+  hpo_budget_trials: 24
+  early_stopping_rounds: 50
+
+gbm:
+  # LightGBM. Quantile heads are built now because Phase 3's CQR (E12) needs them,
+  # even though nothing in Phase 2 consumes them.
+  quantile_levels: [0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95]
+  num_boost_round: 2000
+
+# Promotion-threshold grid shared by E6/E7/E8 (see DECISIONS.md, PROPOSED).
+# An L2 regressor on this floor-dominated target never crosses the -6 threshold,
+# giving F2 = 0 and an undefined challenge loss. The challenge's own top team
+# solved this with exactly such a promotion cascade (Uriot et al. Table 4).
+# `tau` is chosen on val_inner ONLY; the grid is fixed here in advance.
+decision_rule:
+  promotion_thresholds: [-12.0, -11.0, -10.0, -9.5, -9.0, -8.5, -8.0, -7.5,
+                         -7.0, -6.5, -6.0, -5.5, -5.0]
+  promotion_margin: 0.001   # promoted events land at threshold + margin = -5.999
+
+sequence:
+  cell: gru                     # {gru | lstm}
+  hidden_size: 64
+  num_layers: 1
+  dropout: 0.2
+  batch_size: 128
+  max_epochs: 60
+  learning_rate: 0.003
+
+bayesian:
+  # E8 MC-dropout (Pinto et al. family) + a small deep ensemble.
+  n_mc_samples: 200             # forward passes at inference
+  ensemble_size: 5
+  # Nominal levels per the Gate 1 resolution of Q-STAT-01.
+  nominal_levels: [0.80, 0.90, 0.95]
+
 # --- E4: statistical power analysis (Gate 1) --------------------------------
 power:
   # Q-STAT-01 (PROPOSED): 90% primary, {80, 95} reported as secondary levels.
