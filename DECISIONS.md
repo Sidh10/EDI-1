@@ -106,6 +106,69 @@ tolerance after seeing results). Encoded in `config/default.yaml` under
 **Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh at the Phase 0 checkpoint.**
 **Supersedes:** none.
 
+### 2026-08-01 — E5 baseline-agreement tolerance — PROPOSED, awaiting Sidh's confirmation
+**Status:** PROPOSED. Written before our baseline scores were computed, per CLAUDE.md §3
+(pre-registration). Encoded in `config/default.yaml` under `baseline_validation`.
+
+**Published reference values** (extracted verbatim from Uriot et al., arXiv:2008.03069v2 —
+Table 3, Table 4, and §4.4; the same content as the Astrodynamics 2022 version of record):
+- LRP (Latest Risk Prediction / persistence) on the full test set: **L = 0.694, MSE_HR = 0.513, F2 = 0.739**
+- LRP on the training set (Table 4): **L = 0.804, MSE_HR = 0.330, F2 = 0.411**
+- CRP (Constant Risk Prediction, r̂ = −5) on the test set: **L = 2.5** (§4.4, 2 significant figures)
+
+**Proposed agreement criterion:**
+- Primary (LRP): `|ours − published| ≤ 0.001` on each of L, MSE_HR, F2 — i.e. agreement at the
+  precision the paper reports. This is a deterministic recomputation on the identical data, so
+  anything looser than the published rounding would be hiding a real discrepancy.
+- Secondary "close but not exact" band: `≤ 0.01`. Landing here is reported as a **partial match
+  requiring investigation**, not a pass.
+- CRP: `|ours − published| ≤ 0.05` on L, since 2.5 is given to 2 significant figures only.
+- The harness is considered validated only if the **primary** criterion is met on LRP test-set L.
+
+**Reasoning (written before seeing our numbers):**
+1. E5 is the credibility gate for every later number (IMPLEMENTATION_PLAYBOOK: "if they do not
+   match, the metric implementation is wrong and nothing downstream is trustworthy"). A tolerance
+   loose enough to absorb a genuine bug would defeat the entire purpose of the experiment.
+2. Unlike E3 — where approximation error was expected and physical — E5 has no legitimate source
+   of disagreement: same data, same deterministic formula. Exact agreement is the correct
+   expectation, so the bar is set at the published precision.
+3. Fixing the bar first is the only defence against relaxing it to whatever we happen to produce.
+
+**Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh at Gate 1.**
+**Supersedes:** none.
+
+### 2026-08-01 — E4 coverage-precision bar and group-merging rule (Q-STAT-01/02, Q-CONF-02) — PROPOSED, awaiting Sidh's confirmation
+**Status:** PROPOSED. Written before the power simulation was run, per CLAUDE.md §3. Encoded in
+`config/default.yaml` under `power`.
+
+**Proposed pre-registered values:**
+- **Nominal coverage level (Q-STAT-01):** **90%** as primary (α = 0.10). Reported alongside 80% and
+  95% as secondary levels, per Q-STAT-01's recommended option (c) with 90% primary.
+- **"Useful precision" bar (Q-STAT-02):** a coverage estimate is *useful* iff the **95% bootstrap CI
+  half-width on empirical coverage is ≤ 5 percentage points**. Secondary, looser bar reported at
+  **10 pp** for context.
+- **Group-merging threshold (Q-CONF-02):** adopt option (b) — the floor is the smallest high-risk
+  event count whose simulated 95% CI half-width meets the 5 pp bar. Groups below the resulting
+  floor are flagged for merging into an "other" bucket rather than reported individually.
+
+**Reasoning (written before seeing the simulation):**
+1. *Why 5 pp.* The claims this project makes are of the form "nominal 90% intervals achieve
+   ~90% coverage". A ±5 pp half-width is the coarsest precision at which 90% is still
+   distinguishable from a materially miscalibrated 85% or 95%. Anything wider cannot support the
+   claim, and anything much tighter is not attainable at this dataset's high-risk counts.
+2. *Why the floor is derived, not fixed at 30.* Q-CONF-02 offers a fixed floor of 30 high-risk
+   events (option (a)) or a power-derived floor (option (b)). A derived floor is self-documenting
+   and defensible against "why 30?"; the fixed value is recorded in OPEN_QUESTIONS as the *likely
+   numeric outcome* of the derivation, which is a prediction to be checked, not an input.
+3. *Why pre-register.* The whole point of Gate 1 is to decide scope from precision. Choosing the
+   precision bar after seeing which groups happen to clear it would make the gate meaningless.
+
+**Explicitly not pre-registered here:** the GO/PIVOT/NO-GO call itself, and the final merge
+threshold. E4 produces the table; Sidh decides.
+
+**Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh at Gate 1.**
+**Supersedes:** none.
+
 ---
 
 ## Phase 0 Empirical Findings (E0–E3) — REPORTED, no decision taken
@@ -175,6 +238,94 @@ comparison byte-for-byte (determinism verified by diff).
 holds / fails; whether to confirm or revise the proposed tolerance; the resulting M7 scope; the
 Q-DATA-05 policy; and whether finding 5 triggers the Q-METH-01 revisit.
 **Reported by:** Claude Code (Phase 0 implementation).
+
+---
+
+## Phase 1 Empirical Findings (E4, E5) — REPORTED, no decision taken
+
+<!--
+Measurements, not decisions. Gate 1's GO/PIVOT/NO-GO call and the confirmation of
+the pre-registered bars belong to Sidh. Every number is regenerable via
+`kc baselines` and `kc power`.
+-->
+
+### 2026-08-01 — E5 baseline validation: the metric implementation reproduces the published scores
+**Reports:** `reports/01b_baseline_validation.html`. **Provenance:** git SHA + config hash in the
+sidecar JSON; seed 42. Re-running reproduces the table byte-for-byte.
+
+**Finding: PASS on the pre-registered primary criterion — all 7 published quantities match.**
+
+| baseline | split | quantity | published | ours | \|diff\| |
+|---|---|---|---|---|---|
+| LRP | official test | L | 0.694 | 0.693961 | 3.9e-05 |
+| LRP | official test | MSE_HR | 0.513 | 0.512889 | 1.1e-04 |
+| LRP | official test | F2 | 0.739 | 0.739075 | 7.5e-05 |
+| CRP | official test | L | 2.5 | 2.504140 | 4.1e-03 |
+| LRP | train (eligibility-filtered) | L | 0.804 | 0.803753 | 2.5e-04 |
+| LRP | train (eligibility-filtered) | MSE_HR | 0.330 | 0.330213 | 2.1e-04 |
+| LRP | train (eligibility-filtered) | F2 | 0.411 | 0.410839 | 1.6e-04 |
+
+Three independent corroborations that do **not** involve the scoring code: the test split contains
+exactly 150 high-risk / 2017 low-risk events (matching the paper's Figure 10(b) caption); the
+eligibility-filtered training set retains exactly 66 high-risk events (matching §4.2's statement);
+and both counts fall out of the paper's stated rules without anything being fitted to them.
+
+**Anomaly, diagnosed and resolved (not tuned):** the *unfiltered* training split does not reproduce
+Table 4 (we get L = 0.096 vs 0.804). Cause: the training split was never subjected to the §4.2
+eligibility rules, so for 42.6% of training events `r_{-2}` *is* the target CDM and the baseline is
+exact by construction, deflating MSE_HR. Applying the paper's own documented rules recovers the
+published row to 4 d.p. This was one stated hypothesis tested once, corroborated by the independent
+n_HR = 66 count — not a parameter search.
+
+**Consequence — Q-METH-02 cutoff rules are now CONFIRMED.** The `[verify]` markers carried on
+`cutoff.cutoff_days_before_tca` and `cutoff.test_recency_filter_days` through Phase 0 are lifted:
+both values are stated verbatim in arXiv:2008.03069v2 §4.2 *and* confirmed by exact reproduction of
+two independent published score rows. `cutoff.min_cdms_per_event: 2` was added from §4.2 i.
+
+**Reported by:** Claude Code. **Tolerance confirmation remains Sidh's** (entry still PROPOSED).
+
+### 2026-08-01 — E4 power analysis: the Gate 1 decision table
+**Reports:** `reports/01_power_analysis.html`. Deterministic across re-runs (verified by diff).
+
+**Findings against the pre-registered (PROPOSED) 5 pp bar at nominal 90%:**
+
+| scope | n_HR | best CI half-width | meets 5 pp | meets 10 pp |
+|---|---|---|---|---|
+| Marginal (all high-risk test events) | 150 | **5.13 pp** | **NO (near miss)** | yes |
+| Best single mission (mission 1) | 32 | 11.52 pp | no | no |
+| All 18 shared missions | ≤32 | ≥11.52 pp | **0 of 18** | **0 of 18** |
+
+- **Marginal is a near miss: 5.13 pp against a 5.00 pp bar.** At nominal 95% it *does* clear the bar
+  (3.74 pp); at nominal 80% it does not (6.69 pp). EXPERIMENT_PLAN's E4 *minimum* bar is therefore
+  NOT MET as pre-registered, but by 0.13 pp.
+- **Precision is limited by the evaluation set, not the calibration set.** The test-set term
+  (2.45 pp) dominates the calibration term (0.58–0.82 pp) at every fraction, so moving from 10% to
+  30% calibration changes the half-width by <0.01 pp. Spending more data on calibration is not a
+  lever here.
+- **Derived merging floor (Q-CONF-02 option (b)): 200 high-risk events per group.** The entire test
+  set contains only 150, so **no group — and not even the marginal set — reaches the floor at the
+  5 pp bar.** EXPERIMENT_PLAN's E4 *stretch* bar (2–3 groups estimable) is NOT MET. For reference,
+  Q-CONF-02 option (a) guessed a fixed floor of 30; the power curve puts it far higher.
+- Three missions (20, 23, 24) have zero high-risk test events and are unscorable at any bar.
+
+**Methodological finding — a real bug, found and fixed mid-experiment.** The first run reported a
+merging floor of 5 high-risk events and identical group counts at the 5 pp and 10 pp bars. Both were
+artifacts: a percentile bootstrap of a proportion has *exactly zero width* when every event is
+covered, which at nominal 90% happens with probability 0.9^n — 59% at n = 5. The median bootstrap
+half-width therefore collapses to 0 for small groups, making tiny missions look infinitely precise.
+The **pre-registered bar was not changed**; the estimator was. Precision is now judged on the exact
+Clopper–Pearson interval (non-degenerate at k = n), with the bootstrap and its degeneracy rate
+reported alongside, per Q-STAT-03's option (c) which already recommended reporting both.
+`tests/test_power.py` pins the failure mode so it cannot silently return.
+
+**Carried forward:** if Phase 3's calibration unit (Q-CONF-01) is the high-risk stratum rather than
+the full training pool, n_cal collapses from ~2,600 to ~73 and the calibration term stops being
+negligible. Quantified in §4 of the report; flagged for the Phase 3 design review.
+
+**Explicitly NOT decided here (Sidh's, at Gate 1):** the GO / PIVOT / NO-GO call; confirmation or
+revision of the 5 pp bar and the 90% nominal level (Q-STAT-01/02); the final group-merging threshold
+(Q-CONF-02); and whether a 0.13 pp marginal shortfall counts as meeting the minimum bar.
+**Reported by:** Claude Code.
 
 ---
 

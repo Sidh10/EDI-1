@@ -67,6 +67,35 @@ class TargetConfig:
 class CutoffConfig:
     cutoff_days_before_tca: float
     test_recency_filter_days: float
+    min_cdms_per_event: int
+
+
+@dataclass(frozen=True)
+class MetricConfig:
+    """The challenge metric's own constants (Uriot et al. §4.1, §4.3)."""
+
+    f_beta: float
+    prediction_clip_epsilon: float
+    f2_zero_convention: str
+    empty_high_risk_convention: str
+
+
+@dataclass(frozen=True)
+class BaselinesConfig:
+    constant_value: float
+
+
+@dataclass(frozen=True)
+class PowerConfig:
+    """E4 power-analysis settings (pre-registered; see DECISIONS.md)."""
+
+    nominal_coverage_primary: float
+    nominal_coverage_secondary: tuple[float, ...]
+    calibration_fractions: tuple[float, ...]
+    useful_half_width_pp: float
+    secondary_half_width_pp: float
+    n_simulations: int
+    group_size_grid: tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -100,6 +129,10 @@ class Config:
     target: TargetConfig
     cutoff: CutoffConfig
     high_risk_threshold: float
+    metric: MetricConfig
+    baselines: BaselinesConfig
+    baseline_validation: dict[str, Any]
+    power: PowerConfig
     pc_spike: PcSpikeConfig
     config_hash: str = field(compare=False)
 
@@ -196,9 +229,65 @@ def validate(raw: dict[str, Any]) -> Config:
     cutoff = CutoffConfig(
         cutoff_days_before_tca=_as_float(ct_raw, "cutoff_days_before_tca", "cutoff"),
         test_recency_filter_days=_as_float(ct_raw, "test_recency_filter_days", "cutoff"),
+        min_cdms_per_event=_require(ct_raw, "min_cdms_per_event", int, "cutoff"),
     )
 
     high_risk_threshold = _as_float(raw, "high_risk_threshold", "root")
+
+    mt_raw = _require(raw, "metric", dict, "root")
+    metric = MetricConfig(
+        f_beta=_as_float(mt_raw, "f_beta", "metric"),
+        prediction_clip_epsilon=_as_float(mt_raw, "prediction_clip_epsilon", "metric"),
+        f2_zero_convention=_require(mt_raw, "f2_zero_convention", str, "metric"),
+        empty_high_risk_convention=_require(
+            mt_raw, "empty_high_risk_convention", str, "metric"
+        ),
+    )
+    if metric.f2_zero_convention != "infinite":
+        raise ConfigError(
+            "metric.f2_zero_convention: only 'infinite' is implemented "
+            f"(METRICS.md §1 convention), got {metric.f2_zero_convention!r}"
+        )
+    if metric.empty_high_risk_convention != "undefined":
+        raise ConfigError(
+            "metric.empty_high_risk_convention: only 'undefined' is implemented "
+            f"(METRICS.md §1/§3 convention), got {metric.empty_high_risk_convention!r}"
+        )
+
+    bl_raw = _require(raw, "baselines", dict, "root")
+    baselines = BaselinesConfig(
+        constant_value=_as_float(bl_raw, "constant_value", "baselines"),
+    )
+
+    bv_raw = _require(raw, "baseline_validation", dict, "root")
+    for section in ("published", "tolerance"):
+        _require(bv_raw, section, dict, "baseline_validation")
+
+    pw_raw = _require(raw, "power", dict, "root")
+
+    def _num_tuple(d: dict[str, Any], key: str, ctx: str) -> tuple[float, ...]:
+        seq = _require(d, key, list, ctx)
+        if not seq or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in seq
+        ):
+            raise ConfigError(f"{ctx}.{key} must be a non-empty list of numbers")
+        return tuple(float(v) for v in seq)
+
+    power = PowerConfig(
+        nominal_coverage_primary=_as_float(pw_raw, "nominal_coverage_primary", "power"),
+        nominal_coverage_secondary=_num_tuple(pw_raw, "nominal_coverage_secondary", "power"),
+        calibration_fractions=_num_tuple(pw_raw, "calibration_fractions", "power"),
+        useful_half_width_pp=_as_float(pw_raw, "useful_half_width_pp", "power"),
+        secondary_half_width_pp=_as_float(pw_raw, "secondary_half_width_pp", "power"),
+        n_simulations=_require(pw_raw, "n_simulations", int, "power"),
+        group_size_grid=tuple(int(v) for v in _num_tuple(pw_raw, "group_size_grid", "power")),
+    )
+    for level in (power.nominal_coverage_primary, *power.nominal_coverage_secondary):
+        if not (0.0 < level < 1.0):
+            raise ConfigError(f"power coverage levels must be in (0, 1), got {level}")
+    for frac in power.calibration_fractions:
+        if not (0.0 < frac < 1.0):
+            raise ConfigError(f"power.calibration_fractions must be in (0, 1), got {frac}")
 
     ps_raw = _require(raw, "pc_spike", dict, "root")
     tol_raw = _require(ps_raw, "tolerance", dict, "pc_spike")
@@ -241,6 +330,10 @@ def validate(raw: dict[str, Any]) -> Config:
         target=target,
         cutoff=cutoff,
         high_risk_threshold=high_risk_threshold,
+        metric=metric,
+        baselines=baselines,
+        baseline_validation=copy.deepcopy(bv_raw),
+        power=power,
         pc_spike=pc_spike,
         config_hash=compute_config_hash(raw),
     )

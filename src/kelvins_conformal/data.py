@@ -269,6 +269,45 @@ def load_events(cfg: Config) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+def challenge_eligible_events(
+    events: pd.DataFrame,
+    *,
+    cutoff_days: float,
+    recency_days: float,
+    min_cdms: int = 2,
+) -> pd.Index:
+    """Event uids satisfying the challenge's own test-set eligibility rules.
+
+    Transcribed from Uriot et al., arXiv:2008.03069v2 §4.2, which lists three
+    constraints on events eligible for the test set:
+
+      i.   the event contains at least 2 CDMs ("one to learn from and one to use
+           as the target");
+      ii.  the last CDM released for the event is within 1 day of TCA
+           (``time_to_tca < recency_days``);
+      iii. the first CDM is at least 2 days before TCA
+           (``time_to_tca >= cutoff_days``).
+
+    This is the documented *selection mechanism* behind the official test split.
+    E5 needs it to reproduce the paper's training-set baseline row, which applies
+    the same filter to training events. It is provided here — in the single source
+    of split truth — rather than re-derived per notebook.
+
+    Returns an Index of ``event_uid`` values; it never mutates or filters in place.
+    """
+    grouped = events.groupby("event_uid").agg(
+        n_cdms=(TIME_COL, "size"),
+        last_time_to_tca=(TIME_COL, "min"),
+        first_time_to_tca=(TIME_COL, "max"),
+    )
+    mask = (
+        (grouped["n_cdms"] >= min_cdms)
+        & (grouped["last_time_to_tca"] < recency_days)
+        & (grouped["first_time_to_tca"] >= cutoff_days)
+    )
+    return grouped.index[mask]
+
+
 def event_level_frame(events: pd.DataFrame) -> pd.DataFrame:
     """Collapse to one row per event (target + group + basic series stats).
 

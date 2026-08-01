@@ -1,9 +1,9 @@
-"""Command-line entry points for Phase 0 (E0-E3).
+"""Command-line entry points for Phases 0-1 (E0-E5).
 
-Only the two stages Phase 0 needs are exposed: ``kc ingest`` (E0) and ``kc audit``
-(E1/E2/E3 report rendering). Later phases add ``power``, ``train``, ``conformal``,
-``evaluate``, ``reproduce-all`` (SOFTWARE_ARCHITECTURE.md §2). Keeping the surface
-minimal is deliberate — no command exists ahead of the experiment that needs it
+Exposed stages: ``kc ingest`` (E0), ``kc audit`` (E1/E2/E3), ``kc baselines`` (E5)
+and ``kc power`` (E4). Later phases add ``train``, ``conformal``, ``evaluate`` and
+``reproduce-all`` (SOFTWARE_ARCHITECTURE.md §2). Keeping the surface minimal is
+deliberate — no command exists ahead of the experiment that needs it
 (CLAUDE.md §2, §7).
 """
 
@@ -107,6 +107,41 @@ def audit(
     if not skip_pc:
         _run_notebook(nb_dir / "00b_pc_spike.ipynb", reports / "00b_pc_spike.html")
     typer.echo("[audit] Phase 0 reports rendered. Review, then Sidh records the checkpoint.")
+
+
+@app.command()
+def baselines(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E5: validate the challenge metric against the published baseline scores.
+
+    Renders ``reports/01b_baseline_validation.html``. This is the credibility gate
+    for every later number — if it fails, nothing downstream is trustworthy.
+    """
+    cfg = load_config(config)
+    _ensure_kernel()
+    _run_notebook(
+        REPO_ROOT / "notebooks" / "01b_baseline_validation.ipynb",
+        cfg.path("reports_dir") / "01b_baseline_validation.html",
+    )
+
+
+@app.command()
+def power(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E4: statistical power analysis — produces the Gate 1 decision table.
+
+    Renders ``reports/01_power_analysis.html``. Claude Code produces the table and
+    stops; the GO/PIVOT/NO-GO call is the project owner's (CLAUDE.md §3).
+    """
+    cfg = load_config(config)
+    _ensure_kernel()
+    _run_notebook(
+        REPO_ROOT / "notebooks" / "01_power_analysis.ipynb",
+        cfg.path("reports_dir") / "01_power_analysis.html",
+    )
+    typer.echo("[power] Gate 1 table rendered. Review, then Sidh records the gate decision.")
 
 
 if __name__ == "__main__":
