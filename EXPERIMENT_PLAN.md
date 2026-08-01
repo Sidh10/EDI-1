@@ -23,7 +23,7 @@
 | E10 | Naive split conformal on official (biased) test set | 3 | — |
 | E11 | Weighted conformal — selection-bias correction | 3 | **Gate 2** |
 | E12 | Conformalized quantile regression (CQR) | 3 | — |
-| E13 | Group-conditional calibration | 3 | — |
+| ~~E13~~ | ~~Group-conditional calibration~~ — **SKIPPED — Gate 1 PIVOT, see DECISIONS.md** | 3 | — |
 | E14 | Label-noise sensitivity analysis | 4 | **Gate 3 (venue tier decision input)** |
 | E15 | Decision-cost evaluation | 5 | — |
 | E16 | Lead-time / horizon tradeoff analysis | 5 | — |
@@ -302,7 +302,20 @@ Confirms Contribution 1 is real and correctly implemented before Contribution 2 
 
 ---
 
-## E13 — Group-Conditional Calibration
+## E13 — Group-Conditional Calibration — **SKIPPED (Gate 1 PIVOT, 2026-08-01)**
+
+> **STATUS: SKIPPED — not run, not scoped down, dropped.** At Gate 1, E4's power analysis derived a
+> minimum group size of **200 high-risk events** for a coverage estimate to meet the pre-registered
+> 5 pp precision bar. The entire official test set contains **150** high-risk events, and the
+> largest single mission contains **32** — so no merging threshold rescues this experiment with the
+> available data. This is precisely the failure criterion written into this experiment below ("No
+> groups meet the minimum-size threshold → this experiment is skipped/scoped down entirely,
+> consistent with the pre-agreed PIVOT"), so the outcome was anticipated by the plan rather than
+> improvised. Q-CONF-02 (group merging rule) is closed as moot. Contributions 1, 2 and 3 are
+> unaffected. Decided by Sidh; see `DECISIONS.md`, Gate Outcomes.
+>
+> The full specification is retained below, unedited, so the record of what was planned and why it
+> was dropped survives (CLAUDE.md §6: append, do not rewrite).
 
 - **Objective:** Assess and, where powered, deliver per-mission/orbit-group coverage guarantees, addressing the documented cross-mission distribution shift.
 - **Hypothesis:** Marginal coverage (E11) can mask meaningful per-group under-coverage; group-conditional calibration improves worst-group coverage relative to the marginally-calibrated method, for groups meeting the Gate-1/Q-CONF-02 minimum-size threshold.

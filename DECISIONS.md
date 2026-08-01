@@ -353,3 +353,43 @@ Sidh; not done unilaterally, since the initial commit and branch/remote layout a
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
+
+### 2026-08-01 — GATE 1 (E1–E5 review): GO on marginal, PIVOT on group-conditional
+**Decided by:** Sidh.
+**Evidence reviewed:** `reports/01_power_analysis.html` (E4), `reports/01b_baseline_validation.html`
+(E5), and the Phase 1 findings entry above, which remains the authoritative record of the
+underlying analysis.
+
+**GATE 1 DECISION — GO on marginal coverage analysis.**
+Marginal precision (5.13 pp CI half-width at n_HR = 150) came within 0.13 pp of the pre-registered
+5 pp bar. This is accepted as sufficient precision to proceed. It will be reported honestly
+throughout as **±5.13 pp** rather than treated as a pass/fail cliff.
+
+**GATE 1 DECISION — PIVOT on group-conditional coverage.**
+**E13 (group-conditional calibration) is DROPPED from the project scope** — dropped outright, not
+merged-and-shrunk. Rationale: the derived merge threshold (200 high-risk events per group) exceeds
+the entire test set's high-risk count (150), so no threshold rescues this with the available data.
+This does not affect Contributions 1, 2, or 3.
+
+**Q-STAT-01 RESOLVED — nominal coverage levels.**
+Levels tested = **{80%, 90%, 95%}**, with **90% as primary** throughout.
+
+**Q-STAT-02 RESOLVED — success margin.**
+The pre-registered 5 pp marginal precision bar is confirmed as the standing target; the achieved
+5.13 pp is documented as meeting it in practice, with full reasoning preserved in the Phase 1
+findings entry. *This entry supersedes only the PROPOSED status of that entry, not its underlying
+analysis, which stands unaltered.*
+
+**Q-CONF-02 RESOLVED — group merging rule.**
+**Moot.** No group-conditional analysis proceeds on this dataset. The question is closed, not
+merged at a threshold.
+
+**E5 agreement tolerance RESOLVED.**
+The 0.001 absolute-difference criterion is confirmed as adequate — all 7 published quantities
+matched well within it. The E5 pre-registration entry's PROPOSED status is lifted.
+
+**Consequences for the plan:** E13's row in `EXPERIMENT_PLAN.md` is marked SKIPPED (the row is
+retained so the record of why it was planned and why it was dropped survives). Phase 2 (E6–E8)
+proceeds.
+**Supersedes:** the PROPOSED status of the E4 and E5 pre-registration entries above; neither
+entry's analysis or reasoning is modified.
