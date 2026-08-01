@@ -53,14 +53,76 @@ target:
 # These values are the challenge's own definitions (Uriot et al. 2022; Kelvins
 # scoring page), extracted in E0/E1 — NOT invented here. Any custom cutoff is a
 # clearly-labelled secondary analysis only, never a substitute. See DECISIONS.md.
+# VERIFIED at E5 (2026-08-01): both values are stated verbatim in Uriot et al.,
+# arXiv:2008.03069v2 §4.2 (test-set eligibility constraints i-iii), and are further
+# confirmed by E5 reproducing the published LRP baseline scores exactly on BOTH the
+# test set and the eligibility-filtered training set. The '[verify]' markers that
+# stood here through Phase 0 are therefore lifted.
 cutoff:
   # Participants predict the final risk using only CDMs available up to this many
   # days before TCA: a CDM is usable as input iff time_to_tca >= cutoff_days.
-  cutoff_days_before_tca: 2.0        # [verify] challenge rule
+  # (§4.2 iii: "The first CDM released for the event had to be at least 2 days
+  # before TCA and all the CDMs that were within two days from TCA were removed".)
+  cutoff_days_before_tca: 2.0        # VERIFIED (challenge rule)
   # The official TEST set was restricted to events whose LATEST CDM lands within
-  # this many days of TCA (the documented recency filter component of the
-  # selection bias). E1 confirms/quantifies this from the data.
-  test_recency_filter_days: 1.0      # [verify] challenge test-construction rule
+  # this many days of TCA (§4.2 ii) - the documented recency filter component of
+  # the selection bias, quantified in E1 and reconfirmed in E5.
+  test_recency_filter_days: 1.0      # VERIFIED (challenge test-construction rule)
+  # §4.2 i: an eligible event must contain at least this many CDMs.
+  min_cdms_per_event: 2              # VERIFIED (challenge rule)
+
+# --- E5: challenge metric + baseline validation ------------------------------
+# All values here are the challenge's OWN definitions, extracted from
+# Uriot et al., arXiv:2008.03069v2 (§4.1, §4.3, §4.4, Tables 3-4) — the
+# Astrodynamics 2022 paper's preprint. Nothing here is invented by us.
+metric:
+  # Eq. (1): L = MSE_HR / F2. F2 over ALL test events; MSE_HR over events whose
+  # TRUE risk >= high_risk_threshold.
+  f_beta: 2.0
+  # §4.3: "all risk predictions can be clipped at a value slightly lower than
+  # 1e-6 to improve the overall score ... we make use of this clipping and the
+  # scores ... are reported after the clipping has been applied, using eps=0.001".
+  prediction_clip_epsilon: 0.001      # predictions below threshold -> -6.001
+  # Documented conventions for the metric's undefined cases (METRICS.md §1, §2).
+  # These are DEFINED behaviours, never silent NaNs.
+  f2_zero_convention: infinite        # F2 == 0 -> L reported as +inf and flagged
+  empty_high_risk_convention: undefined  # n_HR == 0 -> L undefined, subset unscorable
+
+baselines:
+  # §4.4 CRP (Constant Risk Prediction): predicts a constant -5 for every event.
+  constant_value: -5.0
+  # §4.4 LRP (Latest Risk Prediction): the clipped naive forecast, using r_{-2},
+  # the latest known risk from a CDM released at least `cutoff_days_before_tca`
+  # before TCA.
+  persistence_uses_last_cdm_at_or_before_cutoff: true
+
+baseline_validation:
+  # Published reference values (Uriot et al., Tables 3 and 4; §4.4 for CRP).
+  # PRE-REGISTERED agreement tolerances -> DECISIONS.md, PROPOSED, awaiting Sidh.
+  published:
+    lrp_test:  { loss: 0.694, mse_hr: 0.513, f2: 0.739 }
+    lrp_train: { loss: 0.804, mse_hr: 0.330, f2: 0.411 }
+    crp_test:  { loss: 2.5 }
+  tolerance:
+    primary_abs: 0.001    # agreement at the published rounding precision
+    secondary_abs: 0.01   # "close but not exact" -> partial match, investigate
+    crp_abs: 0.05         # CRP L is published to 2 significant figures only
+
+# --- E4: statistical power analysis (Gate 1) --------------------------------
+power:
+  # Q-STAT-01 (PROPOSED): 90% primary, {80, 95} reported as secondary levels.
+  nominal_coverage_primary: 0.90
+  nominal_coverage_secondary: [0.80, 0.95]
+  # Event-level calibration fractions of the TRAIN pool (EXPERIMENT_PLAN E4).
+  calibration_fractions: [0.10, 0.20, 0.30]
+  # Q-STAT-02 (PROPOSED): "useful precision" = 95% CI half-width on empirical
+  # coverage at or below this many percentage points.
+  useful_half_width_pp: 5.0
+  secondary_half_width_pp: 10.0
+  # Monte Carlo repetitions of the (calibration draw -> test draw) experiment.
+  n_simulations: 2000
+  # Group sizes swept to locate the Q-CONF-02 merging floor.
+  group_size_grid: [5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500]
 
 # --- High-risk classification threshold (challenge definition) --------------
 # The competition labels an event "high risk" iff its final risk > this value

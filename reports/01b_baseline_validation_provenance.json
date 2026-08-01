@@ -1,0 +1,14 @@
+{
+  "experiment_ids": [
+    "E5"
+  ],
+  "git_commit_sha": "5a309acaaaa17a604c7377d6b37e7266f027d7b1",
+  "config_hash": "59c7bedf6a284b2097c07583fca1044aac5b9a9d508c35fd5fb3d77667728f86",
+  "seed": 42,
+  "bootstrap_resamples": 2000,
+  "bootstrap_unit": "event",
+  "reference": "Uriot et al., arXiv:2008.03069v2 (preprint of Astrodynamics 2022)",
+  "tolerance_status": "PROPOSED - awaiting Sidh's confirmation (DECISIONS.md)",
+  "executed_utc": "2026-08-01T06:17:19.362224+00:00",
+  "python": "3.13.11"
+}

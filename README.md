@@ -2,7 +2,9 @@
 
 Coverage-valid uncertainty quantification for satellite conjunction risk, using conformal prediction on the ESA Kelvins Collision Avoidance Challenge dataset — explicitly correcting for the dataset's documented test-set selection bias and quantifying sensitivity to known label noise.
 
-**Status:** Phase 0 (E0–E3) implemented; awaiting Sidh's Phase-0 checkpoint review. Nothing from Phase 1 (E4 onward) is built. The Assumption-A4 call and the E3 tolerance confirmation are open — see `DECISIONS.md`.
+**Status:** Phase 0 (E0–E3) and Phase 1 (E4–E5) implemented; **awaiting Sidh's Gate 1 review**. Nothing from Phase 2 (E6 onward) is built. Open for decision: the Gate 1 GO/PIVOT/NO-GO call, the Assumption-A4 call, and confirmation of the pre-registered tolerances/bars — see `DECISIONS.md`.
+
+The evaluation harness is validated: our implementation of the official challenge metric reproduces the published LRP and CRP baseline scores to 4 decimal places (E5).
 
 ## What this is
 
@@ -18,6 +20,8 @@ cd kelvins-conformal
 uv sync --extra notebooks --extra dev
 kc ingest          # E0: downloads + checksum-verifies the dataset, freezes it read-only
 kc audit           # E1/E2/E3: renders reports/00_data_audit.html + 00b_pc_spike.html
+kc baselines       # E5: validates the challenge metric vs published baseline scores
+kc power           # E4: power analysis -> the Gate 1 decision table
 ```
 
 `kc reproduce-all` regenerates every manuscript number and figure; it is not implemented yet
@@ -38,7 +42,7 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
 
 - [x] Blocking pre-Phase-0 questions resolved (Q-METH-01/02/03, Q-SEL-02)
 - [x] Phase 0 — Foundation, audit, feasibility spikes *(E0–E3 run; reports rendered; **awaiting Sidh's checkpoint review** — the A4 go/no-go and the E3 tolerance confirmation are not made)*
-- [ ] Gate 1 — Statistical power / go-no-go
+- [ ] Gate 1 — Statistical power / go-no-go *(E4 + E5 run; harness validated against published scores; **decision table ready, awaiting Sidh's GO/PIVOT/NO-GO**)*
 - [ ] Phase 2 — Baselines
 - [ ] Gate 2 — Weighted conformal (Contribution 1)
 - [ ] Gate 3 — Label-noise sensitivity / venue decision (Contribution 2)
