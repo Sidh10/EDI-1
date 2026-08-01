@@ -1,0 +1,39 @@
+# Raw and processed data are never committed (CLAUDE.md §5). Only the ingest
+# script and its checksum are versioned; everything under data/ is re-derived.
+/data/raw/
+/data/processed/
+/artifacts/
+
+# Rendered reports (HTML) and generated figures are build outputs, re-derivable
+# from notebooks + code. The notebooks themselves ARE tracked; their HTML is not.
+/reports/*.html
+/reports/figures/
+/reports/tables/
+/reports/manuscript_figures/
+/reports/manuscript_tables/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+.env
+
+# uv keeps uv.lock tracked (pinned deps) but not its cache
+.uv/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

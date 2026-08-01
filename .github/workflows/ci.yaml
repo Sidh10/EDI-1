@@ -1,0 +1,48 @@
+name: CI
+
+# Lint + full test suite + a tiny-subset end-to-end smoke check on every PR and
+# on pushes to main (CLAUDE.md §4). A red CI blocks merge. The full job must stay
+# under a 10-minute budget (SOFTWARE_ARCHITECTURE.md §12, Tier 2), so nothing here
+# downloads the 211 MB dataset — the smoke pipeline runs on a synthetic tiny subset.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.1"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync pinned environment
+        run: uv sync --frozen --extra notebooks --extra dev
+
+      - name: Lint
+        run: uv run ruff check src tests
+
+      - name: Unit + statistical-core tests
+        # Excludes tests marked `slow` (those that require the real dataset).
+        # The statistical core (pc_foster, config, ingest logic, split leakage)
+        # is fully covered here against toy/synthetic inputs.
+        run: uv run pytest -m "not slow" --durations=10
+
+      - name: Tiny-subset smoke pipeline
+        # End-to-end shape check on a synthetic mini-dataset: exercises data.py's
+        # event-grouping + split-leakage assertions without any network access.
+        run: uv run python -m kelvins_conformal.smoke

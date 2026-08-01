@@ -1,0 +1,68 @@
+[project]
+name = "kelvins-conformal"
+version = "0.0.0"
+description = "Calibrated collision-risk forecasting for satellite conjunction assessment via conformal prediction under selection bias and label noise."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Sidh", email = "siddharthraj.raj10@gmail.com" }]
+
+# Dependency set is deliberately minimal (SOFTWARE_ARCHITECTURE.md §9). Adding a
+# dependency requires flagging it first (CLAUDE.md §10). Only the packages Phase 0
+# (E0-E3) actually needs are declared here; model/ML deps (lightgbm, torch, mapie,
+# crepes) are added in later phases when their experiments are implemented.
+dependencies = [
+    "numpy>=1.26,<3",
+    "pandas>=2.1,<3",
+    "pyarrow>=15,<21",
+    "scipy>=1.11,<2",
+    "pyyaml>=6,<7",
+    "typer>=0.12,<1",
+    "matplotlib>=3.8,<4",
+]
+
+[project.optional-dependencies]
+# Notebook execution (headless report rendering) — kept separate so the core
+# library install stays lean; CI installs this group for the audit smoke run.
+notebooks = [
+    "jupyter>=1.1,<2",
+    "nbconvert>=7.16,<8",
+    "nbformat>=5.10,<6",
+    "papermill>=2.6,<3",
+    "ipykernel>=6.29,<7",
+]
+dev = [
+    "pytest>=8,<9",
+    "ruff>=0.6,<1",
+]
+
+[project.scripts]
+kc = "kelvins_conformal.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kelvins_conformal"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Boring-is-correct linting (CLAUDE.md §1): pyflakes, pycodestyle, isort, bugbear,
+# comprehensions, pyupgrade. No auto-magic that hides real errors.
+select = ["E", "F", "I", "B", "C4", "UP"]
+# E501: line length handled by formatter; long config strings tolerated.
+# B008: calling typer.Option(...) in argument defaults is the documented Typer
+#       idiom, not a bug — Typer reads these as parameter declarations.
+ignore = ["E501", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+markers = [
+    "slow: marks tests that touch the full dataset (deselected in the CI smoke run)",
+]

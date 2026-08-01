@@ -1,0 +1,13 @@
+{
+  "experiment_ids": [
+    "E3"
+  ],
+  "git_commit_sha": "UNAVAILABLE (working tree is not a git repository)",
+  "config_hash": "9c732558d84be1f963bbfdcefa17f6c43d4a623a24d2bc250c1549e243ea2d5a",
+  "seed": 42,
+  "preregistered_tolerance_abs_log10": 0.5,
+  "preregistered_min_proportion_within": 0.8,
+  "tolerance_status": "PROPOSED \u2014 awaiting Sidh's confirmation (see DECISIONS.md)",
+  "executed_utc": "2026-08-01T05:42:16.862452+00:00",
+  "python": "3.13.11"
+}

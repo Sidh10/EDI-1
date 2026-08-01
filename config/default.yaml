@@ -1,0 +1,108 @@
+# =============================================================================
+# config/default.yaml — canonical configuration for the Kelvins-conformal project
+# -----------------------------------------------------------------------------
+# CLAUDE.md §12: seeds, paths, thresholds, grids, and cost ratios live HERE, never
+# as inline magic numbers in source. Every stochastic component reads `seed` from
+# this file. The config is loaded + hashed (config.py); the hash stamps every
+# artifact (invariant I4).
+#
+# Values marked "[verify]" are relied upon from the challenge documentation and
+# must be confirmed against the extracted source before the experiment that uses
+# them is trusted (CLAUDE.md §10: never assert an unverified fact as exact).
+# =============================================================================
+
+# --- Reproducibility --------------------------------------------------------
+seed: 42                     # global master seed (CLAUDE.md §1: determinism is a requirement)
+n_seeds: 3                   # >=3 seeds for stochastic components (Q-STAT-05 (a), frozen now)
+bootstrap:
+  n_resamples: 2000          # >=2,000 event-level resamples on headline metrics (CLAUDE.md §9)
+  unit: event                # bootstrap resamples WHOLE events, never CDM rows (invariant I3)
+
+# --- Paths (relative to repo root) ------------------------------------------
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  events_parquet: data/processed/events.parquet
+  reports_dir: reports
+  figures_dir: reports/figures
+  tables_dir: reports/tables
+
+# --- E0: dataset acquisition & integrity ------------------------------------
+dataset:
+  # Canonical source (PROJECT_KNOWLEDGE.md §16; EXPERIMENT_PLAN.md E0).
+  doi: "10.5281/zenodo.4463683"
+  url: "https://zenodo.org/records/4463683/files/Collision%20Avoidance%20Challenge%20-%20Dataset.zip?download=1"
+  zip_filename: "Collision Avoidance Challenge - Dataset.zip"
+  md5: "d19dc8875229f2f6893253c38adddc87"   # abort loudly on any mismatch (E0 failure criterion)
+
+# --- Q-METH-01 (RESOLVED 2026-08-01): prediction target definition ----------
+# Decision: regress RAW log-risk, INCLUDING floor/sentinel values. No censoring,
+# no two-part/Tobit model. Chosen for comparability with all prior work on this
+# dataset (required for E5 baseline validation). See DECISIONS.md.
+target:
+  column: risk               # the reported log10(Pc) value in each CDM
+  definition: raw_log_risk   # {raw_log_risk | clipped | censored} -> raw_log_risk (resolved)
+  include_floor: true        # floor/sentinel rows are kept as-is (NOT dropped or censored)
+  per_event: final_cdm       # target = risk of the FINAL CDM of the event (challenge task)
+  # Documented sentinel for "negligible risk"; VERIFIED empirically in the E1 audit
+  # (Q-DATA-02: report floor mass fraction). Do not use this to silently coerce data.
+  floor_sentinel_value: -30.0   # [verify] against the observed minimum in E1
+
+# --- Q-METH-02 (RESOLVED 2026-08-01): prediction cutoff / lead-time rules ----
+# Decision: replicate the ORIGINAL challenge cutoff rules EXACTLY as primary.
+# These values are the challenge's own definitions (Uriot et al. 2022; Kelvins
+# scoring page), extracted in E0/E1 — NOT invented here. Any custom cutoff is a
+# clearly-labelled secondary analysis only, never a substitute. See DECISIONS.md.
+cutoff:
+  # Participants predict the final risk using only CDMs available up to this many
+  # days before TCA: a CDM is usable as input iff time_to_tca >= cutoff_days.
+  cutoff_days_before_tca: 2.0        # [verify] challenge rule
+  # The official TEST set was restricted to events whose LATEST CDM lands within
+  # this many days of TCA (the documented recency filter component of the
+  # selection bias). E1 confirms/quantifies this from the data.
+  test_recency_filter_days: 1.0      # [verify] challenge test-construction rule
+
+# --- High-risk classification threshold (challenge definition) --------------
+# The competition labels an event "high risk" iff its final risk > this value
+# (log10 Pc). Drives the F2 component of the challenge metric and the audit's
+# high-risk-prevalence figures. [verify] against the scoring page in E5.
+high_risk_threshold: -6.0
+
+# --- Q-METH-03 (RESOLVED 2026-08-01): interval sidedness --------------------
+# NOTE: not exercised in Phase 0 (no conformal code yet). Recorded here so the
+# Phase-3 conformal API is built for both from the start. Two-sided is the default
+# descriptive/coverage presentation; one-sided upper bounds feed decision-cost.
+interval:
+  sidedness: both            # {two_sided | upper | both} -> both (resolved)
+  default_presentation: two_sided
+
+# --- Q-SEL-02 (RESOLVED 2026-08-01): evaluation split(s) used ---------------
+# NOTE: not exercised in Phase 0. Both an exchangeable self-split (validates the
+# machinery) AND the official biased test set (demonstrates bias + correction)
+# are used, with distinct pre-declared roles. data.py must produce both.
+splits:
+  use_self_split: true       # exchangeable, randomly sampled from the train pool
+  use_official_test: true    # the precious, read-once official Kelvins test set
+  self_split_fractions:      # event-level fractions of the TRAIN pool (later phases)
+    fit: 0.6
+    calibration: 0.2
+    self_test: 0.2
+
+# --- E3: Pc recomputation feasibility spike ---------------------------------
+pc_spike:
+  n_sample_cdms: 100         # ~100 CDMs, stratified across risk levels (E3 spec)
+  n_risk_strata: 5           # stratification bins for the sample
+  # Fixed, pre-specified log10-risk band edges defining those 5 strata. Declared
+  # here (not derived from the data) so the sampling design cannot be accused of
+  # being tuned to the comparison it feeds. Bands are (lower, upper]; the first is
+  # the floor atom itself, the last is the challenge's high-risk band. Equal
+  # numbers of CDMs are drawn per non-empty stratum, so the sample spans the risk
+  # range instead of being swamped by the floor (which is ~40% of all CDM rows).
+  risk_strata_edges: [-30.0, -15.0, -10.0, -6.0, 0.0]
+  # PROPOSED tolerance for "recomputed risk agrees with reported risk". This is a
+  # PRE-REGISTRATION value: it is written to DECISIONS.md as PROPOSED and awaits
+  # Sidh's confirmation BEFORE the comparison is interpreted (CLAUDE.md §3, §10).
+  # The spike may compute the comparison, but the go/no-go on A4 is Sidh's call.
+  tolerance:
+    abs_log10_risk: 0.5      # |recomputed - reported| in log10 units, per CDM
+    min_proportion_within: 0.80   # fraction of the sample that must fall within it

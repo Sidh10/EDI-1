@@ -1,0 +1,773 @@
+meta:
+  experiment: E2 — Feature dictionary & leakage audit
+  source: Descriptions condensed from raw_data/raw_data_2015-2019.txt (ESA Kelvins release).
+  cutoff_rule: 'Challenge 2-day prediction cutoff (Q-METH-02, resolved): only CDMs with time_to_tca >=
+    2 days are model inputs. Enforced at the CDM-row level; the public test_data.csv already contains
+    only such CDMs (min time_to_tca = 2.0).'
+  classification_scheme:
+    safe: Usable as a predictor from any admissible (pre-cutoff) CDM.
+    unsafe: Must not be used as a feature (target or pure identifier).
+    ambiguous: Defensible but contestable; flagged for the modelling decision, conservative option is
+      exclusion.
+  tally:
+    safe: 99
+    unsafe: 2
+    ambiguous: 2
+  total_columns: 103
+  note: Only 2 columns are ambiguous (max_risk_estimate, max_risk_scaling) — within a handful, so no blanket
+    conservative-exclusion fallback is triggered; the conservative option is recorded per-column instead
+    (E2 success criterion).
+features:
+  event_id:
+    description: Unique id per collision event.
+    role: identifier
+    availability: per_cdm
+    leakage_class: unsafe
+    rationale: Pure event identifier; using it as a predictor memorises events and does not generalise.
+      Excluded from any feature set (kept only for grouping/splitting).
+  time_to_tca:
+    description: Time interval between CDM creation and time-of-closest-approach [days].
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: The CDM's own age relative to TCA; known when the CDM is issued. Central to cutoff logic
+      and to recency-weighted models. No leakage.
+  mission_id:
+    description: Identifier of the ESA mission that would be affected.
+    role: group_key
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Known a priori for every CDM. Usable both as a categorical feature and as the grouping
+      key for group-conditional calibration (Q-DATA-01). No temporal leakage.
+  risk:
+    description: Self-computed collision risk at the epoch of each CDM [base-10 log]. TARGET = value in
+      the final CDM of each event.
+    role: target
+    availability: per_cdm
+    leakage_class: unsafe
+    rationale: This IS the prediction target (final-CDM risk). It must never be used as a concurrent feature.
+      Only strictly pre-cutoff observed risk values may be used, and only as the explicit persistence
+      baseline input (E5), not as a generic feature.
+  max_risk_estimate:
+    description: Maximum collision probability obtained by scaling the combined covariance.
+    role: feature
+    availability: per_cdm
+    leakage_class: ambiguous
+    rationale: 'Risk-adjacent: a per-CDM transform of the same covariance the risk is computed from. Temporally
+      available pre-cutoff (safe by construction), but a reviewer may view it as a near-proxy of the label.
+      Flagged for the Phase-3 modelling decision; conservative option is to exclude it. Not silently defaulted
+      to safe.'
+  max_risk_scaling:
+    description: Scaling factor used to compute max_risk_estimate.
+    role: feature
+    availability: per_cdm
+    leakage_class: ambiguous
+    rationale: 'Risk-adjacent: a per-CDM transform of the same covariance the risk is computed from. Temporally
+      available pre-cutoff (safe by construction), but a reviewer may view it as a near-proxy of the label.
+      Flagged for the Phase-3 modelling decision; conservative option is to exclude it. Not silently defaulted
+      to safe.'
+  miss_distance:
+    description: Relative position between chaser & target at TCA [m].
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  relative_speed:
+    description: Relative speed between chaser & target at TCA [m/s].
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  relative_position_r:
+    description: 'Relative position at TCA: radial [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  relative_position_t:
+    description: 'Relative position at TCA: transverse (along-track) [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  relative_position_n:
+    description: 'Relative position at TCA: normal (cross-track) [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  relative_velocity_r:
+    description: 'Relative velocity at TCA: radial [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  relative_velocity_t:
+    description: 'Relative velocity at TCA: transverse (along-track) [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  relative_velocity_n:
+    description: 'Relative velocity at TCA: normal (cross-track) [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_time_lastob_start:
+    description: '[target (ESA satellite)] start of the last accepted-observation interval, rel. to CDM
+      epoch [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_time_lastob_end:
+    description: '[target (ESA satellite)] end of the last accepted-observation interval, rel. to CDM
+      epoch [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_recommended_od_span:
+    description: '[target (ESA satellite)] recommended length of the OD update interval [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_actual_od_span:
+    description: '[target (ESA satellite)] actual length of the orbit-determination update interval [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_obs_available:
+    description: '[target (ESA satellite)] number of observations available for orbit determination (per
+      CDM).'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_obs_used:
+    description: '[target (ESA satellite)] number of observations used for orbit determination (per CDM).'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_residuals_accepted:
+    description: '[target (ESA satellite)] orbit-determination residuals.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_weighted_rms:
+    description: '[target (ESA satellite)] root-mean-square of the least-squares orbit determination.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_rcs_estimate:
+    description: '[target (ESA satellite)] radar cross-sectional area [m^2].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cd_area_over_mass:
+    description: '[target (ESA satellite)] drag ballistic coefficient A/m [m^2/kg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cr_area_over_mass:
+    description: '[target (ESA satellite)] solar-radiation coefficient A/m [m^2/kg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_sedr:
+    description: '[target (ESA satellite)] energy dissipation rate [W/kg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_j2k_sma:
+    description: '[target (ESA satellite)] orbit semi-major axis [km].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_j2k_ecc:
+    description: '[target (ESA satellite)] orbit eccentricity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_j2k_inc:
+    description: '[target (ESA satellite)] orbit inclination [deg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_ct_r:
+    description: '[target (ESA satellite)] covariance: correlation transverse position vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cn_r:
+    description: '[target (ESA satellite)] covariance: correlation normal position vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cn_t:
+    description: '[target (ESA satellite)] covariance: correlation normal position vs transverse position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_crdot_r:
+    description: '[target (ESA satellite)] covariance: correlation radial velocity vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_crdot_t:
+    description: '[target (ESA satellite)] covariance: correlation radial velocity vs transverse position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_crdot_n:
+    description: '[target (ESA satellite)] covariance: correlation radial velocity vs normal position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_ctdot_r:
+    description: '[target (ESA satellite)] covariance: correlation transverse velocity vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_ctdot_t:
+    description: '[target (ESA satellite)] covariance: correlation transverse velocity vs transverse position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_ctdot_n:
+    description: '[target (ESA satellite)] covariance: correlation transverse velocity vs normal position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_ctdot_rdot:
+    description: '[target (ESA satellite)] covariance: correlation transverse velocity vs radial velocity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cndot_r:
+    description: '[target (ESA satellite)] covariance: correlation normal velocity vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cndot_t:
+    description: '[target (ESA satellite)] covariance: correlation normal velocity vs transverse position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cndot_n:
+    description: '[target (ESA satellite)] covariance: correlation normal velocity vs normal position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cndot_rdot:
+    description: '[target (ESA satellite)] covariance: correlation normal velocity vs radial velocity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_cndot_tdot:
+    description: '[target (ESA satellite)] covariance: correlation normal velocity vs transverse velocity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_object_type:
+    description: 'Object type of the chaser at collision risk (categorical: UNKNOWN/DEBRIS/PAYLOAD/ROCKET
+      BODY/TBA).'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_time_lastob_start:
+    description: '[chaser (debris/other object)] start of the last accepted-observation interval, rel.
+      to CDM epoch [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_time_lastob_end:
+    description: '[chaser (debris/other object)] end of the last accepted-observation interval, rel. to
+      CDM epoch [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_recommended_od_span:
+    description: '[chaser (debris/other object)] recommended length of the OD update interval [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_actual_od_span:
+    description: '[chaser (debris/other object)] actual length of the orbit-determination update interval
+      [days].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_obs_available:
+    description: '[chaser (debris/other object)] number of observations available for orbit determination
+      (per CDM).'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_obs_used:
+    description: '[chaser (debris/other object)] number of observations used for orbit determination (per
+      CDM).'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_residuals_accepted:
+    description: '[chaser (debris/other object)] orbit-determination residuals.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_weighted_rms:
+    description: '[chaser (debris/other object)] root-mean-square of the least-squares orbit determination.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_rcs_estimate:
+    description: '[chaser (debris/other object)] radar cross-sectional area [m^2].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cd_area_over_mass:
+    description: '[chaser (debris/other object)] drag ballistic coefficient A/m [m^2/kg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cr_area_over_mass:
+    description: '[chaser (debris/other object)] solar-radiation coefficient A/m [m^2/kg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_sedr:
+    description: '[chaser (debris/other object)] energy dissipation rate [W/kg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_j2k_sma:
+    description: '[chaser (debris/other object)] orbit semi-major axis [km].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_j2k_ecc:
+    description: '[chaser (debris/other object)] orbit eccentricity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_j2k_inc:
+    description: '[chaser (debris/other object)] orbit inclination [deg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_ct_r:
+    description: '[chaser (debris/other object)] covariance: correlation transverse position vs radial
+      position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cn_r:
+    description: '[chaser (debris/other object)] covariance: correlation normal position vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cn_t:
+    description: '[chaser (debris/other object)] covariance: correlation normal position vs transverse
+      position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_crdot_r:
+    description: '[chaser (debris/other object)] covariance: correlation radial velocity vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_crdot_t:
+    description: '[chaser (debris/other object)] covariance: correlation radial velocity vs transverse
+      position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_crdot_n:
+    description: '[chaser (debris/other object)] covariance: correlation radial velocity vs normal position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_ctdot_r:
+    description: '[chaser (debris/other object)] covariance: correlation transverse velocity vs radial
+      position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_ctdot_t:
+    description: '[chaser (debris/other object)] covariance: correlation transverse velocity vs transverse
+      position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_ctdot_n:
+    description: '[chaser (debris/other object)] covariance: correlation transverse velocity vs normal
+      position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_ctdot_rdot:
+    description: '[chaser (debris/other object)] covariance: correlation transverse velocity vs radial
+      velocity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cndot_r:
+    description: '[chaser (debris/other object)] covariance: correlation normal velocity vs radial position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cndot_t:
+    description: '[chaser (debris/other object)] covariance: correlation normal velocity vs transverse
+      position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cndot_n:
+    description: '[chaser (debris/other object)] covariance: correlation normal velocity vs normal position.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cndot_rdot:
+    description: '[chaser (debris/other object)] covariance: correlation normal velocity vs radial velocity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_cndot_tdot:
+    description: '[chaser (debris/other object)] covariance: correlation normal velocity vs transverse
+      velocity.'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_span:
+    description: '[target (ESA satellite)] object size used by the collision-risk algorithm (min 2 m diameter
+      assumed for chaser) [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_span:
+    description: '[chaser (debris/other object)] object size used by the collision-risk algorithm (min
+      2 m diameter assumed for chaser) [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_h_apo:
+    description: '[target (ESA satellite)] apogee altitude (SMA-Rearth) [km].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_h_per:
+    description: '[target (ESA satellite)] perigee altitude [km].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_h_apo:
+    description: '[chaser (debris/other object)] apogee altitude (SMA-Rearth) [km].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_h_per:
+    description: '[chaser (debris/other object)] perigee altitude [km].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  geocentric_latitude:
+    description: Latitude of the conjunction point [deg].
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  azimuth:
+    description: 'Relative velocity vector: azimuth angle [deg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  elevation:
+    description: 'Relative velocity vector: elevation angle [deg].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  mahalanobis_distance:
+    description: Miss distance scaled with uncertainty.
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_position_covariance_det:
+    description: '[target (ESA satellite)] determinant of the position covariance (~volume of the uncertainty
+      ellipsoid).'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_position_covariance_det:
+    description: '[chaser (debris/other object)] determinant of the position covariance (~volume of the
+      uncertainty ellipsoid).'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_sigma_r:
+    description: '[target (ESA satellite)] covariance: radial position standard deviation [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_sigma_r:
+    description: '[chaser (debris/other object)] covariance: radial position standard deviation [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_sigma_t:
+    description: '[target (ESA satellite)] covariance: transverse (along-track) position standard deviation
+      [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_sigma_t:
+    description: '[chaser (debris/other object)] covariance: transverse (along-track) position standard
+      deviation [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_sigma_n:
+    description: '[target (ESA satellite)] covariance: normal (cross-track) position standard deviation
+      [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_sigma_n:
+    description: '[chaser (debris/other object)] covariance: normal (cross-track) position standard deviation
+      [m].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_sigma_rdot:
+    description: '[target (ESA satellite)] covariance: radial velocity standard deviation [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_sigma_rdot:
+    description: '[chaser (debris/other object)] covariance: radial velocity standard deviation [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_sigma_tdot:
+    description: '[target (ESA satellite)] covariance: transverse velocity standard deviation [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_sigma_tdot:
+    description: '[chaser (debris/other object)] covariance: transverse velocity standard deviation [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  t_sigma_ndot:
+    description: '[target (ESA satellite)] covariance: normal velocity standard deviation [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  c_sigma_ndot:
+    description: '[chaser (debris/other object)] covariance: normal velocity standard deviation [m/s].'
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  F10:
+    description: 10.7 cm solar radio flux index [1e-22 W/(m^2 Hz)].
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  F3M:
+    description: 81-day running mean of F10.7 [1e-22 W/(m^2 Hz)].
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  SSN:
+    description: Wolf sunspot number.
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
+  AP:
+    description: Daily planetary geomagnetic amplitude index.
+    role: feature
+    availability: per_cdm
+    leakage_class: safe
+    rationale: Recorded per CDM and available at every cutoff (the 2-day cutoff is enforced at the CDM-row
+      level, so all fields of an admissible CDM are legitimately usable). No target leakage.
