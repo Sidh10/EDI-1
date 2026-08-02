@@ -53,6 +53,24 @@ class GbmResult:
         }
 
 
+def seed_keys(seed: int) -> dict:
+    """Every LightGBM key that must move with the seed.
+
+    Setting only ``seed`` is not enough: LightGBM draws feature subsampling,
+    bagging and data ordering from *separate* generators. If a caller supplies an
+    explicit ``params`` dict (as the hyperparameter search does) and only ``seed``
+    is overridden per run, the remaining three stay pinned and every "seed"
+    trains the identical model — which silently turns a 3-seed result into one
+    model reported three times. ``tests/test_determinism.py`` pins this.
+    """
+    return {
+        "seed": int(seed),
+        "bagging_seed": int(seed),
+        "feature_fraction_seed": int(seed),
+        "data_random_seed": int(seed),
+    }
+
+
 def default_params(seed: int, *, objective: str = "regression") -> dict:
     """Baseline LightGBM parameters.
 
@@ -70,10 +88,7 @@ def default_params(seed: int, *, objective: str = "regression") -> dict:
         "bagging_freq": 1,
         "lambda_l2": 1.0,
         "verbosity": -1,
-        "seed": seed,
-        "bagging_seed": seed,
-        "feature_fraction_seed": seed,
-        "data_random_seed": seed,
+        **seed_keys(seed),
         "deterministic": True,
         "force_row_wise": True,
         "num_threads": 1,
@@ -93,7 +108,7 @@ def fit_point_model(
 ) -> tuple[lgb.Booster, int]:
     """Fit the L2 point model with early stopping on the INTERNAL validation split."""
     p = dict(params) if params is not None else default_params(seed)
-    p.update({"objective": "regression", "metric": "l2", "seed": seed})
+    p.update({"objective": "regression", "metric": "l2", **seed_keys(seed)})
 
     dtrain = lgb.Dataset(X_fit, label=y_fit, free_raw_data=False)
     dval = lgb.Dataset(X_val, label=y_val, reference=dtrain, free_raw_data=False)
@@ -125,7 +140,7 @@ def fit_quantile_models(
     for q in quantile_levels:
         p = dict(params) if params is not None else default_params(seed)
         p.update({"objective": "quantile", "alpha": float(q),
-                  "metric": "quantile", "seed": seed})
+                  "metric": "quantile", **seed_keys(seed)})
         dtrain = lgb.Dataset(dtrain_raw[0], label=dtrain_raw[1], free_raw_data=False)
         dval = lgb.Dataset(X_val, label=y_val, reference=dtrain, free_raw_data=False)
         booster = lgb.train(

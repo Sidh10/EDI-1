@@ -191,6 +191,45 @@ def test_gbm_different_seed_changes_predictions():
     assert not np.array_equal(a.predict(Xv), b.predict(Xv))
 
 
+def test_gbm_seed_varies_even_when_explicit_params_are_supplied():
+    """Regression: a multi-seed run must be N models, not one model N times.
+
+    LightGBM draws feature subsampling, bagging and data ordering from separate
+    generators. An earlier version overrode only ``seed`` when the caller passed
+    an explicit ``params`` dict (which the hyperparameter search always does), so
+    ``feature_fraction_seed`` stayed pinned and all three "seeds" produced
+    byte-identical predictions — a 3-seed result that was really one run reported
+    three times.
+    """
+    from kelvins_conformal.models.gbm import fit_gbm, seed_keys
+
+    X, y = _tiny_tabular(n=200, n_features=12)
+    Xv, yv = _tiny_tabular(n=60, n_features=12, seed=1)
+    # A searched configuration: subsampling on, so the seed must actually bite.
+    searched = {
+        "objective": "regression", "metric": "l2", "learning_rate": 0.1,
+        "num_leaves": 15, "min_data_in_leaf": 5, "feature_fraction": 0.5,
+        "bagging_fraction": 0.7, "bagging_freq": 1, "verbosity": -1,
+        "deterministic": True, "force_row_wise": True, "num_threads": 1,
+        **seed_keys(42),          # deliberately pinned at 42, as the search emits
+    }
+    preds = [
+        fit_gbm(X, y, Xv, yv, seed=s, params=searched,
+                num_boost_round=60, early_stopping_rounds=15).predict(Xv)
+        for s in (42, 43, 44)
+    ]
+    assert not np.array_equal(preds[0], preds[1]), "seed 43 reproduced seed 42 exactly"
+    assert not np.array_equal(preds[1], preds[2]), "seed 44 reproduced seed 43 exactly"
+
+
+def test_seed_keys_covers_every_lightgbm_generator():
+    from kelvins_conformal.models.gbm import seed_keys
+
+    keys = seed_keys(7)
+    assert keys == {"seed": 7, "bagging_seed": 7,
+                    "feature_fraction_seed": 7, "data_random_seed": 7}
+
+
 def test_sequence_model_predictions_are_deterministic():
     from kelvins_conformal.models.sequence import train_sequence_model
 
