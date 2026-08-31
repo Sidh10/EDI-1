@@ -26,6 +26,9 @@ paths:
   reports_dir: reports
   figures_dir: reports/figures
   tables_dir: reports/tables
+  # Intermediate run artifacts (model caches, search results). Gitignored and
+  # always re-derivable; keyed by config hash so a config change invalidates them.
+  artifacts_dir: artifacts
 
 # --- E0: dataset acquisition & integrity ------------------------------------
 dataset:

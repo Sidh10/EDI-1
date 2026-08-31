@@ -20,8 +20,11 @@ Three disciplines are enforced here rather than trusted to each notebook:
 
 from __future__ import annotations
 
+import json
+import os
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -49,6 +52,7 @@ class SearchBudget:
     selection_split: str = "val_inner"
     best_params: dict = field(default_factory=dict)
     best_objective_value: float = float("nan")
+    from_cache: bool = False
 
     def as_row(self) -> dict:
         return {
@@ -517,3 +521,58 @@ def search_mc_dropout(cfg: Config, data: SequenceData, *, seed: int) -> SearchBu
         wall_clock_seconds=time.perf_counter() - start,
         best_params=best_params, best_objective_value=best_obj,
     )
+
+
+# --- search caching ----------------------------------------------------------
+# The three hyperparameter searches dominate Phase 2's wall clock (~27 min on the
+# CPU-only development machine). Caching them keyed by (config hash, experiment,
+# seed) makes an interrupted run cheap to resume without weakening reproducibility:
+# the key includes the full config hash, so ANY configuration change invalidates
+# every entry, and a cold cache reproduces the same result because each search is
+# seeded. Delete `artifacts/search_cache/` to force a clean re-search.
+
+def _search_cache_path(cfg: Config, experiment: str, seed: int) -> Path:
+    root = Path(cfg.path("artifacts_dir")) / "search_cache"
+    root.mkdir(parents=True, exist_ok=True)
+    return root / f"{experiment}_{cfg.config_hash[:16]}_seed{seed}.json"
+
+
+def cached_search(cfg: Config, experiment: str, seed: int, compute):
+    """Return a cached SearchBudget if one exists for this exact config, else run.
+
+    `compute` is a zero-argument callable returning a SearchBudget.
+    """
+    path = _search_cache_path(cfg, experiment, seed)
+    if path.exists():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        budget = SearchBudget(
+            experiment=payload["experiment"],
+            objective=payload["objective"],
+            n_trials=payload["n_trials"],
+            n_configs_evaluated=payload["n_configs_evaluated"],
+            wall_clock_seconds=payload["wall_clock_seconds"],
+            selection_split=payload["selection_split"],
+            best_params=payload["best_params"],
+            best_objective_value=payload["best_objective_value"],
+        )
+        budget.from_cache = True
+        return budget
+
+    budget = compute()
+    payload = {
+        "experiment": budget.experiment,
+        "objective": budget.objective,
+        "n_trials": budget.n_trials,
+        "n_configs_evaluated": budget.n_configs_evaluated,
+        "wall_clock_seconds": budget.wall_clock_seconds,
+        "selection_split": budget.selection_split,
+        "best_params": budget.best_params,
+        "best_objective_value": budget.best_objective_value,
+        "config_hash": cfg.config_hash,
+        "seed": seed,
+    }
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+    budget.from_cache = False
+    return budget

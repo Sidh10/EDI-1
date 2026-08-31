@@ -422,6 +422,78 @@ advance, in config (`gbm.promotion_thresholds`), is what makes the later number 
 
 ---
 
+## Phase 2 Empirical Findings (E6, E7, E8) — REPORTED, no decision taken
+
+<!--
+Measurements only. Every number is regenerable via `kc baselines-phase2` and is
+written to reports/tables/*.csv. Claude Code makes no scope or gate call here.
+-->
+
+### 2026-08-01 — E6/E7: both learned point predictors are MUCH WORSE than persistence
+**Report:** `reports/02_baselines.html`. Deterministic; 3 seeds each; official test set read
+exactly once per experiment, after all selection was made on `val_inner`.
+
+| model | L (mean ± sd) | MSE_HR | F2 |
+|---|---|---|---|
+| E5 persistence (LRP) | **0.694** | **0.513** | **0.739** |
+| E5 constant (CRP) | 2.504 | 0.679 | 0.271 |
+| E6 GBM | 53.46 ± 17.60 | 1.751 | 0.035 |
+| E7 GRU | 6.39 ± 0.82 | 1.748 | 0.276 |
+
+**This triggers EXPERIMENT_PLAN.md E6's documented failure criterion** ("Model performs materially
+worse than persistence ... triggers a feature/hyperparameter review first"). The review was
+performed *before* reporting and is recorded here:
+- 24-trial hyperparameter search per model on `val_inner` (equal budget, see the E8 entry);
+- a target-parameterisation sweep (absolute vs residual-on-persistence) — **residual won on
+  validation** (val L 1.631 vs 1.804) and was selected;
+- a promotion-threshold sweep over tau, selected on validation (**tau = −7.5**, val L 1.631).
+
+After all of that, E6's *validation* L is 1.631 but its *test* L is 53.5. The gap is not a bug in
+the harness: E5's persistence baseline scores 0.694 on the identical pipeline and reproduces the
+published figure exactly, so the metric and the test-set plumbing are known-good.
+
+**Diagnosis (stated as a hypothesis, not a settled cause).** 63% of training targets sit at the −30
+floor but only 2.6% of training events are high-risk, versus **6.9% in the official test set**
+(E1's documented 2.49× enrichment). An MSE-trained residual model therefore learns a
+predominantly *downward* correction to persistence, which is precisely wrong for the high-risk
+events the metric scores. F2 collapses (E6 flags 3–6 of 150 true high-risk events) and MSE_HR
+roughly triples. This is the selection bias the project exists to study, showing up in the
+baselines rather than in the conformal layer.
+
+**Not acted on.** No further tuning was performed after seeing the test numbers — doing so would be
+exactly the post-hoc threshold-fitting CLAUDE.md §10 forbids. Whether E6/E7 should be rebuilt
+around a persistence-anchored formulation is Sidh's call.
+
+### 2026-08-01 — E8: the expected coverage deficiency is CONFIRMED
+**Steelman is auditable, not asserted:** all three baselines received an identical 24-trial random
+search on `val_inner`; only the objective differed, which is the point — E6/E7 were tuned for
+validation MSE, E8 for **its own coverage error**, reaching 2.04 pp mean |empirical − nominal| on
+validation before being audited on test.
+
+Marginal coverage on the official test set (2,167 events; 3 MC-dropout seeds + a 5-member ensemble):
+
+| nominal | empirical (mean) | gap | mean width (log10) | binomial p |
+|---|---|---|---|---|
+| 80% | 79.59% | −0.41 pp | 16.12 | 0.727 (n.s.) |
+| 90% | 84.49% | **−5.51 pp** | 20.70 | ~1e−16 |
+| 95% | 88.03% | **−6.97 pp** | 24.66 | ~1e−37 |
+
+PIT uniformity is rejected decisively for every seed and for the deep ensemble
+(KS ≈ 0.16–0.18, p ≈ 1e−48 to 1e−64).
+
+**Verdict: the hypothesis holds.** The deficiency is *level-dependent* — MC-dropout is essentially
+calibrated at 80% and degrades as the nominal level rises, i.e. its tails are too thin. It is also
+simultaneously **very wide and under-covering** (~21 log-units at nominal 90%, on a target spanning
+about 30 log units), which is the strongest form of the project's motivating claim: the intervals
+are both operationally useless *and* not trustworthy. Reported honestly as level-dependent rather
+than as a blanket failure.
+
+**Explicitly NOT decided here:** whether E6/E7 are rebuilt around a persistence anchor; whether the
+`features.risk_history` conflict (flagged above, still PROPOSED) is resolved as proposed; and any
+Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code.
+
+---
+
 ## Observations Log
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
