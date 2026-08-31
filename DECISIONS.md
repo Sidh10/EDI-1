@@ -498,6 +498,28 @@ Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
 
+### 2026-08-31 — Two Phase-2 runs overlapped; results were identical, but the write path is not atomic
+Session teardown orphaned a Phase-2 run without killing it, so a relaunch executed concurrently
+with it (run A: 16:52-19:04; run B: 19:02-19:40). Both wrote the same `reports/tables/*.csv`.
+
+**No result was affected.** Every Phase-2 number was verified byte-identical between the two runs
+(E6 per-seed L 71.09206335711703 / 35.89428553288039 / 53.40577127185363; E7 6.071024147441799 /
+5.7761317468555475 / 7.326659950521958; E8 coverage 0.7959 / 0.8449 / 0.8803; all three search
+budgets). That is the determinism guarantee working as intended, with the cached searches returning
+the same selections.
+
+**But the hazard was real.** `save_table` in the reporting notebooks writes with a plain
+`df.to_csv`, not the temp -> fsync -> rename sequence SOFTWARE_ARCHITECTURE.md §6 mandates and that
+`data.write_events_parquet` already implements. Two concurrent writers could have produced a torn
+or mixed set of tables that still looked plausible. The committed provenance sidecar also briefly
+carried run A's `executed_utc` while the artifacts on disk were run B's — corrected in a follow-up
+commit.
+
+**Not acted on beyond the provenance fix** (Phase 2 is closed): making `save_table` atomic, and
+adding a lockfile or run-id guard so two runs cannot target the same output directory, is a small
+reporting-layer change for Sidh to schedule. Logged, not implemented.
+
+
 ### 2026-08-01 — E3 tail behaviour suggests a frame-rotation refinement (not acted on)
 The E3 disagreement concentrates in the deep-tail strata while the high-risk band agrees well. The
 most likely single cause is the documented spike simplification of summing both objects' RTN
