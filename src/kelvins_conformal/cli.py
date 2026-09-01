@@ -153,12 +153,24 @@ def baselines_phase2(
     Renders ``reports/02_baselines.html``. Slow by design — three hyperparameter
     searches plus multi-seed training on CPU (EXPERIMENT_PLAN estimates hours).
     """
+    import time as _time
+
+    from .reporting import OutputLockError, output_lock
+
     cfg = load_config(config)
     _ensure_kernel()
-    _run_notebook(
-        REPO_ROOT / "notebooks" / "02_baselines.ipynb",
-        cfg.path("reports_dir") / "02_baselines.html",
-    )
+    # Run-id guard: two concurrent runs must not write reports/tables/ at once
+    # (the concurrent-write hazard logged at the Phase-2 checkpoint). A unique id
+    # per invocation; the lock auto-reclaims if a prior run was killed.
+    run_id = f"phase2-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            _run_notebook(
+                REPO_ROOT / "notebooks" / "02_baselines.ipynb",
+                cfg.path("reports_dir") / "02_baselines.html",
+            )
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
     typer.echo("[phase2] E6/E7/E8 report rendered. Review, then Sidh records the checkpoint.")
 
 

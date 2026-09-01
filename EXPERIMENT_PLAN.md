@@ -222,7 +222,7 @@ No further modeling proceeds without explicit sign-off. Outcomes: GO (proceed as
 - **Objective:** Validate that our split-conformal implementation achieves nominal coverage under conditions where its assumptions actually hold, before applying it to the biased official test set.
 - **Hypothesis:** On a self-constructed, randomly sampled (exchangeable) held-out split from the training pool, standard split conformal achieves coverage statistically indistinguishable from nominal.
 - **Dataset split:** Training pool randomly partitioned into fit / calibration / self-test (event-level, seeded); official test set untouched in this experiment.
-- **Inputs:** E6 and/or E7 point predictors, retrained or reused on the fit portion.
+- **Inputs:** Candidate base predictors, retrained or reused on the fit portion. **Base-learner set (Gate-1 amendment, 2026-09-01):** GBM (E6), GRU (E7), MC-dropout (E8), **and persistence (the E5 LRP predictor)** — four candidates, not three. Persistence is added because E6's point estimate is poorly determined (its L bootstrap CI spans ~2 orders of magnitude); Contribution 1 is a coverage-VALIDITY demonstration that needs a well-defined, not accurate, predictor, and persistence is the most stable one on this dataset with predictions already available from E5 at zero cost. See DECISIONS.md, 2026-09-01. This is independent of the E6/E7 point-accuracy outcome.
 - **Outputs:** Prediction intervals on the self-test split; coverage validation report.
 - **Metrics:** Empirical coverage vs. nominal (per level from Q-STAT-01); interval width.
 - **Statistical tests:** Binomial/Clopper–Pearson test of coverage vs. nominal; per Q-STAT-02's pre-declared success margin.
@@ -233,7 +233,7 @@ No further modeling proceeds without explicit sign-off. Outcomes: GO (proceed as
 - **Success criteria:** Coverage matches nominal within margin — proof the conformal implementation is correct before it is asked to handle the harder, biased case.
 - **Expected runtime:** 1–2 hours.
 - **Compute requirements:** CPU only.
-- **Dependencies:** E6, E7 (whichever base learner(s) are carried forward).
+- **Dependencies:** E6, E7, E8, and E5 persistence (the four candidate base learners per the 2026-09-01 amendment; persistence needs no retraining).
 
 ---
 

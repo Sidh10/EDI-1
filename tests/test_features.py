@@ -217,3 +217,35 @@ def test_sequence_builder_applies_the_same_safety_contract(cfg, events):
     assert "event_id" not in st.feature_names
     assert "max_risk_estimate" not in st.feature_names
     assert "target_log_risk" not in st.feature_names
+
+
+# --- corrected (permissive) risk_history policy semantics (2026-09-01 amendment) ---
+def test_permissive_policy_risk_last_equals_precutoff_persistence_signal(cfg):
+    """Under the ADOPTED permissive policy, `risk_last` is exactly r_last (the E5
+    persistence input): the most recent admissible (pre-cutoff) CDM's risk."""
+    assert cfg.features.risk_history is True
+    events = _synthetic_events(n_events=40, seed=5)
+    fm = feat.build_tabular_features(events, cfg, split="train")
+    assert "risk_last" in fm.X.columns
+
+    adm = feat.admissible_cdms(events[events["split"] == "train"], cfg)
+    # r_last per event = risk at the smallest admissible time_to_tca.
+    idx = adm.groupby("event_uid")["time_to_tca"].idxmin()
+    expected = adm.loc[idx].set_index("event_uid")["risk"]
+    got = fm.X["risk_last"].reindex(expected.index)
+    import numpy as np
+    np.testing.assert_allclose(got.to_numpy(float), expected.to_numpy(float), rtol=0, atol=1e-9)
+
+
+def test_permissive_policy_never_leaks_the_target(cfg, events):
+    """Permissive risk history must still never admit the final-CDM (target) risk."""
+    fm = feat.build_tabular_features(events, cfg, split="train")
+    # No raw `risk` column, and no feature equals the target row-for-row.
+    assert "risk" not in fm.X.columns
+    import numpy as np
+    y = fm.y
+    for col in [c for c in fm.X.columns if c.startswith("risk")]:
+        v = fm.X[col].to_numpy(float)
+        assert not np.allclose(np.nan_to_num(v), np.nan_to_num(y), atol=1e-12), (
+            f"risk feature {col!r} equals the target — leakage"
+        )
