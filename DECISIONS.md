@@ -537,6 +537,76 @@ Sidh; not done unilaterally, since the initial commit and branch/remote layout a
 
 ---
 
+## Phase 2 Amendment — risk_history conflict resolution (2026-09-01)
+
+### 2026-09-01 — PRE-REGISTRATION (written BEFORE any re-run): risk_history audit outcome
+**Status:** This entry is written and committed BEFORE Step 3 of the Phase-2 amendment executes any
+re-run, per the amendment's Step 2 and CLAUDE.md §3. It records what the audit found and pre-commits
+the discipline for anything that follows.
+
+**Nature of the conflict (recap of the 2026-08-01 CONFLICT FLAGGED entry above).**
+`feature_dictionary.yaml` marks `risk` unsafe with a carve-out: usable "only as the explicit
+persistence baseline input (E5), not as a generic feature." The E6 spec ("last-k-CDM features",
+hypothesis that the model beats persistence) needs pre-cutoff risk history to be a fair test. The
+2026-08-01 entry proposed permitting strictly-pre-cutoff risk history (`features.risk_history:
+true`) and ran Phase 2 under that permissive policy.
+
+**Which model(s) are actually affected by the STRICT interpretation (Step 1 finding — VERIFIED by
+reading the code, the committed config, the run provenance, and an empirical rebuild):**
+- The reported Phase-2 numbers were produced with `risk_history: true` (permissive). Confirmed by
+  `config/default.yaml`, by `reports/02_baselines_provenance.json` (`risk_history_enabled: true`),
+  and by rebuilding the feature matrices.
+- Under that policy BOTH models already had the pre-cutoff risk signal:
+  * E6 tabular carried 6 risk-derived features (`risk_last/mean/min/max/std/delta`); `risk_last`
+    is the persistence input r_last.
+  * E6 additionally SELECTED residual mode, so its prediction is persistence-anchored:
+    pred = model(y − r_last) + r_last.
+  * E7 sequence carried raw per-timestep `risk` across up to 10 CDMs.
+- Therefore the amendment's premise — "E6 denied the signal, E7 has it implicitly" — does NOT
+  describe the reported run. NEITHER model was handicapped; the strict variant (`risk_history:
+  false`) was never run. The reported E6 result (L=53.5) is not a feature-handicap artifact: E6 had
+  the persistence anchor and still failed.
+
+**Corrected feature policy being adopted (this RESOLVES the 2026-08-01 PROPOSED conflict).**
+The permissive policy — strictly-pre-cutoff risk history permitted as a model feature, final-CDM
+(target) risk never — is ADOPTED as the standing policy. It is already the policy the reported
+numbers reflect, so no result changes. The dictionary's literal carve-out is read as scoped to the
+concurrent/final-CDM value; `event_id` and the target remain hard-excluded and asserted.
+
+**The one-re-run discipline (recorded per Step 2, binding on anything that follows):**
+"Exactly one clean re-run is permitted per affected model, using the identical search protocol as
+the original run (same 24-trial count, same objective, same val_inner split, no expanded search
+budget). Whatever the outcome — better, worse, or unchanged — it will be reported as-is. No further
+adjustment follows this single re-run."
+
+**Consequence for Step 3.** Because zero models were run under the strict policy, there is no
+handicapped result to correct: re-running under the (already-in-force) permissive policy would
+reproduce the reported numbers bit-for-bit (determinism verified at the prior checkpoint). No
+corrective re-run is therefore performed. Adopting the permissive policy is a no-op on the numbers
+and is recorded as such — NOT re-run to manufacture a fresh figure. Measuring the counterfactual
+STRICT variant (to quantify whether the hypothesised E6-vs-E7 asymmetry is real) is a distinct,
+optional experiment left for Sidh to authorise; it is not "the correction" and is not run here.
+**Decided by:** Sidh (amendment) for the policy adoption; Step-1 finding reported by Claude Code.
+**Supersedes:** the PROPOSED status of the 2026-08-01 CONFLICT FLAGGED entry (now RESOLVED:
+permissive adopted). The underlying analysis in that entry stands.
+
+### 2026-09-01 — Phase 3 scope addition: persistence (E5 LRP) as a fourth conformal base learner
+**Decision:** In Phase 3 (E9–E12), wrap the conformal machinery around FOUR candidate base learners
+— GBM (E6), GRU (E7), MC-dropout (E8), and **persistence (the E5 LRP predictor)** — rather than
+three.
+**Rationale (independent of the amendment's Step 3–5 outcome, and logged as such):** E6's point
+estimate is poorly determined — its own event-level bootstrap CI on L spans roughly two orders of
+magnitude ([24.7, 220.3] on the median seed) and its across-seed L ranges 35.9–71.1. Contribution 1
+is a coverage-VALIDITY demonstration, which does not need an accurate point predictor, only a
+well-defined one; persistence is the most stable, best-understood predictor on this dataset (it
+reproduces the published baseline exactly) and its predictions already exist from E5 at zero
+additional cost. Hedging the core coverage demonstration against a single unreliable predictor
+family is ordinary good experimental design. This decision would stand regardless of how the
+risk_history audit landed; it is not a reaction to E6/E7's numbers.
+**Decided by:** Sidh (amendment). **No implementation now** — recorded for Phase 3; E9 is not begun.
+**Supersedes:** none (extends EXPERIMENT_PLAN.md E9–E12 candidate-learner set).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
