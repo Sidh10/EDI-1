@@ -498,6 +498,26 @@ Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
 
+### 2026-09-10 — DEFERRED (do not run): the `risk_history=false` counterfactual ablation
+**What it would test.** Whether removing pre-cutoff risk-history access from E6 — while E7 retains
+equivalent information implicitly through the raw per-timestep CDM sequence — explains any part of
+the observed E6-vs-E7 performance gap (E6 L = 53.46 ± 17.60 vs E7 L = 6.39 ± 0.82).
+
+**Status: deliberately deferred. NOT run now, and NOT blocking Phase 3.** The 2026-09-01 amendment
+audit already established that neither model was handicapped in the reported run (both had risk
+history; E6 was additionally persistence-anchored via residual mode), so this ablation is not
+needed to defend the Phase-2 conclusion. It would only quantify a counterfactual.
+
+**Candidate timing.** As a supplementary ablation during **Phase 5 manuscript writing**, and only if
+the paper's narrative ends up needing it (e.g. a reviewer asks whether the architecture comparison
+was confounded by feature access).
+
+**Standing instruction from Sidh:** do **not** execute this ablation as part of this or any future
+CLAUDE.md §13 loop invocation unless explicitly instructed. A §13 loop must treat this entry as a
+closed, non-eligible item — it is logged here precisely so the loop does not rediscover it and
+schedule it on its own authority.
+**Logged by:** Claude Code at Sidh's instruction.
+
 ### 2026-08-31 — Two Phase-2 runs overlapped; results were identical, but the write path is not atomic
 Session teardown orphaned a Phase-2 run without killing it, so a relaunch executed concurrently
 with it (run A: 16:52-19:04; run B: 19:02-19:40). Both wrote the same `reports/tables/*.csv`.
