@@ -18,11 +18,8 @@ These don't block the start of Phase 0 but must be resolved before the module/ph
 - **Q-DATA-01** (group identifier availability) — resolved by the Phase 0 audit (E1); blocks conformal/grouped.py.
 - **Q-DATA-03** (feature leakage dictionary) — resolved during Phase 0 (E2); blocks features.py.
 - **Q-DATA-05 / Q-LBL-01** (missing-field policy; Pc recomputation feasibility) — resolved by the Phase 0 spike (E3); blocks labelnoise scope.
-- **Q-CONF-01** (calibration unit: per event vs. per event-horizon) — must be fixed before Phase 3 conformal module design.
-- **Q-SEL-01** (weight construction: rule-derived vs. estimated propensity vs. hybrid) — deferred to the Phase 3 design review with Sidh (per SOFTWARE_ARCHITECTURE.md Appendix B).
 - **Q-STAT-01, Q-STAT-02, Q-CONF-02, Q-DATA-02** — resolved as outputs of Gate 1 (E4/E5).
 - **Q-COMP-01** (hardware inventory) — resolved before Phase 2 planning.
-- **Q-STAT-04, Q-SEL-03, Q-PUB-04** — resolved before Phase 3 runs (pre-registration).
 - **Q-PUB-01, Q-PUB-02** — resolved before the Phase 3 arXiv preprint.
 - **Q-REPO-02, Q-REPO-03** — resolved before first public repository push.
 
@@ -59,6 +56,87 @@ These don't block the start of Phase 0 but must be resolved before the module/ph
 **Rationale:** This is the single highest-leverage decision of the four for defensibility. Without E9, any coverage failure observed on the official test set (E10) is indistinguishable from an implementation bug rather than evidence of selection bias — this is REVIEWER_CHECKLIST's X2, flagged as one of the sharpest available attacks on the paper's headline contribution. Both splits were already budgeted as separate experiments in EXPERIMENT_PLAN.md, so this adds no new scope, only the explicit commitment to run and report both.
 **Decided by:** Sidh.
 **Supersedes:** none.
+
+---
+
+### 2026-09-15 — Phase 3 Design Review: Q-CONF-01 (calibration unit)
+
+**Decision (part i — exchangeability unit):** One nonconformity score per event, with calibration performed separately for each prediction horizon. Scores from the same event at different horizons are NEVER pooled into a single calibration set.
+
+**Decision (part ii — calibration population):** Calibration draws from the full eligible training pool, NOT a high-risk-only subset. This is recorded explicitly so that the n_cal collapse scenario flagged in the Phase 1 (E4) report — where restricting calibration to the high-risk stratum would reduce n_cal from ~2,600 to ~73 and make the calibration variance term non-negligible — is documented as deliberately avoided, not merely unencountered.
+
+**Rationale:** Our multi-horizon structure is not classical multi-horizon forecasting (where each horizon targets a different future value); both horizons target the same quantity — the event's final risk — from different information sets. It is therefore structurally a clustered/hierarchical problem (multiple correlated views of one unit), not a streaming time-series problem. Two independent literatures converge on the same answer for this structure: (a) the hierarchical conformal literature identifies "subsampling once" (one score per unit) as the construction with exact finite-sample validity, holding without requiring intra-unit exchangeability, and explicitly warns that naive pooling of correlated within-unit scores breaks the uniform-rank property and produces systematic under- or over-coverage; (b) in genuine online multi-horizon forecasting, multi-step Conformal PID calibrates separately per horizon as its baseline valid design, with cross-horizon information sharing offered only as an efficiency improvement, never as a validity requirement. The acknowledged cost of subsampling-once — discarded data and higher variance — is accepted, and is precisely why part (ii) preserves the full calibration pool rather than shrinking it further.
+
+**Explicitly NOT adopted, with reasons:** (1) Full Conformal PID online-control machinery — built for streaming non-stationary forecasting; this is a static historical benchmark, so it is the wrong tool. (2) Bonferroni or joint multi-horizon coverage corrections — inapplicable, because this project reports per-horizon coverage separately (E16) and never claims a joint simultaneous guarantee across horizons; correcting for a claim we do not make would be inappropriate. (3) Repeated subsampling / double conformal (quantile-of-quantiles) with mission as the clustering unit — legitimate and literature-grounded, but adopting it as the primary method would further reduce effective calibration size against the same precision constraint that already forced the Gate 1 PIVOT dropping E13. Logged instead as the specific method to use for the Q-STAT-03(c) cluster-robustness sensitivity check in E17.
+
+**Decided by:** Sidh, at the Phase 3 design review.
+**Supersedes:** none (first resolution of Q-CONF-01).
+
+---
+
+### 2026-09-15 — Phase 3 Design Review: Q-SEL-01 (weight construction)
+
+**Decision:** Rule-derived deterministic weights are the PRIMARY method, constructed directly from the two selection criteria empirically confirmed in Phase 0 (the latest-CDM-within-1-day recency filter, and the measured high-risk enrichment ratio). Classifier-estimated propensity weights are implemented as a SECONDARY robustness comparison only, following the standard construction ŵ(x) = p̂(x)/(1 − p̂(x)) where p̂ is a probabilistic classifier (logistic regression and/or random forest) trained to discriminate calibration-pool events from official-test events on safe covariates.
+
+**Agreement between the two specifications is quantified by the maximum multiplicative divergence** γ̂ = sup_x max{ ŵ(x)/w(x), w(x)/ŵ(x) }, treating the rule-derived weight as the oracle. γ̂ → 1 indicates the estimated weight is well specified and corroborates the rule-derived construction; large γ̂ indicates classifier misspecification or overfitting. Both the γ̂ value and a side-by-side coverage comparison under each weight specification are reported.
+
+**Manuscript language requirement (binding):** the exact finite-sample coverage claim is entitled to be made ONLY for the rule-derived weights. Results under classifier-estimated weights must be explicitly labeled as carrying a weaker, non-exact guarantee. The two must never be presented as interchangeable or reported under a single blanket validity claim.
+
+**Rationale:** The known-versus-estimated distinction is not a technicality but a difference in guarantee class. With an exactly known likelihood ratio, weighted conformal prediction attains exact finite-sample marginal coverage for any n, with no parametric or asymptotic assumptions. Once the ratio must be estimated, that exactness is lost: coverage degrades in proportion to weight-estimation error (bounded by the L1 error of ŵ against w*), and parts of the literature relax the criterion to asymptotic/PAC validity precisely because finite-sample guarantees are unavailable in that regime. This project's selection mechanism was documented by the dataset's creators and independently confirmed empirically in Phase 0 (2.49× high-risk enrichment; 100% vs. 71.9% on the recency axis), placing it in the strongest available regime. There is direct precedent for treating a known selection mechanism this way: in settings where the analyst knows the test input distribution in closed form, the literature states this "absolves the need for density estimation" and permits computing the weights exactly, without density-ratio estimation error. The oracle-versus-classifier comparison adopted here as the robustness check is itself the validation procedure used in the foundational weighted-conformal paper.
+
+**Decided by:** Sidh, at the Phase 3 design review.
+**Supersedes:** none (first resolution of Q-SEL-01).
+
+---
+
+### 2026-09-15 — Phase 3 Design Review: Q-SEL-03 (weight diagnostics, clipping, and positivity)
+
+**Decision (A — mandatory diagnostics).** Every weighted result in E11 (and E12's weighted variant) reports, without exception:
+1. Raw calibration size n AND effective sample size n̂ = (Σ wᵢ)² / Σ wᵢ², side by side.
+2. Pareto k̂ tail-shape diagnostic, fitted to the upper tail of the weight distribution, interpreted on the standard bands: k̂ < 0.5 stable (finite variance); 0.5 ≤ k̂ < 0.7 usable but flagged; k̂ > 0.7 unreliable, clipping required; k̂ > 1 weight mean does not exist, importance weighting invalid.
+3. Weight distribution summary (five-number summary) plus a weight histogram/density figure.
+4. Absolute Standardized Mean Difference (ASMD), post-weighting, computed specifically on the two covariates Phase 0 (E1) identified as divergent between splits — risk level and time-to-TCA of the latest CDM — with the conventional < 0.1 threshold indicating adequate post-weighting balance.
+
+Reporting n̂ alongside n is required because the Gate 1 finding that precision is capped by test-set size rather than calibration size was established for UNWEIGHTED calibration; a skewed weight distribution could reduce effective calibration size enough to revive calibration-side precision as a binding constraint. This must be visible in the results, not discovered afterward.
+
+**Decision (B — clipping, conditional).** Clipping is NOT applied prophylactically. It is triggered only when the Pareto k̂ diagnostic indicates instability (k̂ > 0.7). If triggered: clip at a pre-registered bound B, compute the induced clipping bias directly as Δ_B = 1 − mean(min(w, B)) over the calibration sample, and evaluate at an inflated target coverage level incorporating Δ̂_B, reporting the clipped fraction, B, and Δ̂_B alongside the result. If k̂ falls in the ambiguous 0.5–0.7 band, the maximum weight ratio Q_S = max wᵢ / Σ wᵢ is computed as a secondary tiebreaker (a value exceeding roughly 0.01 flags severe concentration).
+
+**Explicitly NOT adopted:** the full CLISF/CWCP apparatus (clipped function class, structural risk minimization over B, Rademacher complexity penalty). That machinery exists to control damage from *learning* an unbounded density ratio via least-squares importance fitting. The primary weights here are not learned — they are a deterministic function of two documented, low-dimensional criteria — so there is no function class to bound and no estimator overfitting to guard against. Only the bias-correction *idea* (Δ_B and coverage inflation) is borrowed, which is arithmetic on already-known weights. Full CLISF remains a documented fallback if the secondary classifier-estimated weights prove unstable, and is noted as such in the limitations rather than built.
+
+**Decision (C — positivity / low-support test events).** Test events are partitioned into a supported region (adequate calibration support) and an unsupported region (effectively zero weight support), using a pre-registered operational threshold fixed before results are inspected. The coverage guarantee is reported as holding on the supported region, and the manuscript must SAY SO explicitly rather than implying a whole-population claim. The unsupported subpopulation is reported with its count and characteristics (mission and risk-band composition), never silently dropped. Rationale: exclusion without disclosure silently redefines the target population — the causal-inference literature is explicit that trimming shifts the estimand to the trimmed subpopulation — so the scope narrowing must be stated in the claim itself. This mirrors the selective/rejection-CP construction of guaranteeing coverage on the supported domain while formally flagging the unsupported one.
+
+**Decided by:** Sidh, at the Phase 3 design review.
+**Supersedes:** none (first resolution of Q-SEL-03).
+
+---
+
+### 2026-09-15 — Phase 3 Design Review: Q-STAT-04 (multiple-comparison policy)
+
+**Decision:** Hierarchical policy. Exactly ONE primary confirmatory contrast is formally tested: naive versus selection-bias-weighted marginal coverage on the official test set (the E10 vs. E11 comparison). Every other comparison — across nominal levels, across base learners, across methods (split conformal vs. CQR), across horizons — is reported descriptively with confidence intervals and is NOT subjected to formal hypothesis testing. This policy is fixed before Phase 3 results are inspected and is stated as such in the manuscript's methods section.
+
+**Rationale:** The evaluation grid produces dozens of possible comparisons; without a declared primary, any "significant" finding is attackable as multiplicity-driven. Declaring a single confirmatory contrast, pre-registered, is the standard defense and matches how rigorous applied papers handle this. Should a secondary formal comparison later prove necessary (e.g., interval-width efficiency across methods), applying a Bonferroni correction to paired tests has direct precedent in the recent conformal-prediction evaluation literature — but this is a documented fallback, not part of the current plan.
+
+**Decided by:** Sidh, at the Phase 3 design review.
+**Supersedes:** none (first resolution of Q-STAT-04).
+
+---
+
+### 2026-09-15 — Phase 3 Design Review: Q-PUB-04 (pre-registration mechanism)
+
+**Decision:** Two-track. (1) BLOCKING and satisfied now: pre-registration of primary endpoints, success margins, thresholds, and analysis choices via dated, git-timestamped entries in this file (`DECISIONS.md`), which is sufficient to unblock Phase 3 execution. (2) NON-BLOCKING, assigned to Sidh as a parallel task: public OSF pre-registration citing the relevant git commit SHA, to be completed before the Gate 2 arXiv preprint. Phase 3 execution does NOT wait on the OSF registration, and no Claude Code loop invocation may treat its absence as a blocker.
+
+**Rationale:** The git-timestamped internal record is auditable and sufficient for the target venues. A public registration is a genuine differentiator against forking-paths criticism and unusual in this subfield, but it requires an external account and human action, so it must not gate automated execution. Note for the record: a literature check found no source connecting pre-registration practice specifically to conformal prediction — this decision rests on general scientific-practice grounding, not a CP-specific precedent, and the manuscript should not imply otherwise.
+
+**Decided by:** Sidh, at the Phase 3 design review.
+**Supersedes:** none (first resolution of Q-PUB-04).
+
+---
+
+### 2026-09-15 — Phase 3 blocking gate cleared
+
+All five items flagged by the CLAUDE.md §13 loop as blocking Phase 3 (Q-CONF-01, Q-SEL-01, Q-SEL-03, Q-STAT-04, Q-PUB-04) are now RESOLVED above. E9–E11 may proceed. The batch boundary at E11 (Gate 2) remains in force: execution stops there for review regardless of outcome.
+
+**Decided by:** Sidh.
 
 ---
 
