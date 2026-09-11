@@ -802,6 +802,55 @@ whether persistence's over-coverage / width tradeoff is acceptable; and anything
 **Reported by:** Claude Code.
 
 
+---
+
+## Phase 3 Empirical Findings (E12 — CQR) — REPORTED, no decision taken
+
+<!--
+Measurement only; regenerable via `kc conformal --only cqr`. Report:
+reports/03b_cqr.html. 3 seeds (42/43/44), nominal {80,90,95}%, two-sided,
+event-level bootstrap + Clopper-Pearson CIs. E13 SKIPPED (Gate 1 PIVOT), so the
+E12-E13 batch reduced to E12 alone; execution stops before E14 (Gate 3).
+-->
+
+### 2026-09-16 — E12 CQR: large efficiency gain, but a genuine coverage negative (failure criterion met)
+**Report:** `reports/03b_cqr.html`. CQR runs on the GBM quantile heads (the E6 quantile capability;
+point-only learners are out of E12 scope). Q-CONF-03 resolved (b) for CQR: score in-house (reuses
+the tested conformal quantile), not MAPIE/crepes, since the weighted arm must combine it with the
+in-house likelihood-ratio weights.
+
+**Efficiency — the clear win.** CQR intervals are ~0.24x the width of weighted split conformal at
+equal nominal (~4x narrower): median width at 90% is 5.5 (CQR) vs 23.6 (split); ratios 0.26/0.23/0.24
+at 80/90/95%. CQR is adaptive — width tracks the predicted risk level (corr ~0.96), whereas split
+conformal is constant-width.
+
+**Coverage — a genuine negative, reported exactly as observed (CLAUDE.md §3, §9; not tuned).**
+- CQR machinery VALIDATED on the exchangeable self-split (the E9 analog): 0.797/0.896/0.949 at
+  80/90/95%, CP CI contains nominal at every level. So the GBM quantile heads are sound and the CQR
+  code path is correct.
+- On the official (biased) test set CQR UNDER-COVERS: naive 0.774/0.865/0.922, weighted
+  0.757/0.859/0.908 at 80/90/95%. The Clopper-Pearson CI EXCLUDES nominal at every level, naive and
+  weighted. This meets E12's documented failure criterion ("CQR fails to achieve valid coverage even
+  after weighting").
+- Weighting does NOT restore CQR coverage (weighted <= naive at every level), whereas the SAME rule
+  weights DID restore split conformal on the identical events (E11 ref: 0.896 at 90%, valid). The
+  selection-bias correction is effective for the absolute-residual (split) score but not for the CQR
+  score on this dataset.
+
+**Diagnostic reading (for Sidh, not a decision made here).** E12's failure criterion attributes
+invalid coverage to "quantile-head miscalibration in E6." The self-test arm REFUTES that cause: the
+heads and machinery hit nominal under exchangeability. The official-test under-coverage is therefore
+shift-driven, and the effective issue is the weight-vs-CQR-score interaction — the likelihood-ratio
+weighting that corrects the split score does not correct the CQR score here. So the "revisit" the
+failure criterion calls for should target that interaction (or the CQR-score/weight construction),
+not the E6 quantile heads.
+
+**Explicitly NOT decided here:** whether CQR enters the manuscript as an efficiency result with a
+stated coverage caveat, or is held pending a weighting fix; and anything in E14/Phase 4. Per §9 the
+failure was reported exactly, not retried for a better number; per §13 execution stops at the
+E12-E13 batch boundary (E13 SKIPPED). **Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*

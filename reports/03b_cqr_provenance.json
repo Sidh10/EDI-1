@@ -1,0 +1,15 @@
+{
+  "experiment_ids": [
+    "E12"
+  ],
+  "git_commit_sha": "5422ccdd63c87b270275a15023edc2e2c989a041",
+  "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "bootstrap_resamples": 2000,
+  "executed_utc": "2026-09-11T07:28:45.572749+00:00",
+  "python": "3.13.11"
+}
