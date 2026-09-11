@@ -446,3 +446,139 @@ def _primary_contrast(coverage: pd.DataFrame, primary_level: float) -> pd.DataFr
             "E11_gap_pp": 100.0 * (float(e11["coverage"].mean()) - primary_level),
         })
     return pd.DataFrame(rows)
+
+
+# --- E12: Conformalized Quantile Regression -----------------------------------
+
+
+def cqr_quantile_levels(nominal_levels) -> list:
+    """The GBM quantile heads CQR needs: {alpha/2, 1-alpha/2} for each nominal level.
+
+    Derived from the (config-declared) nominal coverage levels, so no quantile
+    level is a hardcoded magic number.
+    """
+    levels = set()
+    for nl in nominal_levels:
+        a = 1.0 - nl
+        levels.add(round(a / 2, 6))
+        levels.add(round(1.0 - a / 2, 6))
+    return sorted(levels)
+
+
+def run_e12(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
+    """E12 CQR on the GBM quantile heads: naive + weighted, vs E11 split conformal.
+
+    CQR uses genuine quantile predictors, so it runs on the GBM pinball heads (the
+    E6 quantile capability); the point-only learners (persistence/GRU/MC-dropout)
+    have no native quantiles and are out of E12's scope per the spec. Both a naive
+    and a rule-weighted CQR interval are produced on the SUPPORTED official-test
+    region, at every nominal level, two-sided, and compared per-event against the
+    weighted split-conformal interval (E11) for the efficiency (width) analysis.
+    """
+    from ..conformal.cqr import cqr_interval, cqr_scores, enforce_monotone_quantiles
+    from . import gbm as gbm_mod
+    from .runner import search_gbm
+
+    events = load_events(cfg)
+    data = prepare_conformal_data(cfg, events)
+    weights = build_weights(cfg, data)
+
+    seeds = list(seeds if seeds is not None else cfg.train.seeds)
+    n_boot = int(n_boot if n_boot is not None else cfg.bootstrap.n_resamples)
+    nominal_levels = [cfg.power.nominal_coverage_primary, *cfg.power.nominal_coverage_secondary]
+    primary = cfg.power.nominal_coverage_primary
+    qlevels = cqr_quantile_levels(nominal_levels)
+
+    fit, val = data.subsets["fit_inner"], data.subsets["val_inner"]
+    cal, test = data.subsets["calibration"], data.subsets["official_test"]
+    part = diag.positivity_partition(test["recency_ok"])
+    sup = part.supported
+
+    gbm_budget = cached_search(cfg, "e6_gbm", cfg.seed,
+                               lambda: search_gbm(cfg, _tab_view(data), seed=cfg.seed))
+    params = _gbm_params(gbm_budget.best_params, cfg.seed)
+
+    rows = []
+    width_pairs = []      # per-(level,seed): CQR vs split median widths (efficiency)
+    adapt = None
+    for seed in seeds:
+        p = _gbm_params(gbm_budget.best_params, seed)
+        # Quantile heads at the CQR levels, and the point model for the split-CP baseline.
+        qmodels, qbest = gbm_mod.fit_quantile_models(
+            fit["tab_X"], fit["y"], val["tab_X"], val["y"], qlevels, seed=seed, params=p,
+            num_boost_round=cfg.gbm.num_boost_round,
+            early_stopping_rounds=cfg.train.early_stopping_rounds,
+        )
+        point, best_it = gbm_mod.fit_point_model(
+            fit["tab_X"], fit["y"], val["tab_X"], val["y"], seed=seed, params=params,
+            num_boost_round=cfg.gbm.num_boost_round,
+            early_stopping_rounds=cfg.train.early_stopping_rounds,
+        )
+
+        def qpred(level, X, _m=qmodels, _b=qbest):
+            return np.asarray(_m[level].predict(X, num_iteration=_b[level]), dtype=float)
+
+        pt_cal = np.asarray(point.predict(cal["tab_X"], num_iteration=best_it), dtype=float)
+        pt_te = np.asarray(point.predict(test["tab_X"], num_iteration=best_it), dtype=float)[sup]
+
+        for nl in nominal_levels:
+            a = 1.0 - nl
+            lo_l = round(a / 2, 6)
+            hi_l = round(1.0 - a / 2, 6)
+
+            qlo_c, qhi_c = enforce_monotone_quantiles(qpred(lo_l, cal["tab_X"]), qpred(hi_l, cal["tab_X"]))
+            qlo_t, qhi_t = enforce_monotone_quantiles(
+                qpred(lo_l, test["tab_X"])[sup], qpred(hi_l, test["tab_X"])[sup]
+            )
+            s_cqr = cqr_scores(cal["y"], qlo_c, qhi_c)
+            iv_cn = cqr_interval(qlo_t, qhi_t, s_cqr, a)
+            iv_cw = cqr_interval(qlo_t, qhi_t, s_cqr, a,
+                                 weights=weights.rule.w, test_weight=weights.rule.test_weight)
+            c_cn = coverage_with_ci(test["y"][sup], iv_cn, seed=seed, n_boot=n_boot)
+            c_cw = coverage_with_ci(test["y"][sup], iv_cw, seed=seed, n_boot=n_boot)
+            rows.append(_row("gbm", "E12_cqr_naive", "two", nl, seed, c_cn))
+            rows.append(_row("gbm", "E12_cqr_weighted_rule", "two", nl, seed, c_cw))
+
+            # Weighted split-conformal (E11-equivalent) on the GBM POINT model, same
+            # seed and events, for the paired width-efficiency comparison.
+            s_split = absolute_residual_scores(cal["y"], pt_cal)
+            iv_sw = split_interval(pt_te, s_split, a, sided="two",
+                                   weights=weights.rule.w, test_weight=weights.rule.test_weight)
+            c_sw = coverage_with_ci(test["y"][sup], iv_sw, seed=seed, n_boot=n_boot)
+            rows.append(_row("gbm", "E11ref_split_weighted_rule", "two", nl, seed, c_sw))
+
+            width_pairs.append({
+                "nominal": nl, "seed": seed,
+                "cqr_median_width": float(np.median(iv_cw.width[np.isfinite(iv_cw.width)])),
+                "split_median_width": float(np.median(iv_sw.width[np.isfinite(iv_sw.width)])),
+                "cqr_width_sd": float(np.std(iv_cw.width[np.isfinite(iv_cw.width)])),
+                "split_width_sd": float(np.std(iv_sw.width[np.isfinite(iv_sw.width)])),
+            })
+
+            if nl == primary and seed == seeds[len(seeds) // 2]:
+                adapt = pd.DataFrame({
+                    "risk_last": test["risk_last"][sup],
+                    "cqr_width": iv_cw.width,
+                    "split_width": iv_sw.width,
+                    "is_high_risk": test["is_high_risk"][sup],
+                })
+
+    coverage = pd.DataFrame(rows)
+    widths = pd.DataFrame(width_pairs)
+    wagg = widths.groupby("nominal").agg(
+        cqr_median_width=("cqr_median_width", "mean"),
+        split_median_width=("split_median_width", "mean"),
+        cqr_width_sd=("cqr_width_sd", "mean"),
+        split_width_sd=("split_width_sd", "mean"),
+    ).reset_index()
+    wagg["width_ratio_cqr_over_split"] = wagg["cqr_median_width"] / wagg["split_median_width"]
+
+    return {
+        "coverage_raw": coverage,
+        "coverage": _aggregate(coverage),
+        "widths": wagg,
+        "adaptivity": adapt,
+        "gamma_divergence": weights.gamma,
+        "meta": {"seeds": seeds, "nominal_levels": nominal_levels, "primary_level": primary,
+                 "cqr_quantile_levels": qlevels, "n_supported": int(sup.sum())},
+    }
