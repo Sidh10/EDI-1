@@ -520,6 +520,7 @@ def run_e12(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
 
         pt_cal = np.asarray(point.predict(cal["tab_X"], num_iteration=best_it), dtype=float)
         pt_te = np.asarray(point.predict(test["tab_X"], num_iteration=best_it), dtype=float)[sup]
+        selft = data.subsets["self_test"]
 
         for nl in nominal_levels:
             a = 1.0 - nl
@@ -531,6 +532,15 @@ def run_e12(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
                 qpred(lo_l, test["tab_X"])[sup], qpred(hi_l, test["tab_X"])[sup]
             )
             s_cqr = cqr_scores(cal["y"], qlo_c, qhi_c)
+
+            # CQR machinery validation on the EXCHANGEABLE self-test split (the E9
+            # analog for CQR): no shift, no weights. Distinguishes a shift-driven
+            # official-test result from GBM quantile-head miscalibration.
+            qlo_s, qhi_s = enforce_monotone_quantiles(qpred(lo_l, selft["tab_X"]), qpred(hi_l, selft["tab_X"]))
+            iv_cs = cqr_interval(qlo_s, qhi_s, s_cqr, a)
+            c_cs = coverage_with_ci(selft["y"], iv_cs, seed=seed, n_boot=n_boot)
+            rows.append(_row("gbm", "E12_cqr_selftest", "two", nl, seed, c_cs))
+
             iv_cn = cqr_interval(qlo_t, qhi_t, s_cqr, a)
             iv_cw = cqr_interval(qlo_t, qhi_t, s_cqr, a,
                                  weights=weights.rule.w, test_weight=weights.rule.test_weight)
