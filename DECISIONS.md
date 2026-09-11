@@ -705,6 +705,74 @@ risk_history audit landed; it is not a reaction to E6/E7's numbers.
 **Supersedes:** none (extends EXPERIMENT_PLAN.md E9–E12 candidate-learner set).
 
 
+---
+
+## Phase 3 Empirical Findings (E9, E10, E11) — REPORTED, no Gate 2 decision taken
+
+<!--
+Measurements only. The Gate 2 GO/PIVOT/NO-GO call is Sidh's. Every number is
+regenerable via `kc conformal`; report reports/03_conformal.html. 3 seeds
+(42/43/44), event-level bootstrap + Clopper-Pearson CIs, 3 nominal levels
+{80,90,95}%, two-sided + one-sided-upper, four base learners.
+-->
+
+### 2026-09-11 — E9/E10/E11 conformal batch: Contribution 1 machinery, problem, and correction
+**Report:** `reports/03_conformal.html`. Seed-42 numbers reproduce the earlier 1-seed smoke exactly
+(persistence E11-rule = 0.9262 both times), confirming determinism.
+
+**E9 (machinery validation, exchangeable self-split) — PASSES.** Coverage tracks nominal for every
+learner at every level; largest |gap| ~1.1 pp (nominal 90%: persistence 0.898, GBM 0.908, GRU
+0.903, MC-dropout 0.900). No implementation bug: the conformal core is correct where its
+assumptions hold, so any official-test deviation is attributable to the shift, not to code.
+
+**E10 (naive split conformal, official biased test) — under-covers, as hypothesised.** At nominal
+90%: persistence 0.858 (−4.2 pp), GBM 0.836 (−6.4), GRU 0.859 (−4.1), MC-dropout 0.853 (−4.7).
+The self-split-vs-official gap is the selection-bias problem, quantified (figure
+`e10_problem_selfsplit_vs_official`).
+
+**E11 (weighted conformal, rule-derived primary) — restores coverage.** At nominal 90%: persistence
+0.926 (+2.6 pp), GBM 0.896 (−0.4), GRU 0.903 (+0.3), MC-dropout 0.896 (−0.4). Gap closed vs E10:
+4.4–6.8 pp. Headline figure `e11_headline_naive_vs_weighted` (naive below the diagonal, weighted on
+it). Interval widths widen (the expected cost of weighting; e.g. GBM 18.8→23.6 log-units at 90%).
+
+**Pre-registered primary contrast (Q-STAT-04), persistence, nominal 90%, two-sided, supported
+region:** E10 0.858 → E11 0.926; McNemar exact two-sided p = 5.6e-45 (148 events moved
+uncovered→covered, 0 the other way). The single formally-tested comparison; everything else
+descriptive with CIs.
+
+**Weight diagnostics (Q-SEL-03) — clean for the primary construction.** Rule-derived weights:
+Pareto k̂ = −2.34 ("stable"), n = 2391, n̂ = 1530 (so weighting did NOT revive the calibration-side
+precision constraint Gate 1 flagged — n̂ stayed well above the danger zone), 1673/2391 positive
+(718 zeroed by the hard recency filter, consistent with E1's 71.9% train recency). No clipping
+triggered (k̂ < 0.7). Positivity: all 2167 official-test events supported, 0 unsupported.
+
+**Anomalies flagged honestly:**
+1. **γ̂ = 1.04e6** — the rule-vs-classifier weight divergence is enormous. This is the Q-SEL-01
+   diagnostic working: the classifier assigns near-zero weight to some calibration events the rule
+   keeps (and vice versa), so the two constructions disagree violently in the tail. It corroborates
+   resting the EXACT finite-sample claim on the rule-derived weights only (as pre-registered); the
+   classifier weights (k̂ = 0.17, discriminator AUC 0.72) are a robustness check, not
+   interchangeable. Worth Sidh's eye at Gate 2.
+2. **Persistence E11 over-covers** (+2.6 pp at 90%, +3.2 pp at 95% → 0.982). Valid but conservative;
+   persistence intervals are much wider (43.4 vs GBM 23.6 log-units at 90%) because persistence
+   residuals are large. Over-coverage is not a validity failure, but the width cost is real and the
+   "operationally useful, not vacuous" success criterion should be weighed per learner.
+3. The result is strong but NOT suspicious-good in the leakage sense: E9 independently validates the
+   machinery, weights use only observable pre-cutoff covariates (never test labels), and restored
+   coverage is the pre-registered hypothesis. Checked per CLAUDE.md §3/§10.
+
+**Implementation deviation (recorded):** Pareto k̂ is the GPD shape parameter via scipy's MLE fit,
+not the Zhang-Stephens PSIS estimator the Q-SEL-03 resolution names; same shape parameter, same
+0.5/0.7/1.0 bands, vetted estimator chosen over a hand-rolled one for a correctness-critical
+quantity.
+
+**Explicitly NOT decided here (Sidh's, at Gate 2):** the GO/PIVOT/NO-GO call; whether Contribution 1
+is "validated"; confirmation that persistence is the right base learner for THE primary contrast;
+whether persistence's over-coverage / width tradeoff is acceptable; and anything in E12/E13 or later
+— execution stops at this batch boundary (CLAUDE.md §13.4).
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
