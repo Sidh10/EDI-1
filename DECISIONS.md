@@ -140,6 +140,35 @@ All five items flagged by the CLAUDE.md §13 loop as blocking Phase 3 (Q-CONF-01
 
 ---
 
+### 2026-09-16 — GATE 2 DECISION: Contribution 1 (weighted conformal correction)
+
+**Decision: GO**, scoped precisely as follows.
+
+**What is confirmed and publication-ready:** Two-sided marginal coverage validity is restored by rule-derived weighted conformal prediction on the official (selection-biased) test set. This is the project's primary, pre-registered contrast (Q-STAT-04) and it passed cleanly:
+
+- E9 (self-split, exchangeable, two-sided): coverage ≈ nominal for all four base learners (|gap| ≤ 1.1pp) — the conformal machinery is validated as correct where its assumptions hold, before it is asked to handle the harder case.
+- E10 (naive, official biased test, two-sided): under-covers by 4.2–6.4pp across all four learners — the selection-bias problem, empirically demonstrated, not merely asserted from the challenge paper's documentation.
+- E11 (rule-derived weighted correction, two-sided): restores coverage to within ~0.5pp of nominal for GBM, GRU, and MC-dropout; persistence lands at +2.6pp (conservative but valid).
+- Primary formal test (McNemar, persistence, 90%, two-sided, pre-registered per Q-STAT-04): E10 0.858 → E11 0.926, p = 5.6e-45, 148 events flipped uncovered→covered, 0 the reverse.
+- Weight diagnostics clean throughout: rule weights k̂ = −2.34 (stable), n̂ = 1530 of n = 2391 (no calibration-precision collapse — the Gate 1 concern did not materialize), zero clipping triggered, zero unsupported (positivity-violating) test events. Classifier (secondary) weights independently confirmed stable (k̂ = 0.17); γ̂ ≈ 1.04e6 reflects genuine substantive disagreement between the two weight specifications, not numerical instability in either, corroborating that the exact finite-sample claim rests on the rule-derived weights alone (per the Q-SEL-01 resolution).
+
+**Manuscript scoping (binding):** the paper's exact-coverage claim for Contribution 1 is stated for TWO-SIDED intervals only. This was always the design of the pre-registered primary contrast; this entry makes it explicit given the one-sided finding below, so the two are never conflated in writing.
+
+**Second, honest finding — not a blocker, a secondary result:** the weighted correction does NOT restore one-sided (upper-bound) coverage for GBM, GRU, or MC-dropout, despite the one-sided conformal code path being independently validated as correct under exchangeability (E9 one-sided: PASS for all three, gaps ≤0.8pp). This is therefore a real, shift-driven phenomenon, not an implementation bug, and is reported in the manuscript as a secondary finding: selection-bias-corrected weighted conformal prediction restores two-sided marginal validity but not one-sided upper-bound validity under this dataset's selection mechanism. Persistence's one-sided numbers are excluded from this finding and carry a separate, distinct caveat (below) — the two must not be reported together as if they share a cause.
+
+**Persistence one-sided caveat (distinct issue, diagnosed, not a shift effect):** persistence's one-sided coverage is degenerate under exchangeability itself (E9 one-sided: FAILS at 80%/90%, identical coverage 0.9376 at both). Root cause verified directly: 65.9% of persistence's signed nonconformity scores equal exactly zero (final risk equals the last pre-cutoff risk, typically both at the risk floor), producing a point mass that makes the 80th and 90th score percentiles coincide. This is a property of the persistence predictor's residual distribution, not of the conformal machinery or the selection-bias correction. No fix was applied (out of scope for Phase 3); a randomized/smoothed conformal quantile is the standard remedy if persistence one-sided intervals are needed later. Persistence's one-sided results are excluded from any coverage claim in the manuscript pending that fix, if pursued.
+
+**Consequence flagged forward to Phase 5 (not resolved here):** E15's decision-cost evaluation was designed to consume the one-sided upper bound specifically, since underestimating risk is the operationally dangerous direction. Given the one-sided finding above, E15 must either (a) use the two-sided interval's upper edge in place of a dedicated one-sided bound, or (b) explicitly incorporate the one-sided under-coverage as a stated caveat on any decision-cost result that relies on it. This decision is deferred to the Phase 4/5 design review, not made now — logged here so it is not rediscovered late.
+
+**Rationale for GO despite the one-sided gap:** the pre-registered primary contrast was always two-sided; it passed decisively, with validated machinery, clean diagnostics, and no leakage or bias-source ambiguity. The one-sided result is a genuine, interesting, non-obvious finding about the boundary of when selection-bias correction works — arguably a bonus result for the paper, provided it is framed as a discovered scope limitation rather than smoothed over. Holding Gate 2 open pending a full resolution of the one-sided asymmetry would block a clean, publishable, already-validated result over a question that belongs to Phase 5's decision-cost design, not to Contribution 1's core validity claim.
+
+**Phase 4 (E14, label-noise sensitivity) may proceed.** E12 (CQR) and E13 (already skipped per Gate 1) may also proceed per the existing execution order.
+
+**Decided by:** Sidh, at Gate 2.
+**Supersedes:** none (first Gate 2 decision).
+
+---
+
 ## PRE-REGISTRATION (PROPOSED — awaiting Sidh's confirmation)
 
 <!--
@@ -816,3 +845,14 @@ retained so the record of why it was planned and why it was dropped survives). P
 proceeds.
 **Supersedes:** the PROPOSED status of the E4 and E5 pre-registration entries above; neither
 entry's analysis or reasoning is modified.
+
+### 2026-09-16 — GATE 2 (E9–E11 review): GO, scoped to two-sided coverage
+**Decision:** GO. Rule-derived weighted conformal restores TWO-SIDED marginal coverage on the
+official test set (E10 0.858 → E11 0.926 at 90%; McNemar p = 5.6e-45; machinery validated at E9,
+diagnostics clean). The exact-coverage claim is scoped to two-sided intervals. A secondary,
+honest finding is logged: weighting does NOT restore one-sided (upper-bound) coverage for the
+learned models (shift-driven, machinery independently validated), and persistence's one-sided
+numbers are separately degenerate (a 65.9% zero-atom in its signed scores) — both excluded from
+the manuscript's coverage claim. E12 (CQR) and Phase 4 (E14) may proceed; E13 remains SKIPPED
+(Gate 1 PIVOT). Full entry in the RESOLVED section above.
+**Decided by:** Sidh, at Gate 2.
