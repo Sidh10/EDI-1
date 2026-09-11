@@ -1,0 +1,23 @@
+{
+  "experiment_ids": [
+    "E9",
+    "E10",
+    "E11"
+  ],
+  "git_commit_sha": "a652396222d522b7ed3f786a48f783c18be899c1",
+  "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+  "seed": 42,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "bootstrap_resamples": 2000,
+  "nominal_levels": [
+    0.9,
+    0.8,
+    0.95
+  ],
+  "executed_utc": "2026-09-11T04:42:26.840155+00:00",
+  "python": "3.13.11"
+}

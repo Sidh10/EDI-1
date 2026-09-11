@@ -144,5 +144,63 @@ def power(
     typer.echo("[power] Gate 1 table rendered. Review, then Sidh records the gate decision.")
 
 
+@app.command()
+def baselines_phase2(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E6/E7/E8: train the Phase-2 baselines and audit MC-dropout coverage.
+
+    Renders ``reports/02_baselines.html``. Slow by design — three hyperparameter
+    searches plus multi-seed training on CPU (EXPERIMENT_PLAN estimates hours).
+    """
+    import time as _time
+
+    from .reporting import OutputLockError, output_lock
+
+    cfg = load_config(config)
+    _ensure_kernel()
+    # Run-id guard: two concurrent runs must not write reports/tables/ at once
+    # (the concurrent-write hazard logged at the Phase-2 checkpoint). A unique id
+    # per invocation; the lock auto-reclaims if a prior run was killed.
+    run_id = f"phase2-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            _run_notebook(
+                REPO_ROOT / "notebooks" / "02_baselines.ipynb",
+                cfg.path("reports_dir") / "02_baselines.html",
+            )
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
+    typer.echo("[phase2] E6/E7/E8 report rendered. Review, then Sidh records the checkpoint.")
+
+
+@app.command()
+def conformal(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E9/E10/E11: split, naive, and weighted conformal — the Gate 2 batch.
+
+    Renders ``reports/03_conformal.html``. Stops at the Gate 2 batch boundary; the
+    GO/PIVOT/NO-GO call is Sidh's (CLAUDE.md §3, §13). Slow by design — multi-seed
+    base-learner training on CPU (EXPERIMENT_PLAN estimates hours for E11).
+    """
+    import time as _time
+
+    from .reporting import OutputLockError, output_lock
+
+    cfg = load_config(config)
+    _ensure_kernel()
+    run_id = f"phase3-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            _run_notebook(
+                REPO_ROOT / "notebooks" / "03_conformal.ipynb",
+                cfg.path("reports_dir") / "03_conformal.html",
+            )
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
+    typer.echo("[phase3] E9-E11 report rendered. Gate 2: Sidh reviews before Phase 4.")
+
+
 if __name__ == "__main__":
     app()

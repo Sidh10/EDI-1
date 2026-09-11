@@ -1,7 +1,7 @@
 # Thin aliases over the `kc` CLI and dev tooling (SOFTWARE_ARCHITECTURE.md §3).
 # These are conveniences only; the CLI is the source of truth for pipeline stages.
 
-.PHONY: help install lint test test-fast audit ingest baselines power reproduce clean
+.PHONY: help install lint test test-fast audit ingest baselines power phase2 reproduce clean
 
 help:
 	@echo "Targets:"
@@ -13,11 +13,12 @@ help:
 	@echo "  audit       - E1/E2/E3: render Phase 0 audit + Pc-spike reports"
 	@echo "  baselines   - E5: validate the challenge metric vs published baseline scores"
 	@echo "  power       - E4: power analysis -> the Gate 1 decision table"
+	@echo "  phase2      - E6/E7/E8: train baselines + MC-dropout coverage audit (slow)"
 	@echo "  reproduce   - full manuscript reproduction (not available until later phases)"
 	@echo "  clean       - remove rendered reports and caches (never touches data/raw)"
 
 install:
-	uv sync --extra notebooks --extra dev
+	uv sync --extra notebooks --extra dev --extra models
 
 lint:
 	uv run ruff check src tests
@@ -39,6 +40,9 @@ baselines:
 
 power:
 	uv run kc power
+
+phase2:
+	uv run kc baselines-phase2
 
 reproduce:
 	@echo "reproduce-all is not implemented in Phase 0 (E0-E3 only). See EXPERIMENT_PLAN.md."

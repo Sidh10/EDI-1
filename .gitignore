@@ -12,6 +12,10 @@
 /reports/manuscript_figures/
 /reports/manuscript_tables/
 
+# papermill's intermediate executed notebook (deleted on success; present only
+# if a run crashed mid-way). The source notebook is tracked, its execution is not.
+*.executed.ipynb
+
 # Python
 __pycache__/
 *.py[cod]

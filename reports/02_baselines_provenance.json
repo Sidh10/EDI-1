@@ -1,0 +1,26 @@
+{
+  "experiment_ids": [
+    "E6",
+    "E7",
+    "E8"
+  ],
+  "git_commit_sha": "83df99748c7cddb5f1bda4192333bee35da5a378",
+  "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+  "seed": 42,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "hpo_budget_trials": 24,
+  "bootstrap_resamples": 2000,
+  "nominal_levels": [
+    0.8,
+    0.9,
+    0.95
+  ],
+  "risk_history_enabled": true,
+  "include_ambiguous_features": false,
+  "executed_utc": "2026-08-31T13:32:07.195302+00:00",
+  "python": "3.13.11"
+}

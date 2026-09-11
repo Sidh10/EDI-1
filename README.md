@@ -2,7 +2,7 @@
 
 Coverage-valid uncertainty quantification for satellite conjunction risk, using conformal prediction on the ESA Kelvins Collision Avoidance Challenge dataset — explicitly correcting for the dataset's documented test-set selection bias and quantifying sensitivity to known label noise.
 
-**Status:** Phase 0 (E0–E3) and Phase 1 (E4–E5) implemented; **awaiting Sidh's Gate 1 review**. Nothing from Phase 2 (E6 onward) is built. Open for decision: the Gate 1 GO/PIVOT/NO-GO call, the Assumption-A4 call, and confirmation of the pre-registered tolerances/bars — see `DECISIONS.md`.
+**Status:** Phases 0–2 implemented (E0–E8). **Gate 1 passed** — GO on marginal coverage, PIVOT dropping group-conditional analysis (E13 skipped). Nothing from Phase 3 (E9 onward) is built. Open for decision: the Assumption-A4 call, and confirmation of the Phase-2 pre-registered items (the `risk` feature-dictionary interpretation and the promotion-threshold decision rule) — see `DECISIONS.md`.
 
 The evaluation harness is validated: our implementation of the official challenge metric reproduces the published LRP and CRP baseline scores to 4 decimal places (E5).
 
@@ -17,16 +17,17 @@ Full context: `PROJECT_KNOWLEDGE.md` (what and why) → `SOFTWARE_ARCHITECTURE.m
 ```bash
 git clone <repo-url>
 cd kelvins-conformal
-uv sync --extra notebooks --extra dev
+uv sync --extra notebooks --extra dev --extra models
 kc ingest          # E0: downloads + checksum-verifies the dataset, freezes it read-only
 kc audit           # E1/E2/E3: renders reports/00_data_audit.html + 00b_pc_spike.html
 kc baselines       # E5: validates the challenge metric vs published baseline scores
 kc power           # E4: power analysis -> the Gate 1 decision table
+kc baselines-phase2 # E6/E7/E8: train baselines + audit MC-dropout coverage (slow)
 ```
 
 `kc reproduce-all` regenerates every manuscript number and figure; it is not implemented yet
-(it arrives with the first manuscript figures in Phase 1+). Available commands are only those
-whose experiments exist — `kc ingest` and `kc audit` today.
+(it arrives with the first manuscript figures). Available commands are only those whose
+experiments exist: `ingest`, `audit`, `baselines`, `power` and `baselines-phase2` today.
 
 No GPU required for the core pipeline; see `SOFTWARE_ARCHITECTURE.md` §9 for the full technology/compute breakdown.
 
@@ -42,8 +43,8 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
 
 - [x] Blocking pre-Phase-0 questions resolved (Q-METH-01/02/03, Q-SEL-02)
 - [x] Phase 0 — Foundation, audit, feasibility spikes *(E0–E3 run; reports rendered; **awaiting Sidh's checkpoint review** — the A4 go/no-go and the E3 tolerance confirmation are not made)*
-- [ ] Gate 1 — Statistical power / go-no-go *(E4 + E5 run; harness validated against published scores; **decision table ready, awaiting Sidh's GO/PIVOT/NO-GO**)*
-- [ ] Phase 2 — Baselines
+- [x] Gate 1 — Statistical power / go-no-go *(**GO** on marginal coverage; **PIVOT** dropping group-conditional analysis — E13 skipped. Decided by Sidh, see `DECISIONS.md`.)*
+- [x] Phase 2 — Baselines *(E6 GBM, E7 sequence, E8 steelmanned MC-dropout coverage audit; awaiting checkpoint review)*
 - [ ] Gate 2 — Weighted conformal (Contribution 1)
 - [ ] Gate 3 — Label-noise sensitivity / venue decision (Contribution 2)
 - [ ] Phase 5 — Decision-cost, robustness, release (Contribution 3)

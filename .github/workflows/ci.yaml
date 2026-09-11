@@ -31,15 +31,22 @@ jobs:
         run: uv python install 3.11
 
       - name: Sync pinned environment
-        run: uv sync --frozen --extra notebooks --extra dev
+        # `models` brings LightGBM + torch (CPU). They are needed because the
+        # feature-safety, masking and determinism tests exercise the real model
+        # code — on tiny synthetic fixtures, never on the 211 MB archive.
+        run: uv sync --frozen --extra notebooks --extra dev --extra models
 
       - name: Lint
         run: uv run ruff check src tests
 
       - name: Unit + statistical-core tests
         # Excludes tests marked `slow` (those that require the real dataset).
-        # The statistical core (pc_foster, config, ingest logic, split leakage)
-        # is fully covered here against toy/synthetic inputs.
+        # The statistical core (pc_foster, metrics, bootstrap, power, config,
+        # ingest logic, split leakage) plus the Phase-2 feature-safety, sequence
+        # masking and model determinism tests all run here against toy/synthetic
+        # inputs. Full model training is deliberately NOT run in CI — it takes
+        # hours on CPU and needs the real archive; the tiny fixtures cover the
+        # code paths that can silently corrupt a result.
         run: uv run pytest -m "not slow" --durations=10
 
       - name: Tiny-subset smoke pipeline

@@ -31,6 +31,16 @@ notebooks = [
     "papermill>=2.6,<3",
     "ipykernel>=6.29,<7",
 ]
+# Phase 2 (E6-E8) model dependencies. Both were pre-approved in
+# SOFTWARE_ARCHITECTURE.md §9 as the project's chosen tree and sequence
+# frameworks, so this adds no unreviewed dependency (CLAUDE.md §10) — it merely
+# installs what the architecture already specified, pinned. Kept in a separate
+# extra so the Phase 0/1 statistical core installs without them.
+models = [
+    "lightgbm>=4.3,<5",
+    "torch>=2.2,<3",
+    "scikit-learn>=1.4,<2",
+]
 dev = [
     "pytest>=8,<9",
     "ruff>=0.6,<1",
