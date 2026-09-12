@@ -211,5 +211,34 @@ def conformal(
     typer.echo("[phase3] conformal report(s) rendered. Gate calls are Sidh's (CLAUDE.md §13).")
 
 
+@app.command()
+def labelnoise(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E14: label-noise sensitivity — Contribution 2, the Gate 3 input.
+
+    Renders ``reports/04_labelnoise.html``. Re-evaluates the already-fit conformal
+    machinery against official-test labels regenerated across the covariance-
+    scaling grid (Q-LBL-02/03; SCOPED M7 per the Assumption-A4 resolution). The
+    Gate 3 venue-tier call is Sidh's (CLAUDE.md §10, §13.7).
+    """
+    import time as _time
+
+    from .reporting import OutputLockError, output_lock
+
+    cfg = load_config(config)
+    _ensure_kernel()
+    run_id = f"phase4-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            _run_notebook(
+                REPO_ROOT / "notebooks" / "04_labelnoise.ipynb",
+                cfg.path("reports_dir") / "04_labelnoise.html",
+            )
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
+    typer.echo("[phase4] E14 report rendered. Gate 3 is Sidh's call (CLAUDE.md §13).")
+
+
 if __name__ == "__main__":
     app()

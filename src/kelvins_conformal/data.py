@@ -241,6 +241,30 @@ def build_events(cfg: Config) -> pd.DataFrame:
     return events
 
 
+def official_test_target_cdms(cfg: Config) -> pd.DataFrame:
+    """The target-defining CDM of every official-test event, one row per event.
+
+    These are the rows of ``test_data_private.csv``: the CDM whose ``true_risk``
+    IS each test event's label under the Q-METH-01 target definition (see
+    ``build_events``). E14 regenerates that label from these rows' state and
+    covariance fields, so it must read the row that defines it rather than any
+    public input CDM.
+
+    Returns the private frame with ``true_risk`` renamed to ``target_log_risk``
+    and a namespaced ``event_uid`` matching the events table. Read-only use of
+    ``data/raw/`` (CLAUDE.md §2); nothing is written back.
+    """
+    priv = _coerce_types(_read_test_private(cfg))
+    priv_expected = tuple("true_risk" if c == "risk" else c for c in COLUMNS_103)
+    _validate_columns(priv, priv_expected, "test_data_private.csv")
+    priv = priv.rename(columns={"true_risk": "target_log_risk"})
+    priv["event_uid"] = "test_" + priv[EVENT_COL].astype("int64").astype(str)
+    if priv["event_uid"].duplicated().any():
+        n = int(priv["event_uid"].duplicated().sum())
+        raise SchemaError(f"test_data_private.csv has {n} duplicate event_uid rows")
+    return priv.reset_index(drop=True)
+
+
 def write_events_parquet(cfg: Config, events: pd.DataFrame) -> Path:
     """Write the events table atomically (temp -> fsync -> rename, invariant §9)."""
     out = cfg.path("events_parquet")

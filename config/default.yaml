@@ -238,3 +238,37 @@ pc_spike:
   tolerance:
     abs_log10_risk: 0.5      # |recomputed - reported| in log10 units, per CDM
     min_proportion_within: 0.80   # fraction of the sample that must fall within it
+
+# --- E14 label-noise sensitivity (Phase 4, Gate 3) ---------------------------
+# Every value here is fixed by the 2026-09-16 E14 PRE-REGISTRATION entry in
+# DECISIONS.md, written BEFORE E14 read the official test set (CLAUDE.md §3).
+# Scope is SCOPED M7 per the 2026-09-16 Assumption-A4 / Q-LBL-01 resolution.
+labelnoise:
+  # Q-LBL-02 resolved (a): ONE scalar multiplying the COMBINED position covariance
+  # C = C_target + C_chaser -> s*C. This is the VARIANCE scale, so each sigma
+  # scales by sqrt(s). Grid spans the ~0.8x-2.0x range EXPERIMENT_PLAN E14 names
+  # and includes the s = 1.0 anchor (the recomputation reference point).
+  scaling_grid: [0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
+  # Deterministic polar-quadrature resolution for the Pc disk integral. Same
+  # values the E3 spike used, so an s = 1.0 label reproduces the E3 code path
+  # exactly rather than approximately.
+  integration:
+    n_radial: 200
+    n_angular: 360
+  # Q-LBL-03 resolved (a): evaluation-only. Models are never retrained and the
+  # conformal calibration set keeps its ORIGINAL reported labels; only official-
+  # test labels are regenerated. Recorded here so the runner cannot drift from it.
+  evaluation_only: true
+  # The high-risk focus stratum (pre-registration §7) is defined by the ORIGINAL
+  # reported label, so the SAME events are compared at every grid point.
+  focus_stratum_uses_original_label: true
+  # EXPERIMENT_PLAN E14's failure criterion ("M7 subset too small or
+  # unrepresentative"), instantiated in advance (pre-registration §11).
+  failure_criteria:
+    min_eligible_fraction: 0.80       # n_eligible / n_official_test
+    min_eligible_high_risk: 100       # below this, CP half-width exceeds the
+                                      # Gate-1 useful_half_width_pp = 5.0 bar
+    representativeness_ks_alpha: 0.05         # KS rejection level, AND ...
+    representativeness_max_prevalence_diff_pp: 1.5   # ... high-risk prevalence gap
+                                      # BOTH must fire; KS alone rejects on
+                                      # trivial differences at n ~ 2,000.

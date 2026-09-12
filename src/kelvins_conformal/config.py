@@ -169,6 +169,37 @@ class PcSpikeConfig:
 
 
 @dataclass(frozen=True)
+class LabelNoiseFailureConfig:
+    """EXPERIMENT_PLAN E14's failure criterion, instantiated in advance.
+
+    Values fixed by the 2026-09-16 E14 pre-registration (DECISIONS.md) BEFORE the
+    official test set was read, so none of them can have been chosen to avoid
+    firing (CLAUDE.md §3).
+    """
+
+    min_eligible_fraction: float
+    min_eligible_high_risk: int
+    representativeness_ks_alpha: float
+    representativeness_max_prevalence_diff_pp: float
+
+
+@dataclass(frozen=True)
+class LabelNoiseConfig:
+    """E14 label-noise sensitivity settings (Phase 4, Gate 3).
+
+    ``scaling_grid`` multiplies the COMBINED position covariance (Q-LBL-02 option
+    (a)); it is a variance scale, so sigmas scale by its square root.
+    """
+
+    scaling_grid: tuple[float, ...]
+    n_radial: int
+    n_angular: int
+    evaluation_only: bool
+    focus_stratum_uses_original_label: bool
+    failure_criteria: LabelNoiseFailureConfig
+
+
+@dataclass(frozen=True)
 class Config:
     """Validated configuration with a stable content hash.
 
@@ -197,6 +228,7 @@ class Config:
     sequence: SequenceConfig
     bayesian: BayesianConfig
     pc_spike: PcSpikeConfig
+    labelnoise: LabelNoiseConfig
     config_hash: str = field(compare=False)
 
     # --- path helpers (resolved against repo root) --------------------------
@@ -483,6 +515,62 @@ def validate(raw: dict[str, Any]) -> Config:
             "(expected one edge per stratum: floor atom + inter-edge bands)"
         )
 
+    ln_raw = _require(raw, "labelnoise", dict, "root")
+    grid_raw = _require(ln_raw, "scaling_grid", list, "labelnoise")
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in grid_raw):
+        raise ConfigError("labelnoise.scaling_grid must be a list of numbers")
+    grid = tuple(float(v) for v in grid_raw)
+    if not grid:
+        raise ConfigError("labelnoise.scaling_grid must not be empty")
+    if any(s <= 0 for s in grid):
+        raise ConfigError(f"labelnoise.scaling_grid factors must be positive, got {grid}")
+    if list(grid) != sorted(grid):
+        raise ConfigError(f"labelnoise.scaling_grid must be ascending, got {grid}")
+    # The s = 1.0 anchor is what separates a rescaling effect from a recomputation
+    # offset; a grid without it cannot support either curve the pre-registration
+    # declares, so its absence is a config error rather than a silent degradation.
+    if not any(abs(s - 1.0) < 1e-12 for s in grid):
+        raise ConfigError("labelnoise.scaling_grid must contain the 1.0 anchor")
+    int_raw = _require(ln_raw, "integration", dict, "labelnoise")
+    fail_raw = _require(ln_raw, "failure_criteria", dict, "labelnoise")
+    labelnoise = LabelNoiseConfig(
+        scaling_grid=grid,
+        n_radial=_require(int_raw, "n_radial", int, "labelnoise.integration"),
+        n_angular=_require(int_raw, "n_angular", int, "labelnoise.integration"),
+        evaluation_only=_require(ln_raw, "evaluation_only", bool, "labelnoise"),
+        focus_stratum_uses_original_label=_require(
+            ln_raw, "focus_stratum_uses_original_label", bool, "labelnoise"
+        ),
+        failure_criteria=LabelNoiseFailureConfig(
+            min_eligible_fraction=_as_float(
+                fail_raw, "min_eligible_fraction", "labelnoise.failure_criteria"
+            ),
+            min_eligible_high_risk=_require(
+                fail_raw, "min_eligible_high_risk", int, "labelnoise.failure_criteria"
+            ),
+            representativeness_ks_alpha=_as_float(
+                fail_raw, "representativeness_ks_alpha", "labelnoise.failure_criteria"
+            ),
+            representativeness_max_prevalence_diff_pp=_as_float(
+                fail_raw,
+                "representativeness_max_prevalence_diff_pp",
+                "labelnoise.failure_criteria",
+            ),
+        ),
+    )
+    if not (0.0 < labelnoise.failure_criteria.min_eligible_fraction <= 1.0):
+        raise ConfigError("labelnoise.failure_criteria.min_eligible_fraction must be in (0, 1]")
+    if min(labelnoise.n_radial, labelnoise.n_angular) < 1:
+        raise ConfigError("labelnoise.integration resolutions must be >= 1")
+    # Q-LBL-03 was resolved evaluation-only; a config that flips this would silently
+    # change what E14 measures, so it must fail loudly instead (CLAUDE.md §1).
+    if not labelnoise.evaluation_only:
+        raise ConfigError(
+            "labelnoise.evaluation_only=false is not implemented: Q-LBL-03 was "
+            "resolved (a) evaluation-only (DECISIONS.md 2026-09-16). Retraining on "
+            "rescaled labels is logged as future work, not a supported code path."
+        )
+
     return Config(
         raw=copy.deepcopy(raw),
         seed=seed,
@@ -505,6 +593,7 @@ def validate(raw: dict[str, Any]) -> Config:
         sequence=sequence,
         bayesian=bayesian,
         pc_spike=pc_spike,
+        labelnoise=labelnoise,
         config_hash=compute_config_hash(raw),
     )
 

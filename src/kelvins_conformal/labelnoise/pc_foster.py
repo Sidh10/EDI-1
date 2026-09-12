@@ -137,6 +137,57 @@ def pc_on_disk(
     return min(max(pc, 0.0), 1.0)
 
 
+def log10_pc_on_disk(
+    miss_xy: np.ndarray,
+    cov2d: np.ndarray,
+    hbr: float,
+    *,
+    n_radial: int = 200,
+    n_angular: int = 360,
+) -> float:
+    """``log10`` of the same integral as :func:`pc_on_disk`, computed stably.
+
+    Identical quadrature; the Gaussian kernel is evaluated in log space with the
+    peak factored out (the standard log-sum-exp stabilisation), so a deep-tail
+    conjunction whose Pc falls below double precision's ~1e-308 returns its true
+    magnitude (e.g. -412) instead of silently collapsing to ``-inf``.
+
+    Added for E14: the anchored label arm *differences* two recomputations, so an
+    underflow to zero would not merely lose precision, it would discard an event
+    whose rescaling shift is perfectly well defined. :func:`pc_on_disk` is left
+    untouched, so the E3 spike's code path is unchanged.
+    """
+    if hbr <= 0:
+        return -np.inf
+    evals, evecs = np.linalg.eigh(cov2d)
+    if np.any(evals <= 0):
+        raise PcComputationError(f"non-positive-definite 2D covariance: eigenvalues {evals}")
+    a2, b2 = float(evals[0]), float(evals[1])
+    m = evecs.T @ np.asarray(miss_xy, dtype=float)
+    mx, my = float(m[0]), float(m[1])
+
+    r_edges = np.linspace(0.0, hbr, n_radial + 1)
+    r_mid = 0.5 * (r_edges[:-1] + r_edges[1:])
+    dr = hbr / n_radial
+    theta = (np.arange(n_angular) + 0.5) * (2.0 * np.pi / n_angular)
+    dtheta = 2.0 * np.pi / n_angular
+
+    x = np.outer(r_mid, np.cos(theta))
+    y = np.outer(r_mid, np.sin(theta))
+    quad = ((x - mx) ** 2) / a2 + ((y - my) ** 2) / b2
+    qmin = float(np.min(quad))
+    # sum_ij exp(-q_ij/2) r_i = exp(-qmin/2) * sum_ij exp(-(q_ij-qmin)/2) r_i
+    shifted = float(np.sum(np.exp(-0.5 * (quad - qmin)) * r_mid[:, None]))
+    ln10 = np.log(10.0)
+    log10_pc = (
+        -0.5 * qmin / ln10
+        + np.log10(shifted)
+        + np.log10(dr * dtheta)
+        - np.log10(2.0 * np.pi * np.sqrt(a2 * b2))
+    )
+    return float(min(log10_pc, 0.0))
+
+
 # --- analytic reference (for unit tests) ------------------------------------
 def analytic_pc_isotropic_zero_miss(sigma: float, hbr: float) -> float:
     """Exact Pc for isotropic covariance sigma^2 * I with zero miss distance.
@@ -166,6 +217,10 @@ class PcResult:
     hbr: float
     combined_pos_cov_det: float
     n_missing_required: int
+    # Unfloored log10(Pc) (-inf if Pc underflows to 0). E14's anchored label arm
+    # differences two recomputations, and differencing floored values would silently
+    # zero out any change that happens below the sentinel.
+    log10_pc_unfloored: float = float("nan")
 
 
 def _get(row: dict, key: str) -> float:
@@ -183,12 +238,20 @@ def recompute_pc_for_row(
     floor_sentinel: float = -30.0,
     n_radial: int = 200,
     n_angular: int = 360,
+    covariance_scale: float = 1.0,
 ) -> PcResult | None:
     """Recompute Pc for one CDM row (a dict of column -> value).
 
     Returns ``None`` if any required field is missing (the caller tallies these as
     a missing-field failure mode — never silently imputed). Raises
     ``PcComputationError`` on degenerate geometry that survives the field check.
+
+    ``covariance_scale`` (E14, Q-LBL-02 option (a)) multiplies the COMBINED
+    position covariance, ``C = C_target + C_chaser -> s*C``. It is a *variance*
+    scale, so each sigma scales by ``sqrt(s)``. The default 1.0 leaves the E3
+    spike's code path numerically unchanged. Scaling here (3x3, before the B-plane
+    projection) is identical to scaling the projected 2x2 afterwards, because the
+    projection is linear — so the semantics carry no ambiguity.
     """
     if count_missing_required(row) > 0:
         return None
@@ -208,7 +271,9 @@ def recompute_pc_for_row(
         _get(row, "c_sigma_r"), _get(row, "c_sigma_t"), _get(row, "c_sigma_n"),
         _get(row, "c_ct_r"), _get(row, "c_cn_r"), _get(row, "c_cn_t"),
     )
-    cov = cov_t + cov_c
+    if covariance_scale <= 0:
+        raise PcComputationError(f"covariance_scale must be positive, got {covariance_scale}")
+    cov = (cov_t + cov_c) * float(covariance_scale)
 
     hbr = 0.5 * (_get(row, "t_span") + _get(row, "c_span"))
 
@@ -217,8 +282,14 @@ def recompute_pc_for_row(
     cov2d = proj @ cov @ proj.T
 
     pc = pc_on_disk(miss_xy, cov2d, hbr, n_radial=n_radial, n_angular=n_angular)
-    log10_pc = np.log10(pc) if pc > 0 else -np.inf
-    log10_pc = max(log10_pc, floor_sentinel)
+    # ``log10_pc`` keeps the original expression verbatim so the E3 spike's code
+    # path is unchanged. ``log10_pc_unfloored`` uses the stable log-space integral,
+    # which agrees with it wherever ``pc`` does not underflow and stays finite where
+    # it does — the E14 anchored arm needs the latter (see log10_pc_on_disk).
+    log10_pc = max(float(np.log10(pc)) if pc > 0 else -np.inf, floor_sentinel)
+    log10_pc_unfloored = log10_pc_on_disk(
+        miss_xy, cov2d, hbr, n_radial=n_radial, n_angular=n_angular
+    )
 
     try:
         maha = float(np.sqrt(miss_xy @ np.linalg.inv(cov2d) @ miss_xy))
@@ -233,4 +304,5 @@ def recompute_pc_for_row(
         hbr=float(hbr),
         combined_pos_cov_det=float(np.linalg.det(cov)),
         n_missing_required=0,
+        log10_pc_unfloored=log10_pc_unfloored,
     )

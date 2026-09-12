@@ -975,6 +975,142 @@ failure was reported exactly, not retried for a better number; per §13 executio
 E12-E13 batch boundary (E13 SKIPPED). **Reported by:** Claude Code.
 
 
+---
+
+## Phase 4 Pre-registration (PROPOSED — written BEFORE E14 executes)
+
+### 2026-09-16 — PRE-REGISTRATION: E14 label-noise sensitivity protocol
+
+**Status:** PROPOSED. Written and committed **before** any E14 code reads the official test set,
+per CLAUDE.md §3 (no procedure may be adjusted after seeing its result) and §9. It instantiates
+every choice E14 needs that `EXPERIMENT_PLAN.md` leaves open, so none of them can later be accused
+of being selected to flatter the curve. Claude Code proposes; Sidh confirms or revises at Gate 3.
+
+**Binding scope (from the 2026-09-16 A4 / Q-LBL-01 resolution): SCOPED M7.** Complete-field subset;
+primary interpretive focus on the operationally relevant risk stratum; representativeness check
+mandatory.
+
+**1. Label source and M7 eligibility.** The label of an official-test event is the reported risk of
+its **target-defining CDM** (the `true_risk` row in `test_data_private.csv`, per the Q-METH-01
+target definition already implemented in `data.py`). E14 regenerates exactly that quantity. An
+event is **M7-eligible** iff that target CDM carries all 20 fields in
+`labelnoise.pc_foster.REQUIRED_FIELDS` as finite values. No imputation (CLAUDE.md §10); ineligible
+events are excluded by construction and counted.
+
+**2. Covariance-scaling semantics (makes Q-LBL-02(a) unambiguous).** The scalar `s` multiplies the
+**combined position covariance** `C = C_target + C_chaser → s·C`, i.e. the *variance* scale;
+each sigma therefore scales by `sqrt(s)`. Stated explicitly so "2.0x" cannot be read two ways.
+Because the B-plane projection is linear, scaling the 3x3 before projection and scaling the 2x2
+after are identical — no ambiguity there either.
+
+**3. Grid.** `s in {0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0}` — evenly spaced across the ≈0.8x–2.0x range
+EXPERIMENT_PLAN E14 names, including the `s = 1.0` anchor. Declared in `config/default.yaml` under
+`labelnoise.scaling_grid`; not a literal in code.
+
+**4. Two label definitions, both reported; neither presented as "the truth".**
+- **(P) Direct** (the spec's own wording — "labels regenerated ... via E3's validated Pc
+  computation"): `y_s = max(log10 Pc_s, -30)`.
+- **(A) Anchored / differential**: `y_s^anch = max(y_reported + [log10 Pc_s − log10 Pc_1.0], -30)`,
+  using unfloored log-Pc for the delta.
+Arm (A) is declared **now, in advance, and specifically because A4 is only a PARTIAL HOLD**: the
+level of curve (P) at `s = 1.0` confounds the rescaling effect with E3's recomputation discrepancy,
+whereas (A) isolates the perturbation that covariance rescaling alone induces. Declaring both
+before seeing either forecloses picking whichever curve looks better afterwards.
+
+**5. What is held fixed (Q-LBL-03, evaluation-only).** Models are never retrained, and conformal
+**calibration stays on the original reported labels**. Only official-test labels are regenerated.
+**Stated limitation:** a genuinely global covariance miscalibration would perturb calibration
+scores too; holding calibration fixed answers the deployment-relevant question ("an already-
+calibrated system meets differently-calibrated truth"), not the global one. The both-sides variant
+is logged as future work, deliberately out of scope, not overlooked.
+
+**6. Methods re-evaluated** (two-sided throughout, matching Gate 2's scoping of the coverage claim):
+`E10_naive_official` (split conformal, unweighted), **`E11_weighted_rule` (PRIMARY)**, and
+`E12_cqr_weighted_rule` (secondary). Base learners: **persistence** — the learner carrying the
+pre-registered Q-STAT-04 primary contrast — and **GBM** (also the only learner with quantile heads,
+so the only one CQR can use). **GRU and MC-dropout are excluded for runtime**, declared here in
+advance rather than chosen once results exist. Nominal levels {0.80, 0.90, 0.95}, primary 0.90;
+seeds 42/43/44.
+
+**7. Analysis populations, fixed in advance.** (i) **All M7-eligible supported** official-test
+events. (ii) **PRIMARY interpretive focus** — the **high-risk stratum**, defined by the **ORIGINAL
+reported label > −6**, so the event set is *identical at every grid point* and the curve compares
+like with like. Defining the stratum by the rescaled label instead would let the population drift
+with `s` and is rejected here, before results.
+
+**8. Representativeness check (binding, per the A4 resolution).** M7-eligible subset vs. the FULL
+official test set: n, high-risk prevalence, floor mass, quantiles of `target_log_risk`, and a
+two-sample KS test. Named outputs: table `e14_m7_representativeness`, figure
+`e14_m7_representativeness`.
+
+**9. Trend analysis — DESCRIPTIVE, not confirmatory.** OLS slope of coverage on `s` with CI, plus
+Spearman rho for monotonicity. **Conflict flagged rather than silently resolved:** EXPERIMENT_PLAN
+E14 lists a "trend test", while the Q-STAT-04 resolution spends the project's *single* formal
+confirmatory contrast on E10-vs-E11 and requires every other comparison to be descriptive. E14
+therefore **computes exactly the quantities the spec names and reports them with CIs, labelled
+exploratory** — no p-value from E14 is presented as a confirmatory test. Sidh may revise this at
+Gate 3.
+
+**10. Confidence intervals.** Event-level bootstrap (`bootstrap.n_resamples`) plus Clopper-Pearson
+at **every** grid point, method, level and population — the same machinery E9–E12 used.
+
+**11. The spec's failure criterion, instantiated BEFORE seeing results.** E14 fails if the M7
+subset is "too small or unrepresentative to support any claim". Concretely, declared now:
+- **Too small** if `n_eligible < 0.80 × n_official_test`, **or** fewer than **100** M7-eligible
+  high-risk events remain (below ~100 the Clopper-Pearson half-width at 90% coverage exceeds the
+  Gate-1 `useful_half_width_pp = 5.0` bar, so the focus stratum could not support a claim).
+- **Unrepresentative** if the KS test rejects at α = 0.05 **AND** high-risk prevalence differs from
+  the full test set by more than **1.5 pp** absolute. Both are required deliberately: KS alone
+  rejects on trivially small differences at n ≈ 2,000, which would be a meaningless failure.
+If either fires, Claude Code **reports the failure and surfaces** Q-LBL-01's pre-agreed fallback
+(option (c), the reduced/abstract version) — it does **not** switch to the fallback on its own
+authority (CLAUDE.md §9, §10).
+
+**12. Determinism.** The Pc integrator is deterministic (fixed polar grid, resolution declared in
+`labelnoise.integration`); the only randomness is the seeded bootstrap. Same config + seeds ⇒ same
+numbers.
+
+**Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh at Gate 3.**
+**Supersedes:** none.
+
+### 2026-09-16 — AMENDMENT to the E14 pre-registration: the anchored arm is undefined at the censoring sentinel
+
+**Status:** PROPOSED amendment, written **after the label regeneration ran but BEFORE any coverage
+number was computed**. It is justified entirely by a physical-validity violation visible in the
+labels themselves, with **no reference to any coverage result** — the test CLAUDE.md §3 sets for a
+mid-experiment procedure change. Nothing here was chosen to move a curve, because no curve existed.
+
+**What went wrong.** Arm (A) as originally specified was
+`y_s = max(y_reported + [log10 Pc_s − log10 Pc_1], −30)`. Applied to the real target CDMs, its
+median label reached **+348 at s = 2.0** — i.e. `log10 Pc > 0`, a probability above 1. The cause is a
+category error, not a bug: for the ~78% of official-test events whose **reported label sits at the
+−30 sentinel**, that label is *censored* ("at most 1e-30") and carries no magnitude, while the
+recomputation for the same event can sit thousands of log-units lower. Differencing an uncensored
+recomputation and adding it to a censored label is not an operation on comparable quantities.
+
+**Amendment (two parts).**
+1. **Arm (A) is DEFINED ONLY WHERE `y_reported > −30`** (uncensored reported label), in addition to
+   the finite-anchor condition already declared. Censored events are flagged undefined and dropped
+   from the anchored population **uniformly across all scales**, never patched (CLAUDE.md §10).
+   Note this leaves the **PRIMARY focus stratum fully intact**: every high-risk event
+   (reported label > −6) is uncensored by construction, so the primary curve loses nothing.
+2. **Arm (A) is clipped from above at 0** (`Pc ≤ 1`), for the same reason — a label above 0 is not a
+   large value, it is an impossible one.
+Arm (P), the direct arm, is **unchanged**: it floors at −30 exactly as the reported-label convention
+does, and never exceeds 0 because the integrator returns `log10 Pc ≤ 0`.
+
+**Related implementation fix, same reasoning.** `pc_on_disk` underflows to exactly `0.0` for deep-tail
+conjunctions (Pc below ~1e-308), which silently destroys the magnitude arm (A) must difference. A
+log-space integral `log10_pc_on_disk` (log-sum-exp stabilisation, identical quadrature) was added and
+is used **only** for the new unfloored quantity; `pc_on_disk` and E3's `log10_pc` expression are left
+byte-identical, so **no E3 number changes**. Validated against the first-order point-mass form in the
+underflow regime (`tests/test_labelnoise_rescale.py`).
+
+**Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh at Gate 3.**
+**Supersedes:** amends §4 of the 2026-09-16 E14 pre-registration entry above; that entry stands
+otherwise unchanged.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
