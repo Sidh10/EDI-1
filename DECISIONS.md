@@ -1111,6 +1111,93 @@ underflow regime (`tests/test_labelnoise_rescale.py`).
 otherwise unchanged.
 
 
+---
+
+## Phase 4 Empirical Findings (E14) — REPORTED, no Gate 3 decision taken
+
+<!--
+Measurements only. The Gate 3 venue-tier call is Sidh's. Every number is
+regenerable via `kc labelnoise`; report reports/04_labelnoise.html. 3 seeds
+(42/43/44), nominal {80,90,95}%, two-sided, event-level bootstrap +
+Clopper-Pearson CIs, scaling grid {0.8 … 2.0}, two label arms, two populations.
+-->
+
+### 2026-09-16 — E14 label-noise sensitivity: Contribution 1's claim is robust, but for a reason that is itself a limitation
+
+**Report:** `reports/04_labelnoise.html`. Protocol exactly as pre-registered above (plus the one
+dated amendment); nothing was tuned after a coverage number was seen.
+
+**Determinism / integrity checks, done first.** (i) Adding the `labelnoise` config block changed the
+config hash and invalidated the E6 GBM search cache, so the 24-trial search re-ran: it reproduced the
+cached `best_params` **and** `best_objective_value` **bit-for-bit** (23.801101479171347). (ii) E14's
+direct arm at `s = 1.0` reproduces the E9–E11 record to within recomputation error — E11 weighted at
+90%: **persistence 0.9239 vs 0.926 recorded, GBM 0.8920 vs 0.896 recorded** — confirming E14 is
+re-evaluating the same machinery. (iii) The private file's labels were checked against the events
+table before any label was regenerated (max |Δ| ≤ 1e-9).
+
+**1. The scoped-M7 restriction turns out not to bite on field availability.** **2,167 / 2,167**
+official-test events are M7-eligible — the target-defining CDMs have **0% missingness**. The
+subset therefore *is* the full test set, and the representativeness check is exact by construction
+(KS statistic 0.0, p = 1.0; high-risk prevalence gap 0.000 pp). **The pre-registered failure
+criterion is NOT met.** Scoped M7 bites only through the high-risk **focus stratum** (n = 150) and,
+for the anchored arm, through label censoring: only **494** events carry an uncensored reported
+label, the other 1,673 sitting at the −30 sentinel. The focus stratum is unaffected by that — every
+high-risk event is uncensored by construction.
+
+**2. A4's stratum pattern is confirmed on 2,167 events, not 100.** Agreement at `s = 1.0`,
+recomputed vs reported, within the pre-registered ±0.5 tolerance: **89.8% overall — but that is
+carried by floor-to-floor matches** (99.1% of the 1,673 floored events). By non-floor band:
+(−30,−15] **25.0%**, (−15,−10] **58.0%**, (−10,−6] **63.3%**, **(−6,0] 79.3%**. This independently
+reproduces the E3 100-CDM finding (75% in the high-risk band) at 20× the sample size and
+corroborates the reasoning behind the PARTIAL HOLD decision: recomputation is most faithful exactly
+where operations care, worst in the deep-safe tail.
+
+**3. PRIMARY CURVE — flat, and the flatness is explained, not hand-waved.** E11 weighted conformal
+on persistence, nominal 90%, high-risk focus stratum (n = 150): coverage is **0.9667 at every one of
+the seven grid points, in both label arms** — slope exactly 0.00, range 0.00 pp. Per CLAUDE.md §3 a
+result this clean was treated as suspect and diagnosed rather than reported: the label shift that
+0.8×–2.0× rescaling actually induces in the high-risk stratum is **tiny** (median |Δ| ≤ 0.12
+log-units; 95th percentile ≤ 1.9), while persistence's 90% interval is **43.4 log-units wide**. The
+perturbation is one to two orders of magnitude smaller than the interval, so no coverage flip is
+arithmetically possible. **The insensitivity is real and correctly computed, but it is partly a
+property of very wide intervals rather than evidence of an intrinsically noise-proof method.**
+Reporting it without that caveat would be misleading.
+
+**4. Where intervals are narrower, degradation IS measurable and monotone — the hypothesised
+pattern.** Whole M7 set (direct arm, n = 2,167, nominal 90%), coverage at s = 0.8 → 2.0:
+- `E11_weighted_rule` / GBM: **0.8965 → 0.8597**, slope **−0.031** per unit s (95% CI
+  [−0.034, −0.028]), Spearman ρ = **−1.00** (perfectly monotone).
+- `E12_cqr_weighted_rule` / GBM: **0.8696 → 0.8043**, slope **−0.056** (CI [−0.066, −0.046]), ρ = −1.00.
+- `E10_naive_official` / GBM: **0.8369 → 0.7933**, slope −0.037, ρ = −1.00.
+- `E11_weighted_rule` / persistence: **0.9197 → 0.9368** — a slight *increase*, ρ = +1.00.
+All descriptive with CIs, no confirmatory test (Q-STAT-04). The anchored arm on the 494 uncensored
+events is far steeper for the learned models (E11/GBM **0.7335 → 0.5189**), which is expected: that
+population excludes the floor mass, so the same rescaling moves labels that are free to move.
+
+**5. ANOMALY, flagged prominently — high-risk CONDITIONAL coverage is very low for the learned
+models.** At `s = 1.0`, nominal 90%, high-risk stratum: `E11_weighted_rule`/GBM ≈ **0.47**,
+`E12_cqr_weighted_rule`/GBM ≈ **0.20–0.27**, `E10_naive_official`/GBM ≈ **0.27–0.28**; persistence
+≈ **0.96**. Read carefully before alarm: this is **conditional coverage on a subgroup**, which
+conformal prediction never promises — the Gate 2 claim is explicitly **marginal**, and Gate 1
+already PIVOTed away from group-conditional claims (E13 skipped) on power grounds. So this is
+**not** a new failure of Contribution 1. It is, however, the first time this project has looked at
+high-risk conditional coverage, it is a number any reviewer will ask about, and the operational
+reading is uncomfortable: the learned models' intervals miss the true risk for roughly half the
+high-risk events they are supposed to protect. Surfaced for Sidh; **not** acted on, and no method
+was retried to improve it (CLAUDE.md §9).
+
+**6. Seed behaviour is sane.** Persistence is seed-invariant (sd = 0.000, expected — it fits
+nothing). GBM sd across 3 seeds is 0.001–0.003 for split conformal and ~0.027 for CQR, so the CQR
+arm carries visibly more seed variance than the split arms.
+
+**Explicitly NOT decided here (Sidh's, at Gate 3):** the venue-tier call; whether Contribution 2 is
+established; how to frame a flat primary curve whose flatness is partly interval-width-driven;
+whether the high-risk conditional-coverage anomaly (finding 5) warrants any scope or framing change;
+and whether to confirm or revise the E14 pre-registration and its amendment. Execution stops at the
+Gate 3 boundary — no Phase 5 (E15–E18) work was started (CLAUDE.md §13.4, §13.7).
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*

@@ -2,7 +2,7 @@
 
 Coverage-valid uncertainty quantification for satellite conjunction risk, using conformal prediction on the ESA Kelvins Collision Avoidance Challenge dataset — explicitly correcting for the dataset's documented test-set selection bias and quantifying sensitivity to known label noise.
 
-**Status:** Phases 0–2 implemented (E0–E8). **Gate 1 passed** — GO on marginal coverage, PIVOT dropping group-conditional analysis (E13 skipped). Nothing from Phase 3 (E9 onward) is built. Open for decision: the Assumption-A4 call, and confirmation of the Phase-2 pre-registered items (the `risk` feature-dictionary interpretation and the promotion-threshold decision rule) — see `DECISIONS.md`.
+**Status:** Phases 0–4 implemented (E0–E12, E14; E13 skipped). **Gate 1 passed** — GO on marginal coverage, PIVOT dropping group-conditional analysis. **Gate 2 passed** — GO on Contribution 1, with the exact-coverage claim scoped to *two-sided* split-conformal marginal coverage. **Assumption A4 resolved** as a PARTIAL HOLD, so Contribution 2 runs in its scoped-M7 form (Q-LBL-01 option (b)). **Gate 3 (venue tier) is open** and awaits Sidh's review of E14. See `DECISIONS.md` for every decision and its rationale.
 
 The evaluation harness is validated: our implementation of the official challenge metric reproduces the published LRP and CRP baseline scores to 4 decimal places (E5).
 
@@ -23,11 +23,14 @@ kc audit           # E1/E2/E3: renders reports/00_data_audit.html + 00b_pc_spike
 kc baselines       # E5: validates the challenge metric vs published baseline scores
 kc power           # E4: power analysis -> the Gate 1 decision table
 kc baselines-phase2 # E6/E7/E8: train baselines + audit MC-dropout coverage (slow)
+kc conformal       # E9-E11 (Gate 2 batch) and E12/CQR; --only gate2|cqr|all
+kc labelnoise      # E14: label-noise sensitivity -> the Gate 3 input
 ```
 
 `kc reproduce-all` regenerates every manuscript number and figure; it is not implemented yet
 (it arrives with the first manuscript figures). Available commands are only those whose
-experiments exist: `ingest`, `audit`, `baselines`, `power` and `baselines-phase2` today.
+experiments exist: `ingest`, `audit`, `baselines`, `power`, `baselines-phase2`, `conformal`
+and `labelnoise` today.
 
 No GPU required for the core pipeline; see `SOFTWARE_ARCHITECTURE.md` §9 for the full technology/compute breakdown.
 
@@ -42,11 +45,13 @@ ESA Kelvins Collision Avoidance Challenge dataset, Zenodo DOI [10.5281/zenodo.44
 _Updated at every gate. See `DECISIONS.md` for the authoritative log._
 
 - [x] Blocking pre-Phase-0 questions resolved (Q-METH-01/02/03, Q-SEL-02)
-- [x] Phase 0 — Foundation, audit, feasibility spikes *(E0–E3 run; reports rendered; **awaiting Sidh's checkpoint review** — the A4 go/no-go and the E3 tolerance confirmation are not made)*
+- [x] Phase 0 — Foundation, audit, feasibility spikes *(E0–E3)*
+- [x] Gate 0b — Assumption A4 (Pc recomputability) *(**PARTIAL HOLD**: 65.0% of the E3 sample within the pre-registered ±0.5 log10 tolerance, below the 80% bar but above the 50% fail floor, and most accurate in the operationally relevant high-risk band. Q-LBL-01 resolved as option (b), **scoped M7**; the E3 tolerance confirmed unrevised.)*
 - [x] Gate 1 — Statistical power / go-no-go *(**GO** on marginal coverage; **PIVOT** dropping group-conditional analysis — E13 skipped. Decided by Sidh, see `DECISIONS.md`.)*
-- [x] Phase 2 — Baselines *(E6 GBM, E7 sequence, E8 steelmanned MC-dropout coverage audit; awaiting checkpoint review)*
-- [ ] Gate 2 — Weighted conformal (Contribution 1)
-- [ ] Gate 3 — Label-noise sensitivity / venue decision (Contribution 2)
+- [x] Phase 2 — Baselines *(E6 GBM, E7 sequence, E8 steelmanned MC-dropout coverage audit)*
+- [x] Gate 2 — Weighted conformal (Contribution 1) *(**GO**, scoped to two-sided coverage: rule-derived weighting restores marginal coverage on the official test set. Weighting does **not** restore one-sided upper bounds, nor CQR coverage (E12) — both logged as honest secondary findings, outside the claim.)*
+- [x] Phase 3 — Conformal prediction *(E9 machinery validation, E10 the bias problem, E11 the correction, E12 CQR: large efficiency gain but a genuine coverage negative)*
+- [ ] Gate 3 — Label-noise sensitivity / venue decision (Contribution 2) *(E14 run in its scoped-M7 form; **awaiting Sidh's venue-tier decision**)*
 - [ ] Phase 5 — Decision-cost, robustness, release (Contribution 3)
 
 ## Reproducibility

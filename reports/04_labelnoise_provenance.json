@@ -1,0 +1,24 @@
+{
+  "experiment_ids": [
+    "E14"
+  ],
+  "git_commit_sha": "e636d3427bcf49ebfbc9b8cd0982cd85feaa3d78",
+  "config_hash": "30b803eb42abf9b8e44b04a05dd6767dca21271d6d9a3236a2ffc50ab91d4b68",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "scaling_grid": [
+    0.8,
+    1.0,
+    1.2,
+    1.4,
+    1.6,
+    1.8,
+    2.0
+  ],
+  "bootstrap_resamples": 2000,
+  "executed_utc": "2026-09-12T14:39:37.407759+00:00",
+  "python": "3.13.11"
+}
