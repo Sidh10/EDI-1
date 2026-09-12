@@ -169,6 +169,65 @@ All five items flagged by the CLAUDE.md §13 loop as blocking Phase 3 (Q-CONF-01
 
 ---
 
+### 2026-09-16 — E12 (CQR) manuscript disposition + cross-experiment synthesis of the weighting correction
+
+**Decision (E12 disposition):** CQR is reported in the manuscript as a **secondary result with two
+separated claims**:
+1. **Efficiency finding** — CQR produces ~4x narrower, adaptive intervals at equal nominal coverage
+   versus split conformal (width tracks predicted risk; machinery validated via the exchangeable
+   self-test diagnostic, which hits nominal at all levels).
+2. **Coverage-validity caveat (honest)** — CQR, both naive and weighted, fails to achieve valid
+   coverage on the official test set; weighting does not restore it and shows a small,
+   directionally consistent (weighted <= naive at all three nominal levels) but **not
+   formally-significance-tested** negative effect. Reported as a caveat, not a fixed method.
+
+**No further engineering** is spent trying to fix weighted-CQR's coverage in Phase 3 or 4. It is
+logged as an **open methodological question for the manuscript's discussion/limitations** section.
+
+**Cross-experiment synthesis (scope of Contribution 1's claim).** Rule-derived weighting is now:
+- **CONFIRMED to restore validity** for **two-sided split-conformal marginal coverage** (Gate 2, E11);
+- **CONFIRMED NOT to restore validity** for two independently-tested variants —
+  (i) **one-sided split-conformal upper bounds** (E11 diagnostic: shift-driven, machinery validated),
+  and (ii) **CQR of either sidedness** (E12: shift-driven, machinery validated on self-test).
+
+The manuscript's **Contribution 1 claim is scoped precisely to two-sided split-conformal marginal
+coverage**. The one-sided and CQR results are reported as honest secondary findings about the
+**boundary conditions** of the selection-bias correction — NOT folded into the primary claim.
+
+**Rationale:** each of the three settings shares validated machinery (self-test/exchangeable
+coverage ~ nominal), so the differences are real properties of the correction, not artifacts. A
+tightly-scoped primary claim plus transparent boundary findings is more defensible against a hostile
+reviewer than an over-broad claim.
+
+**Decided by:** Sidh.
+**Supersedes:** none (first E12 disposition; refines the Gate 2 scoping to add the CQR boundary case).
+
+### 2026-09-16 — Q-LBL-02: covariance-rescaling grid semantics (label-noise, E14)
+**Decision:** The **primary** covariance-rescaling grid uses a **single scalar factor applied to the
+combined/total covariance** (option (a)), matching the grid already scoped in EXPERIMENT_PLAN.md E14
+(≈0.8x–2.0x). A **debris(secondary)-object-only variant (option (c)) is an explicit stretch goal**,
+not required for Gate 3.
+**Rationale:** keeps E14 tractable within the remaining project timeline while still delivering the
+primary sensitivity-curve result Contribution 2 needs; the per-object 2-D grid (option (b)) is not
+pursued.
+**Decided by:** Sidh.
+**Supersedes:** none. **Note:** Q-LBL-02 was `Blocks implementation: No` and was not in the DEFERRED
+list (only Q-LBL-01 was, bundled with Q-DATA-05); this entry resolves it for the record ahead of E14.
+
+### 2026-09-16 — Q-LBL-03: rescaled labels used for evaluation only (label-noise, E14)
+**Decision:** **Evaluation-only** (option (a)). Rescaled labels are used **solely to re-evaluate the
+already-fit E9–E12 conformal machinery's coverage** under label noise; models are **never retrained**
+on rescaled labels in this project.
+**Rationale:** this directly answers Contribution 2's actual question — does known label noise
+threaten an already-computed validity claim — at far lower cost than retraining, and avoids
+conflating it with the broader question of how label noise affects *what models learn*, which is
+logged as **explicit future work**, not in scope.
+**Decided by:** Sidh.
+**Supersedes:** none. **Note:** Q-LBL-03 was `Blocks implementation: No` and was not in the DEFERRED
+list; resolved here for the record ahead of E14.
+
+---
+
 ## PRE-REGISTRATION (PROPOSED — awaiting Sidh's confirmation)
 
 <!--

@@ -294,7 +294,7 @@ Confirms Contribution 1 is real and correctly implemented before Contribution 2 
 - **Confidence intervals:** Bootstrap CI, event-level.
 - **Figures produced:** Interval width vs. predicted risk level (adaptivity plot); CQR vs. split-conformal width comparison.
 - **Tables produced:** Method comparison table (split conformal vs. CQR): coverage and mean width.
-- **Failure criteria:** CQR fails to achieve valid coverage even after weighting (points to quantile-head miscalibration in E6, requiring revisit).
+- **Failure criteria:** CQR fails to achieve valid coverage even after weighting (points to quantile-head miscalibration in E6, requiring revisit). **[UPDATE 2026-09-16, post-run: this failure criterion WAS met — CQR under-covers on the official test set, naive and weighted — but its hypothesised cause is REFUTED. The E12 self-test diagnostic validated the GBM quantile heads and CQR machinery (coverage ≈ nominal under exchangeability at all levels), so this is NOT E6 quantile-head miscalibration. The actual, unresolved cause is a weight/CQR-score interaction: rule-derived weighting restores split-conformal coverage but not the CQR score's. A future reader should NOT chase an E6-head fix. See DECISIONS.md 2026-09-16 (E12 disposition).]**
 - **Success criteria:** Valid coverage with measurable width improvement over split conformal for at least a subset of events.
 - **Expected runtime:** 1–3 hours.
 - **Compute requirements:** CPU only.
