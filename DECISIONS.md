@@ -17,7 +17,6 @@ These don't block the start of Phase 0 but must be resolved before the module/ph
 
 - **Q-DATA-01** (group identifier availability) — resolved by the Phase 0 audit (E1); blocks conformal/grouped.py.
 - **Q-DATA-03** (feature leakage dictionary) — resolved during Phase 0 (E2); blocks features.py.
-- **Q-DATA-05 / Q-LBL-01** (missing-field policy; Pc recomputation feasibility) — resolved by the Phase 0 spike (E3); blocks labelnoise scope.
 - **Q-STAT-01, Q-STAT-02, Q-CONF-02, Q-DATA-02** — resolved as outputs of Gate 1 (E4/E5).
 - **Q-COMP-01** (hardware inventory) — resolved before Phase 2 planning.
 - **Q-PUB-01, Q-PUB-02** — resolved before the Phase 3 arXiv preprint.
@@ -226,6 +225,66 @@ logged as **explicit future work**, not in scope.
 **Supersedes:** none. **Note:** Q-LBL-03 was `Blocks implementation: No` and was not in the DEFERRED
 list; resolved here for the record ahead of E14.
 
+### 2026-09-16 — Assumption A4 / Q-LBL-01: PARTIAL HOLD → scoped M7; Q-DATA-05 resolved with it
+
+**Status of this gap:** Assumption A4 was flagged at the Phase 0 checkpoint and its disposition was
+explicitly reserved for Sidh; the E3 spike ran but no hold/partial/fail call was ever recorded. The
+DEFERRED list's "resolved by the Phase 0 spike (E3)" was therefore inaccurate — the spike produced
+*evidence*, not a *decision*. The §13 loop correctly halted at E14 on this. This entry closes it.
+
+**DECISION (A4):** Assumption A4 (Pc recomputability from public CDM fields) is resolved as
+**PARTIAL HOLD**.
+
+**Evidence on record (from the E3 Phase 0 findings, not re-derived here):**
+- **65.0%** of the stratified E3 sample fell within the pre-registered ±0.5 log10-risk tolerance
+  (**56.8%** excluding floor-to-floor comparisons) — **below** the pre-registered 80% bar, **above**
+  the 50% floor that would constitute an outright fail. This is squarely the pre-registration's
+  named "partial hold" band.
+- The Pc computation engine itself was **independently validated**: toy-geometry tests agree to
+  ~1e-3, and the reported `miss_distance` is reproduced at Pearson **r ≈ 1.0**. The partial hold is
+  therefore about *input-field fidelity under anonymisation*, not about a broken implementation.
+- Required fields are **essentially complete**: 0.0068% of training CDMs are missing any required
+  field.
+- Agreement is **strongly stratum-dependent**, and critically is **best in the operationally
+  relevant high-risk band** (median |Δ| ≈ 0.06 in the (−6, 0] risk stratum) and **worst in the
+  deep-safe tail** — the opposite of the pattern that would make this finding disqualifying.
+
+**DECISION (Q-LBL-01):** resolved as **option (b), SCOPED M7**. Contribution 2's label-noise
+sensitivity analysis (E14) is conducted on the **complete-covariance-field subset**, with **primary
+analytical focus on the operationally relevant risk stratum** where Pc recomputation is empirically
+most reliable.
+
+**Rationale:** this is not a retreat from full-dataset generality — it is a scope match to where the
+evidence actually supports the claim. The stratum-dependence itself becomes a **reported finding**
+(label-noise sensitivity is characterizable specifically in the regime that matters for
+collision-avoidance decisions), not merely a limitation. Scoping the claim to where the label
+reconstruction is demonstrably faithful is the same discipline applied at Gate 2, where
+Contribution 1's exact-coverage claim was scoped to two-sided split-conformal marginal coverage
+rather than asserted broadly.
+
+**DECISION (E3 pre-registered tolerance):** **CONFIRMED as-is, unrevised** (±0.5 log10-risk
+per-CDM criterion; 80% sample-level bar). It correctly and honestly discriminated a real partial-hold
+result. There is **no basis to loosen it now that its output is known** — doing so would be exactly
+the forking-paths problem pre-registration exists to prevent (CLAUDE.md §3: never adjust a procedure
+after seeing its result, and never justify a change by reference to the result it would change).
+The PROPOSED pre-registration entry dated 2026-08-01 is annotated as confirmed by this entry.
+
+**DECISION (Q-DATA-05, missing-field policy):** resolved **concurrently and consistently**: the
+**M7-eligible complete-field subset defines the labelnoise scope directly**. No imputation, no
+fabrication, no smoothing over missingness (CLAUDE.md §10) — events lacking required covariance
+fields are out of E14's scope by construction, and the 0.0068% missingness rate means this excludes
+almost nothing.
+
+**BINDING REQUIREMENT ON E14:** E14 **must** include an explicit **representativeness check**
+comparing the M7-eligible subset's label/risk distribution against the **full official test set**,
+reported as a **named table and figure**, not merely asserted in prose. A scope restriction that is
+not quantified is an undisclosed change of estimand (the same reasoning already recorded for the
+positivity partition in Q-SEL-03(C)).
+
+**Decided by:** Sidh.
+**Supersedes:** none (first resolution of A4/Q-LBL-01/Q-DATA-05). Removes the
+`Q-DATA-05 / Q-LBL-01` line from the DEFERRED section.
+
 ---
 
 ## PRE-REGISTRATION (PROPOSED — awaiting Sidh's confirmation)
@@ -271,6 +330,12 @@ tolerance after seeing results). Encoded in `config/default.yaml` under
 
 **Decided by:** PROPOSED by Claude Code; **to be confirmed or revised by Sidh at the Phase 0 checkpoint.**
 **Supersedes:** none.
+
+> **[ANNOTATION 2026-09-16 — CONFIRMED]** This tolerance was **confirmed as-is, unrevised** by the
+> RESOLVED entry *"2026-09-16 — Assumption A4 / Q-LBL-01: PARTIAL HOLD → scoped M7"*. The observed
+> outcome (65.0% within tolerance) landed in the pre-registered **partial-hold** band, and Sidh
+> resolved A4 as a partial hold with Q-LBL-01 option (b) (scoped M7). The bar was **not** moved
+> after seeing the result.
 
 ### 2026-08-01 — E5 baseline-agreement tolerance — PROPOSED, awaiting Sidh's confirmation
 **Status:** PROPOSED. Written before our baseline scores were computed, per CLAUDE.md §3
