@@ -169,6 +169,29 @@ All five items flagged by the CLAUDE.md §13 loop as blocking Phase 3 (Q-CONF-01
 
 ---
 
+### 2026-09-18 — GATE 3 DECISION: Contribution 2 (label-noise sensitivity) + Venue Tier
+
+**Decision: GO on Contribution 2. Venue tier: Q2, confirmed as the firm target — *Advances in Space Research* primary, *Journal of Space Safety Engineering* secondary (its operational/decision-cost framing fits E15 well). This is a locked decision, not contingent on Phase 5 results, made explicitly to prevent E15 from being shaped toward a "Q1-worthy" narrative rather than executed and reported honestly.**
+
+**What is confirmed and strengthens Contribution 2:**
+- Assumption A4's stratum-dependent structure (best agreement in the operationally relevant (−6,0] risk band, worst in the deep-safe tail) replicated closely at 20× the original sample size (E3: n=100; E14: n=2,167), confirming this is a real, stable property of the recomputation approach rather than small-sample noise.
+- The scoped-M7 restriction bites only through the risk-focus stratum and (for the anchored arm) label censoring — NOT through field availability, since all 2,167 official-test events proved M7-eligible (0% missingness). The pre-registered representativeness check therefore passes trivially (KS p = 1.0) and does not fire the fallback.
+- A genuine implementation flaw (the anchored label arm producing a mathematically impossible median label, log10 Pc > 1) was caught and fixed BEFORE any coverage number was computed, via a dated amendment to the pre-registration — the fix is on record as made without reference to any result it could change.
+- The narrow-interval methods (E11/GBM, E12/CQR) show a clean, monotone degradation in coverage as covariance miscalibration increases (Spearman ρ = −1.00 across the grid) — a real, physically sensible dose-response finding.
+
+**Binding manuscript scoping — the flat primary curve (persistence, 0.9667 at all seven grid points):** this MUST be reported with its diagnosed cause, not as evidence of noise-robustness. The induced high-risk label shift at the grid's extremes (≤1.9 log-units at p95) is small relative to persistence's 90% interval width (43.4 log-units). The correct claim is "coverage is insensitive to this label-noise range because the interval is wide enough to absorb it," not "the method is robust to label noise." These are different claims and must not be conflated in writing.
+
+**New finding, logged and flagged forward to Phase 5 (not resolved here) — high-risk-conditional coverage:** at nominal 90%, conditional coverage on TRUE high-risk events is markedly poor for the narrow/informative methods (GBM ≈ 0.47, CQR ≈ 0.20–0.27) despite good marginal coverage, while persistence's wide, uninformative intervals achieve conditional coverage ≈ 0.96. This is not a Contribution 1 failure (conformal guarantees are marginal by construction, and group/conditional claims were already dropped at Gate 1 for power reasons) but it is a real, citable, uncomfortable finding: the only method with good coverage on the events that matter most operationally is the one whose intervals are too wide to usefully inform a decision. Bootstrap confidence intervals must be computed and reported for these three conditional-coverage figures (currently point estimates only) before they are treated as final.
+
+**Consequence for E15 (binding requirement, not optional):** the decision-cost evaluation must report high-risk-conditional performance as a primary analytical lens, not an afterthought, given what E14 surfaced. E15's design should be reviewed against this requirement before execution, not retrofitted after.
+
+**Rationale for locking Q2 now:** the paper's actual strength is methodological honesty across multiple validated boundary conditions (where selection-bias correction works, and precisely where and why it doesn't), which is exactly what a rigorous Q2 aerospace/space-safety venue values. Framing the venue tier as open and contingent on Phase 5 would create pressure — even unconsciously — to shape E15's design or reporting toward a more Q1-flattering outcome. Locking the target now protects the project's demonstrated discipline (pre-registration before results, no tuning after seeing numbers, honest reporting of negatives) through to the end. This does not preclude a Q1 submission being considered once the complete manuscript exists and can be judged as a finished whole — that is an end-of-project decision, not a Phase 5 design constraint.
+
+**Decided by:** Sidh, at Gate 3.
+**Supersedes:** none (first Gate 3 decision).
+
+---
+
 ## PRE-REGISTRATION (PROPOSED — awaiting Sidh's confirmation)
 
 <!--
@@ -856,3 +879,19 @@ numbers are separately degenerate (a 65.9% zero-atom in its signed scores) — b
 the manuscript's coverage claim. E12 (CQR) and Phase 4 (E14) may proceed; E13 remains SKIPPED
 (Gate 1 PIVOT). Full entry in the RESOLVED section above.
 **Decided by:** Sidh, at Gate 2.
+
+### 2026-09-18 — GATE 3 (E11–E14 review): GO, venue tier Q2 confirmed as firm target
+**Decision:** GO on Contribution 2. Venue tier locked at Q2 (*Advances in Space Research* primary,
+*Journal of Space Safety Engineering* secondary), not contingent on Phase 5 results, to keep E15's
+design and reporting from drifting toward a "Q1-worthy" narrative. Confirmed: A4's stratum-dependent
+recomputation pattern replicated at 20× sample size (E3 n=100 → E14 n=2,167); the scoped-M7
+restriction bites only via the risk-focus stratum and label censoring, not field availability
+(0% missingness, KS p=1.0); narrow-interval methods show clean monotone coverage degradation under
+covariance miscalibration (Spearman ρ = −1.00). Binding manuscript scoping: the flat persistence
+curve (0.9667 at all seven grid points) must be reported as interval-width insensitivity, not
+noise-robustness. New finding flagged forward, not resolved here: high-risk-conditional coverage is
+poor for the narrow/informative methods (GBM ≈0.47, CQR ≈0.20–0.27) versus persistence's wide
+intervals (≈0.96) — bootstrap CIs required on these three figures before they are final. Binding on
+E15: must report high-risk-conditional performance as a primary lens. Full entry in the RESOLVED
+section above.
+**Decided by:** Sidh, at Gate 3.
