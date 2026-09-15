@@ -1,0 +1,24 @@
+{
+  "experiment_ids": [
+    "E15"
+  ],
+  "analysis": "expanded threshold-based decision analysis",
+  "smoke": true,
+  "git_commit_sha": "6b4350972046a1e612c0f622a18bad237439b375",
+  "config_hash": "ce0f4e214df4b50040a049dff946d996c90706b2fa06ac343e1bd0a37ae07106",
+  "run_kwargs": {
+    "seeds": [
+      42
+    ],
+    "percentiles": [
+      10.0,
+      50.0,
+      90.0
+    ]
+  },
+  "horizons_days": [
+    2.0
+  ],
+  "executed_utc": "2026-09-15T20:12:06.063927+00:00",
+  "python": "3.13.11"
+}
