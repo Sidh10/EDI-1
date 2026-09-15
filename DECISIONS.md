@@ -1395,6 +1395,157 @@ additionally degenerate (a 65.9% zero-atom in its signed scores, Gate 2)."*
 **Decided by:** PROPOSED by Claude Code; to be confirmed or revised by Sidh at the E15 checkpoint.
 **Supersedes:** none.
 
+### 2026-09-18 — PRE-REGISTRATION: expanded threshold-based decision analysis (E15 expansion, absorbs E16)
+
+**Status:** PROPOSED by Claude Code, written before any threshold-analysis code exists. Sidh's
+instruction: expand Phase 5 properly, given confirmed schedule slack and no shortcuts. This
+**supersedes the earlier narrower single-threshold addendum and the separate E16 design**. The
+matched-budget E15 results above stand unchanged; this adds the threshold-based view that D3
+excluded from the matched-budget comparison. Nothing past a smoke test runs until Sidh has seen and
+approved the runtime estimate.
+
+**§0 BLOCKED — the lead-time set (flagged; not decided here).**
+- **Q-METH-04 has no resolution in this file.** `OPEN_QUESTIONS.md` *recommends* option (b),
+  horizons {2d, 1d}, and says it "must be fixed before Phase 3 evaluation runs". E16's spec defers
+  to "Q-METH-04's resolved horizon set" without naming one. There is therefore no recorded
+  {2d, 1d} specification to reuse.
+- **A 1-day horizon cannot be built on the official test set.** All 24,484 official-test input CDMs
+  are at least 2 days before TCA: **0** fall in [1, 2) days and 0 below 1 day (measured on
+  `data/processed/events.parquet`; consistent with Phase 0 finding 2). A 1-day prediction would see
+  exactly the inputs the 2-day one sees. The training pool does contain them: 24,681 CDMs in
+  [1, 2) days across 9,231 events, so 1-day horizons exist only there.
+- **Options for Sidh:**
+  1. 2d on the official test set, plus 1d on the exchangeable self-split only — disclosed, not
+     comparable to official-test numbers, and the selection-bias correction has nothing to correct
+     there;
+  2. longer horizons on the official test set, e.g. {2d, 3d} or {2d, 3d, 5d} (test CDMs reach
+     about 7 d), each needing recut features, refit learners and per-horizon calibration (Q-CONF-01);
+  3. a single 2d horizon, with the lead-time analysis dropped and disclosed;
+  4. (1) combined with (2).
+- Until this is resolved, everything below is written for a generic horizon set H, and the smoke
+  test runs H = {2d} only.
+
+**§1 Methods (decision scores).**
+- **All four learners** (persistence, GBM, GRU, MC-dropout):
+  - `point`;
+  - split conformal (E10 naive): one-sided upper bound, and two-sided upper edge;
+  - weighted conformal (E11 rule): one-sided upper bound, and two-sided upper edge.
+- **GBM only:** rule-weighted CQR, one-sided upper bound (validated at E15 §5) and two-sided upper
+  edge (validated at E12).
+- **MC-dropout only:** the E8 Bayesian bound, one-sided and two-sided upper edge.
+- **Exclusion with disclosure:** persistence's one-sided bounds (E10/E11 upper) are excluded,
+  because of the degenerate 65.9% zero-atom in its signed scores (Gate 2). The exclusion is listed
+  in every table, with its reason. Persistence's point prediction and two-sided arms are included.
+- **Two-sided arms and D2 — flagged for Sidh.** D2 forbids *substituting* the two-sided upper edge
+  for the one-sided bound. Here the two-sided arms are separately labelled methods reported
+  *alongside* the one-sided ones, never in their place. If D2 is meant to exclude two-sided upper
+  edges from decision analysis altogether, these arms are dropped.
+- Nominal levels {0.80, 0.90, 0.95}, primary 0.90; seeds 42/43/44; hyperparameters from the Phase-2
+  searches.
+
+**§2 Decision rule and threshold grid.**
+- Rule: alert on an event iff its score ≥ t.
+- **Grid T:** the 5th, 10th, …, 95th percentiles (19 values) of the point predictions of all four
+  learners, pooled over all seeds, on the **calibration split**. The grid is fixed without reading
+  official-test inputs or labels. Duplicates are removed (the −30 floor atom makes several low
+  percentiles coincide) and the number removed is reported.
+- The fixed operational threshold **−6** is added regardless of where it falls.
+- One grid per horizon, applied unchanged to every method's score. A bound therefore alerts on a
+  different set than its point prediction at the same t — that is the effect under study.
+- **Operating curves:** each method's full missed-vs-unnecessary locus is swept over every distinct
+  threshold (with no ties this equals the budget sweep of E15), with markers at each t ∈ T. The
+  same t is linked between a point prediction and its bounds, so the shift is visible across the
+  whole range, not at one point.
+
+**§3 Metrics, per horizon, level, method, learner and threshold.**
+- **PRIMARY — high-risk events (D1):** missed high-risk events (the lead number), miss rate, recall,
+  high-risk events alerted.
+- **SECONDARY — whole population:** alerts issued, unnecessary maneuvers, false-positive rate,
+  precision, F2, cost at 5:1 / 10:1 / 20:1.
+- **Uncertainty:** 2,000 event-level resamples per seed (the same draws as `coverage_with_ci`),
+  decisions fixed, seed-averaged bounds.
+- Paired bootstrap differences, bound minus point, in missed high-risk events and in unnecessary
+  maneuvers at each t. Descriptive only (D4).
+
+**§4 Cost-minimizing thresholds, per ratio, per method against its own point prediction, per horizon.**
+Choosing the cost-minimizing threshold *on the official test set* would be tuning on it
+(CLAUDE.md §3). Hence four read-outs:
+- **Primary (deployable).** The cost minimizer over T is selected on the **self-test split**
+  (exchangeable, labelled, disjoint from calibration and official test), separately for the point
+  prediction and for each bound. It is then **evaluated on the official test set** with bootstrap
+  CIs. Disclosed caveat: self-test has the training high-risk prevalence (2.77% vs 6.92% on test),
+  so the selected operating points carry the documented shift. That is the realistic deployment
+  condition.
+- **Secondary (deployable, shift-aware).** The same selection, with each self-test event's cost
+  weighted by the rule-derived likelihood-ratio weights (the Gate 2 weights), so selection targets
+  the test distribution.
+- **Oracle (not deployable).** The in-sample cost minimizer over T on the official test set.
+  Labelled "oracle" everywhere and never presented as achievable.
+- **Unrestricted oracle.** The in-sample minimum over *all* thresholds, reported to separate
+  calibration effects from grid discretisation.
+- **Reported for each:** optimal t, cost, missed, unnecessary and alerts; the threshold shift
+  (bound − point) and cost change (bound − point), the latter with a paired bootstrap CI.
+
+**§5 Pre-registered predictions (written before any threshold result).**
+- **P1 (Sidh's prediction, verbatim in substance).** Calibration changes alert sets under the
+  threshold rule, unlike the matched-budget policy, with the size of the divergence from the
+  point-based curve tracking each method's interval half-width.
+- **P1 made precise by Corollary 4 of Proposition 1**, so it cannot be read two ways afterwards:
+  - **P1a — operating point at a fixed threshold.** For the translation class (split/weighted
+    conformal), alerts(bound, t) = alerts(point, t − Q) exactly. The change in alert set at a fixed
+    t grows with Q: the one-sided quantile, or the two-sided half-width. Expected to hold exactly;
+    verified numerically per method.
+  - **P1b — the operating locus.** For the translation class, the missed-vs-unnecessary locus over
+    all thresholds is **identical** to the point prediction's; it does **not** diverge, whatever Q
+    is. Only CQR and the E8 bound can trace a different locus. So "divergence tracking half-width"
+    is predicted for the operating point at a fixed t (P1a), **not** for the locus (P1b).
+  - **P1c — cost optima.** For the translation class, the unrestricted-oracle optimal cost equals
+    the point prediction's exactly, with the optimal threshold shifted by Q. Grid-restricted and
+    self-test-selected optima can differ from the point prediction's only through grid
+    discretisation and the selection-split/test mismatch.
+- **Descriptive association.** Spearman correlation, across method × learner × level, between Q and
+  the fixed-t alert-set change. No test (D4).
+
+**§6 Per-horizon handling (applies once §0 is resolved).** For each horizon h:
+- features are recut at cutoff h, and learners refit with the E6–E8 hyperparameters (re-searching
+  per horizon is an option, flagged, at about 45 min per horizon);
+- calibration is done separately per horizon (Q-CONF-01);
+- bounds are recomputed, CQR is self-test validated, and the positivity partition is recomputed
+  per horizon.
+
+**§7 Caveats carried.** The E15 one-sided caveat; the persistence one-sided exclusion; and a
+threshold-rule note that bounds and point predictions share one grid defined in point space.
+
+**§8 Execution discipline.**
+1. A smoke run (1 seed, reduced grid) validates the pipeline end to end.
+2. A runtime estimate is reported to Sidh.
+3. After approval, the full run goes to the background with a progress log, a monitor, and
+   30-minute checkpoints.
+
+**§9 Protocol details, fixed before the smoke run.**
+- **Tie rule.** Among thresholds with equal minimal cost, the highest one (fewest alerts) is chosen.
+- **Shift-aware selection weights (§4 secondary).** The rule-derived weights are evaluated on the
+  self-test events with the same construction and prevalences as the Gate 2 calibration weights.
+  Events failing the recency filter get weight 0, exactly as in calibration.
+- **Unrestricted oracle.** The candidate thresholds are every distinct finite score value (alerting
+  at or above it), plus +∞ (no alerts).
+- **P1a check.** For each bound, Q = median(bound − point) over supported events. P1a holds when the
+  counts of `bound ≥ t` equal the counts of `point ≥ t − Q` at every t ∈ T. Float rounding can move
+  an event sitting exactly on a boundary, so any non-zero difference is reported, not hidden.
+- **P1b check.** The largest absolute difference between the budget-sweep loci of bound and point
+  (missed high-risk events at every K).
+- **The smoke run and the official test set.** The smoke run (1 seed, reduced percentile grid) reads
+  the official test set only to validate the pipeline end to end and to time it. Its decision
+  numbers are **not** interpreted, **not** recorded as findings, and **not** used to change any
+  choice here. The full run re-scores the test set once.
+- **Search cache.** Adding the `threshold_analysis` config block changes the config hash, so the
+  smoke run re-runs the three searches once (about 45 min); the full run then reuses them.
+
+**Decided by:** PROPOSED by Claude Code under Sidh's instruction; to be confirmed or revised by Sidh
+(including §0, the §1 two-sided arms, and §4's selection split) before the full run.
+**Supersedes:** the earlier narrower single-threshold addendum; EXPERIMENT_PLAN.md E16 as a
+separate experiment (merged into E15).
+
 
 ---
 
