@@ -1,0 +1,15 @@
+{
+  "experiment_ids": [
+    "E15"
+  ],
+  "analysis": "rank-invariance audit (Proposition 1)",
+  "git_commit_sha": "ab4c5d11fdeee47a16546d008b0ec243d41f1cd8",
+  "config_hash": "7d6ccea5c4ec57951fa4106bb11a9b8c60b80e4d112acfb693d43e7d3dd384b1",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "executed_utc": "2026-09-15T19:52:36.643101+00:00",
+  "python": "3.13.11"
+}

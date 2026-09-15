@@ -1659,6 +1659,91 @@ still misses more than persistence.
 Execution stopped at this checkpoint.
 **Reported by:** Claude Code.
 
+> **[EXTENDED 2026-09-18]** The formal grounding for finding 4 and the complete method
+> classification are in the next entry, "EXTENSION of the E15 matched-budget finding". This entry
+> is unchanged.
+
+### 2026-09-18 — EXTENSION of the E15 matched-budget finding: rank invariance (Proposition 1), complete method classification, empirical confirmation
+
+**Extends, does not replace,** the E15 findings entry directly above; that finding stands as
+recorded. This entry adds the formal result behind it and the complete classification it lacked.
+**Report:** `reports/05b_rank_invariance.html`, run at `ab4c5d1` (1,084 s, 3 seeds). The learners
+were refit with the cached hyperparameters — no search, no model selection. The official test set
+was scored only.
+
+**Setting.** Events i = 1…n carry scores s_i, and s₍K₎ is the K-th largest. The matched-budget rule
+(D3) alerts a_i(K; s) = 1 if s_i > s₍K₎; (K − #{j : s_j > s₍K₎}) / #{j : s_j = s₍K₎} if s_i = s₍K₎;
+and 0 otherwise.
+
+**Proposition 1 (rank invariance).** For scores s and s′ on the same events, **a(K; s′) = a(K; s)
+for every K ∈ {0,…,n} if and only if s and s′ are order-isomorphic**: for all i, j, s_i < s_j ⇔
+s′_i < s′_j, and s_i = s_j ⇔ s′_i = s′_j. In particular, s′ = g(s) with g strictly increasing gives
+identical alerts at every budget.
+
+**Proof.**
+- **(⇐)** Order isomorphism preserves the descending order and the tie classes. The K-th largest
+  s′ therefore sits in the tie class matching the K-th largest s, so {s′ > s′₍K₎} = {s > s₍K₎} and
+  {s′ = s′₍K₎} = {s = s₍K₎}, hence a(K; s′) = a(K; s). A strictly increasing g is injective and
+  order-preserving, which is order isomorphism.
+- **(⇒)** Define u_i = min{K : a_i(K) > 0} and v_i = min{K : a_i(K) = 1}. Under the rule,
+  u_i = #{j : s_j > s_i} + 1 and v_i = #{j : s_j ≥ s_i}. Then s_i = s_j ⇔ (u_i, v_i) = (u_j, v_j),
+  and s_i < s_j ⇔ v_j ≤ u_i − 1. So the alert family determines the weak order up to isomorphism.
+  Identical alerts at every K give identical (u, v), hence isomorphic orders. ∎
+
+**Remark (strictness matters).** A weakly increasing g can merge two scores into a tie and change
+the fractional alerts (three-event example in `tests/test_rank_invariance.py`).
+
+**Corollaries.**
+1. **Split and weighted conformal bounds are translations of the point prediction.** p(x) + Q and
+   p(x) + Q_w use one shared Q, both for the one-sided upper bound (signed score) and for the
+   two-sided upper edge (absolute score). They are therefore rank-identical to the point
+   prediction.
+   - For weighted conformal this rests on the implementation's single representative test weight.
+     A per-event w(x) would void it.
+   - Unsupported (+∞) events would also void it; there are none.
+2. **CQR is a translation of its quantile head.** The one-sided bound is q₁₋α(x) + Q; the two-sided
+   upper edge is max(q_α/2, q₁₋α/2)(x) + Q. Each is rank-identical to its head, which is a separately
+   fitted pinball-loss model with no structural relation to p(x).
+3. **The Bayesian bound μ + zσ(x)** is rank-identical to μ only if σ is constant or order-preserving
+   in μ. Otherwise any agreement is empirical.
+4. **Threshold rule.** alerts(g(p), t) = alerts(p, g⁻¹(t)). A translation keeps the operating locus
+   and shifts only the operating point at a fixed t, by Q. This is the basis of P1a/P1b/P1c in the
+   expanded pre-registration.
+
+**Classification and empirical confirmation.** 20 method × learner × sidedness combinations, each
+checked at 3 nominal levels × 3 seeds:
+
+| structural class | arms | prediction | observed |
+|---|---|---|---|
+| translation of the point prediction | E10 split and E11 weighted; one-sided upper bound and two-sided upper edge; all 4 learners (16 arms) | rank-identical to own point prediction | **16/16 confirmed.** 0 order violations, 0 tie violations, Kendall τ = 1.000, offset spread ≤ 7.1e-15 (float), alert difference **exactly 0** at every budget |
+| translation of the quantile head | GBM CQR: one-sided (head q_ℓ) and two-sided upper edge (repaired q_{1−α/2}) | rank-identical to its head, not to the GBM point | **2/2 confirmed.** Order-isomorphic to its head in every level and seed; not to the point (≈1,100 order violations, τ ≥ 0.65). Alert overlap with the point at K = 150 as low as 0.41 (one-sided) and 0.27 (two-sided) |
+| event-specific dispersion | E8 Bayesian: one-sided and two-sided upper edge | no structural relation | **Not rank-identical** (≈1,000 order violations among 2,166 adjacent pairs, τ ≥ 0.965), yet alert overlap with the MC mean ≥ 0.98 at every budget |
+
+Structural predictions contradicted: **0 of 20**.
+
+**Why E8 matched its point prediction (~101.5 missed) — an empirical fact, not a structural one.**
+- **Its dispersion is not monotone in μ.** Spearman(μ, σ) = −0.87: σ falls as μ rises.
+- **Yet it barely reorders events.** σ hardly varies relative to μ. The constant aleatoric term is
+  80% of mean predictive variance (σ_ale ≈ 5.6; total σ spans only ≈5.7–6.8), so z·σ ranges over
+  ≈1.4 log-units while μ spans ≈30.5.
+- **Only near-ties swap.** Events whose μ differ by less than about 1.4 can swap. That reorders
+  many adjacent pairs but moves ≤2% of alerts at any budget. Missed high-risk events at K = 150:
+  101.3 for the bound vs 101.7 for the mean.
+- **Not guaranteed.** A different aleatoric/epistemic balance would not guarantee this agreement.
+
+**Reproduction.** The recomputed missed high-risk events match all 168 rows of the E15 table
+(largest |difference| 1.4e-14).
+
+**Observation, flagged — not an E15 finding.** The two-sided CQR upper edge misses 49.7 high-risk
+events at K = 150, versus 71.3 for the one-sided CQR bound and 50.0 for persistence. D2 excluded
+two-sided upper edges from E15's decision comparison, so this is recorded only as a by-product of
+the classification. It bears on the open §1 question in the expanded pre-registration (whether
+two-sided arms enter decision analysis). No conclusion is drawn here.
+
+**Explicitly NOT decided here (Sidh's):** the use of Proposition 1 in the manuscript; anything in
+the expanded threshold analysis.
+**Reported by:** Claude Code.
+
 
 ## Gate Outcomes
 
