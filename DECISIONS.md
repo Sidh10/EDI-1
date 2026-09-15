@@ -1396,6 +1396,119 @@ additionally degenerate (a 65.9% zero-atom in its signed scores, Gate 2)."*
 **Supersedes:** none.
 
 
+---
+
+## Phase 5 Empirical Findings (E15) — REPORTED, no decision taken
+
+<!--
+Measurements only. Every number is regenerable via `kc decision`; report
+reports/05_decision_cost.html; tables reports/tables/e15_*.csv. 3 seeds
+(42/43/44), 2,000 event-level resamples, seed-averaged values and bounds.
+-->
+
+### 2026-09-18 — E15 decision cost: conformal calibration changes no matched-budget decision; the ranking score decides, and persistence ranks best
+
+**Report:** `reports/05_decision_cost.html`, run at commit `94ed187`, 3,839 s. The protocol is
+exactly as pre-registered above; nothing was tuned after a decision number was seen.
+
+**Every stated caveat applies:** one-sided upper bounds under-cover on the official test set (E11
+diagnostic: machinery validated under exchangeability, but rule-derived weighting does not restore
+one-sided validity), and persistence's one-sided bound is additionally degenerate (a 65.9%
+zero-atom, Gate 2). Finding 5 quantifies this.
+
+**Integrity checks, all passed.**
+- **Searches.** The config-hash change re-ran the GBM, GRU and MC-dropout searches. All three
+  reproduced every earlier cache bit-for-bit, `best_params` and objective alike (§8).
+- **Alert identity (§4(i)).** At every level and budget, the largest alert difference between each
+  E10/E11 bound and its own point prediction, and between one-sided CQR and its GBM quantile head,
+  is **exactly 0**.
+- **One-sided CQR (§5).** It is validated on the exchangeable self-split, with the CP interval
+  containing nominal at every level: 0.788 at 80%, 0.893 at 90%, 0.943 at 95%.
+- **Cost ordering (§4(ii)).** Method ordering is identical across missed high-risk events and all
+  three cost ratios.
+- **Positivity.** All 2,167 test events are supported.
+
+**1. PRIMARY — missed high-risk events.** Prevalence-matched budget K = 150 (n_HR = 150), nominal
+90%, mean [95% CI]:
+- persistence (point, and its E10/E11 bounds): **50.0 [36.7, 63.7]**, miss rate 33.3%
+- GBM one-sided CQR bound (rule-weighted): **71.3 [55.3, 88.0]**, 47.6%
+- GRU (point, and its bounds): 101.0 [82.3, 120.7], 67.3%
+- MC-dropout E8 Bayesian bound: 101.3 [83.0, 120.7]; MC-dropout point and its bounds: 101.7 [83.0, 121.0]
+- GBM (point, and its E10/E11 bounds): **113.0 [92.7, 133.3]**, 75.3%
+
+The ordering is the same at every other pre-registered budget. Missed high-risk events at
+5% / 10% / 20% of N:
+
+| method | K = 108 | K = 217 | K = 433 |
+|---|---|---|---|
+| persistence | 80.0 | 26.0 | 13.0 |
+| CQR | 83.7 | 49.3 | 15.0 |
+| GBM | 119.7 | 95.0 | 41.3 |
+
+**2. SECONDARY — whole population, same budget.** At K = n_HR, unnecessary maneuvers equal missed
+high-risk events by arithmetic (FP = K − TP = FN), so the unnecessary counts repeat finding 1, and F2
+equals recall.
+- Persistence: FPR 2.48%, F2 0.667, cost 300 / 550 / 1,050 at 5:1 / 10:1 / 20:1.
+- CQR: FPR 3.54%, F2 0.524.
+- GBM: FPR 5.60%, F2 0.247.
+- The cost ratios scale these differences but never reorder methods (§4(ii), confirmed).
+
+**3. Paired differences in missed high-risk events** (primary budget and level; positive = misses
+more; descriptive):
+- **E10 and E11 bounds vs their own point prediction: +0.0 [+0.0, +0.0] for all four learners**, by
+  construction (§4(i)). Split or weighted conformal calibration changed **no** alert.
+- **E12 one-sided CQR vs GBM point: −41.7 [−56.0, −27.3].** Because CQR raises exactly the alerts of
+  its 0.90 quantile head, this advantage comes from the quantile-regression ranking, not from the
+  conformal step.
+- CQR vs the E8 Bayesian bound: −30.0 [−43.7, −17.7].
+- Persistence bounds vs E8: −51.3 [−69.7, −33.7]. GBM bounds vs E8: +11.7 [+1.7, +22.3]. GRU and
+  MC-dropout bounds vs E8: intervals include 0.
+- The E8 Bayesian bound vs MC-dropout's own point prediction differs by under one event (101.3 vs
+  101.7).
+
+**4. What the pre-registered identities turned into.** Under the matched-budget definition (D3),
+every decision difference in E15 comes from the **ranking score**. Conformal calibration adds a
+constant and changes nothing. The best-ranking score is the **uncalibrated persistence point
+prediction**, which misses fewer high-risk events than every calibrated bound at every budget. The
+only bound that beats its own learner's point prediction is CQR, through its quantile head, and it
+still misses more than persistence.
+
+**5. The D2 caveat, quantified — realised one-sided coverage at nominal 90%.**
+
+| bound | whole population | high-risk events only |
+|---|---|---|
+| E8 Bayesian | 0.882 | 0.264 |
+| GBM E11 | 0.854 | 0.107 |
+| GBM CQR | 0.849 | 0.131 |
+| GRU E11 | 0.870 | 0.244 |
+| MC-dropout E11 | 0.866 | 0.191 |
+| persistence (E10/E11, degenerate) | 0.897 | 0.407 |
+
+- Across the whole population the learned-model bounds range 0.849–0.882. Persistence's degenerate
+  bound is 0.897.
+- **On true high-risk events the one-sided bounds sit below the true risk for 59–92% of them** —
+  underestimating risk exactly where it is dangerous. This is the one-sided counterpart of the E14
+  two-sided conditional-coverage anomaly, and it is sharper.
+
+**Mechanical reading of the spec criteria — not a judgement.**
+- For split and weighted conformal, "no reduction in missed high-risk events at matched budgets at
+  any cost ratio" holds exactly, by construction.
+- For one-sided CQR, there is a reduction against its own learner (GBM) and against E8, but not
+  against the best point prediction (persistence).
+
+**Explicitly NOT decided here (Sidh's):**
+- whether the E15 failure or success criterion is met;
+- whether pre-registration §3 (which metrics form the high-risk block) and §4 (the identities) are
+  confirmed;
+- whether the matched-budget comparison should be complemented by a threshold-based view, where
+  calibration would matter (D3 excludes one; E15 did not run it);
+- how finding 4 and finding 5 are framed;
+- anything in E16–E18.
+
+Execution stopped at this checkpoint.
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
