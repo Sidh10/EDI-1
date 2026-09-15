@@ -289,12 +289,16 @@ def bootstrap_paired_difference(
     counts_matrix: np.ndarray,
     *,
     level: float = 0.95,
+    quantity: str = "missed_high_risk",
+    ratio: float | None = None,
 ) -> dict[str, float]:
-    """Paired bootstrap interval for missed_high_risk(a) - missed_high_risk(b).
+    """Paired bootstrap interval for quantity(a) - quantity(b).
 
-    Both alert sets are scored on the SAME resamples, so the interval describes the
-    difference itself rather than two independent intervals. Positive means ``a``
-    misses more high-risk events than ``b``. Descriptive (D4): no p-value.
+    ``quantity`` is ``"missed_high_risk"`` (FN), ``"unnecessary_maneuvers"`` (FP) or
+    ``"cost"`` (r * FN + FP at ``ratio``). Both alert sets are scored on the SAME
+    resamples, so the interval describes the difference itself rather than two
+    independent intervals. Positive means ``a`` is larger: it misses more, raises
+    more unnecessary alerts, or costs more. Descriptive (D4): no p-value.
     """
     a = np.asarray(alerts_a, dtype=float)
     b = np.asarray(alerts_b, dtype=float)
@@ -302,11 +306,136 @@ def bootstrap_paired_difference(
     W = np.asarray(counts_matrix, dtype=float)
     if a.ndim != 1 or not (a.shape == b.shape == h.shape) or W.ndim != 2 or W.shape[1] != a.size:
         raise ValueError("alerts_a, alerts_b, is_high_risk and counts_matrix must share the event axis")
-    delta = (b - a) * h                      # per event: missed under a minus missed under b
+    missed_delta = (b - a) * h               # per event: FN under a minus FN under b
+    unnecessary_delta = (a - b) * ~h         # per event: FP under a minus FP under b
+    if quantity == "missed_high_risk":
+        delta = missed_delta
+    elif quantity == "unnecessary_maneuvers":
+        delta = unnecessary_delta
+    elif quantity == "cost":
+        if ratio is None or not ratio > 0:
+            raise ValueError("quantity='cost' needs a positive ratio")
+        delta = float(ratio) * missed_delta + unnecessary_delta
+    else:
+        raise ValueError(f"unknown quantity: {quantity!r}")
     draws = W @ delta
     alpha = 1.0 - level
     lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
     return {"point": float(delta.sum()), "lo": float(lo), "hi": float(hi)}
+
+
+# --- threshold rule (expanded E15, absorbing E16) ----------------------------------------
+def threshold_alerts(score: np.ndarray, threshold: float) -> np.ndarray:
+    """Binary alerts of the operational rule: alert iff ``score >= threshold``.
+
+    Unlike the matched budget, the number of alerts is whatever the threshold
+    implies, so a bound and its point prediction can alert different events at the
+    same threshold. Proposition 1, Corollary 4: for ``score = point + Q`` the alerts
+    equal the point prediction's at ``threshold - Q``.
+    """
+    s = np.asarray(score, dtype=float)
+    if s.ndim != 1 or s.size == 0:
+        raise ValueError("score must be a non-empty 1-D array")
+    if np.any(np.isnan(s)):
+        raise ValueError("score contains NaN; refusing to threshold (CLAUDE.md §1)")
+    if not np.isfinite(threshold):
+        raise ValueError(f"threshold must be finite, got {threshold!r}")
+    return (s >= float(threshold)).astype(float)
+
+
+def threshold_counts(
+    score: np.ndarray,
+    is_high_risk: np.ndarray,
+    thresholds: np.ndarray,
+    *,
+    event_weights: np.ndarray | None = None,
+) -> dict[str, np.ndarray]:
+    """(Optionally weighted) TP, FN, FP, TN of ``score >= t`` for every ``t`` in ``thresholds``.
+
+    One sort plus suffix sums, so a whole grid costs O(n log n + |T| log n). With
+    ``event_weights`` each event contributes its weight instead of 1 — used for the
+    shift-aware threshold selection (pre-registration §4). Thresholds may be +inf
+    (no finite score alerts).
+    """
+    s = np.asarray(score, dtype=float)
+    h = np.asarray(is_high_risk, dtype=bool)
+    t = np.asarray(thresholds, dtype=float)
+    if s.ndim != 1 or s.size == 0 or s.shape != h.shape:
+        raise ValueError("score and is_high_risk must be matching non-empty 1-D arrays")
+    if np.any(np.isnan(s)) or np.any(np.isnan(t)):
+        raise ValueError("score and thresholds must not contain NaN")
+    w = np.ones_like(s) if event_weights is None else np.asarray(event_weights, dtype=float)
+    if w.shape != s.shape or not np.all(np.isfinite(w)) or np.any(w < 0):
+        raise ValueError("event_weights must be finite, non-negative and match score")
+    order = np.argsort(s, kind="mergesort")
+    ss = s[order]
+    wh = (w * h)[order]
+    wl = (w * ~h)[order]
+    suffix_hr = np.r_[np.cumsum(wh[::-1])[::-1], 0.0]
+    suffix_lo = np.r_[np.cumsum(wl[::-1])[::-1], 0.0]
+    start = np.searchsorted(ss, t, side="left")        # first event with score >= t
+    tp = suffix_hr[start]
+    fp = suffix_lo[start]
+    n_hr = float(wh.sum())
+    n_lo = float(wl.sum())
+    return {"threshold": t, "tp": tp, "fn": n_hr - tp, "fp": fp, "tn": n_lo - fp, "n_alerts": tp + fp}
+
+
+def threshold_grid(pooled_point_predictions: np.ndarray, percentiles, operational_thresholds) -> dict:
+    """The pre-registered threshold grid T (pre-registration §2).
+
+    Percentiles (linear interpolation) of the pooled calibration-split point
+    predictions, deduplicated — the −30 floor atom makes several low percentiles
+    coincide, and the number removed is reported — plus the fixed operational
+    thresholds, added whether or not they coincide with a percentile value.
+    """
+    p = np.asarray(pooled_point_predictions, dtype=float)
+    if p.ndim != 1 or p.size == 0 or not np.all(np.isfinite(p)):
+        raise ValueError("pooled point predictions must be a non-empty finite 1-D array")
+    pct = np.asarray(list(percentiles), dtype=float)
+    if pct.size == 0 or np.any(pct <= 0) or np.any(pct >= 100):
+        raise ValueError("percentiles must be a non-empty list of values strictly inside (0, 100)")
+    ops = np.asarray(list(operational_thresholds), dtype=float)
+    if not np.all(np.isfinite(ops)):
+        raise ValueError("operational thresholds must be finite")
+    values = np.percentile(p, pct)
+    unique_values = np.unique(values)
+    return {
+        "thresholds": np.unique(np.concatenate([unique_values, ops])),
+        "percentile_values": values,
+        "n_percentiles": int(pct.size),
+        "n_duplicates_removed": int(values.size - unique_values.size),
+        "operational_thresholds": ops,
+    }
+
+
+def cost_minimizing_threshold(
+    score: np.ndarray,
+    is_high_risk: np.ndarray,
+    thresholds: np.ndarray,
+    ratio: float,
+    *,
+    event_weights: np.ndarray | None = None,
+) -> dict:
+    """The threshold in ``thresholds`` minimising (weighted) cost r * FN + FP.
+
+    Ties among minimisers go to the HIGHEST threshold (fewest alerts), the tie rule
+    fixed before the smoke run (pre-registration §9).
+    """
+    if not ratio > 0:
+        raise ValueError(f"ratio must be positive, got {ratio!r}")
+    t = np.asarray(thresholds, dtype=float)
+    if t.ndim != 1 or t.size == 0:
+        raise ValueError("thresholds must be a non-empty 1-D array")
+    c = threshold_counts(score, is_high_risk, t, event_weights=event_weights)
+    cost = float(ratio) * c["fn"] + c["fp"]
+    minimisers = np.flatnonzero(np.isclose(cost, cost.min(), rtol=1e-12, atol=1e-9))
+    i = int(minimisers[np.argmax(t[minimisers])])
+    return {
+        "threshold": float(t[i]), "cost": float(cost[i]), "index": i,
+        "missed_high_risk": float(c["fn"][i]), "unnecessary_maneuvers": float(c["fp"][i]),
+        "n_alerts": float(c["n_alerts"][i]),
+    }
 
 
 # --- rank-invariance audit (E15 extension) ---------------------------------------

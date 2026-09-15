@@ -218,6 +218,27 @@ class DecisionCostConfig:
 
 
 @dataclass(frozen=True)
+class ThresholdAnalysisConfig:
+    """Expanded E15 threshold-based analysis settings (absorbs E16).
+
+    Fixed by the 2026-09-18 PRE-REGISTRATION "expanded threshold-based decision
+    analysis" in DECISIONS.md, written before any threshold result existed
+    (CLAUDE.md §3). ``horizons_days`` is pending Sidh's resolution of Q-METH-04:
+    only the challenge cutoff is accepted. ``smoke_*`` define the reduced
+    configuration used ONLY to validate and time the pipeline (pre-registration §9).
+    """
+
+    grid_percentiles: tuple[float, ...]
+    operational_thresholds: tuple[float, ...]
+    horizons_days: tuple[float, ...]
+    selection_split: str
+    selection_tie_break: str
+    exclude_persistence_one_sided: bool
+    smoke_seeds: tuple[int, ...]
+    smoke_grid_percentiles: tuple[float, ...]
+
+
+@dataclass(frozen=True)
 class Config:
     """Validated configuration with a stable content hash.
 
@@ -248,6 +269,7 @@ class Config:
     pc_spike: PcSpikeConfig
     labelnoise: LabelNoiseConfig
     decision_cost: DecisionCostConfig
+    threshold_analysis: ThresholdAnalysisConfig
     config_hash: str = field(compare=False)
 
     # --- path helpers (resolved against repo root) --------------------------
@@ -630,6 +652,49 @@ def validate(raw: dict[str, Any]) -> Config:
             "include_prevalence_matched_budget: true (E15 pre-registration §2)"
         )
 
+    ta_raw = _require(raw, "threshold_analysis", dict, "root")
+    ta_lists = {}
+    for name in ("grid_percentiles", "operational_thresholds", "horizons_days", "smoke_grid_percentiles"):
+        values = _require(ta_raw, name, list, "threshold_analysis")
+        if not values or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+            raise ConfigError(f"threshold_analysis.{name} must be a non-empty list of numbers")
+        ta_lists[name] = tuple(float(v) for v in values)
+    smoke_seeds_raw = _require(ta_raw, "smoke_seeds", list, "threshold_analysis")
+    if not smoke_seeds_raw or not all(isinstance(v, int) and not isinstance(v, bool) for v in smoke_seeds_raw):
+        raise ConfigError("threshold_analysis.smoke_seeds must be a non-empty list of integers")
+    threshold_analysis = ThresholdAnalysisConfig(
+        grid_percentiles=ta_lists["grid_percentiles"],
+        operational_thresholds=ta_lists["operational_thresholds"],
+        horizons_days=ta_lists["horizons_days"],
+        selection_split=_require(ta_raw, "selection_split", str, "threshold_analysis"),
+        selection_tie_break=_require(ta_raw, "selection_tie_break", str, "threshold_analysis"),
+        exclude_persistence_one_sided=_require(ta_raw, "exclude_persistence_one_sided", bool, "threshold_analysis"),
+        smoke_seeds=tuple(int(v) for v in smoke_seeds_raw),
+        smoke_grid_percentiles=ta_lists["smoke_grid_percentiles"],
+    )
+    for name in ("grid_percentiles", "smoke_grid_percentiles"):
+        pct = getattr(threshold_analysis, name)
+        if any(not (0.0 < v < 100.0) for v in pct) or list(pct) != sorted(pct):
+            raise ConfigError(f"threshold_analysis.{name} must be ascending values strictly inside (0, 100)")
+    if not any(abs(t - high_risk_threshold) < 1e-12 for t in threshold_analysis.operational_thresholds):
+        raise ConfigError(
+            "threshold_analysis.operational_thresholds must include the challenge high-risk threshold "
+            "(pre-registration §2)"
+        )
+    # Pre-registration §0: the horizon set is pending Sidh's resolution of Q-METH-04. Only the
+    # challenge cutoff is constructible on the official test set, which has no CDM between 1 and
+    # 2 days before TCA; any other horizon would silently degenerate, so it fails loudly.
+    if threshold_analysis.horizons_days != (float(cutoff.cutoff_days_before_tca),):
+        raise ConfigError(
+            "threshold_analysis.horizons_days: only the challenge cutoff is supported until Sidh "
+            "resolves Q-METH-04 (pre-registration §0); the official test set has no CDMs between "
+            "1 and 2 days before TCA"
+        )
+    if threshold_analysis.selection_split != "self_test":
+        raise ConfigError("threshold_analysis.selection_split must be 'self_test' (pre-registration §4)")
+    if threshold_analysis.selection_tie_break != "highest_threshold":
+        raise ConfigError("threshold_analysis.selection_tie_break must be 'highest_threshold' (pre-registration §9)")
+
     return Config(
         raw=copy.deepcopy(raw),
         seed=seed,
@@ -654,6 +719,7 @@ def validate(raw: dict[str, Any]) -> Config:
         pc_spike=pc_spike,
         labelnoise=labelnoise,
         decision_cost=decision_cost,
+        threshold_analysis=threshold_analysis,
         config_hash=compute_config_hash(raw),
     )
 

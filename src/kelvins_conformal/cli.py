@@ -64,8 +64,14 @@ def _ensure_kernel(name: str = "python3") -> None:
     )
 
 
-def _run_notebook(nb_in: Path, html_out: Path, kernel: str = "python3") -> None:
-    """Execute a notebook headlessly (papermill) then export to HTML (nbconvert)."""
+def _run_notebook(
+    nb_in: Path, html_out: Path, kernel: str = "python3", parameters: dict | None = None
+) -> None:
+    """Execute a notebook headlessly (papermill) then export to HTML (nbconvert).
+
+    ``parameters`` are injected after the notebook's ``parameters``-tagged cell (used,
+    e.g., to render the expanded E15 analysis in its smoke configuration).
+    """
     import nbformat
     import papermill as pm
     from nbconvert import HTMLExporter
@@ -79,6 +85,7 @@ def _run_notebook(nb_in: Path, html_out: Path, kernel: str = "python3") -> None:
         kernel_name=kernel,
         cwd=str(REPO_ROOT),
         progress_bar=False,
+        parameters=parameters or {},
     )
     nb = nbformat.read(str(executed), as_version=4)
     body, _ = HTMLExporter(exclude_input=False).from_notebook_node(nb)
@@ -246,7 +253,13 @@ def decision(
     only: str = typer.Option(
         "e15", "--only",
         help="Which notebook(s): 'e15' (05, the matched-budget run), 'rank-audit' "
-             "(05b, the rank-invariance classification), or 'all'.",
+             "(05b, the rank-invariance classification), 'threshold' (05c, the expanded "
+             "threshold-based analysis), or 'all'.",
+    ),
+    smoke: bool = typer.Option(
+        False, "--smoke",
+        help="With --only threshold: render the reduced smoke configuration (pipeline "
+             "validation and timing only; its numbers are not findings).",
     ),
 ) -> None:
     """E15: decision-cost evaluation under a matched alert budget (Phase 5).
@@ -263,8 +276,10 @@ def decision(
 
     from .reporting import OutputLockError, output_lock
 
-    if only not in ("e15", "rank-audit", "all"):
-        raise typer.BadParameter("--only must be one of: e15, rank-audit, all")
+    if only not in ("e15", "rank-audit", "threshold", "all"):
+        raise typer.BadParameter("--only must be one of: e15, rank-audit, threshold, all")
+    if smoke and only != "threshold":
+        raise typer.BadParameter("--smoke applies to --only threshold only")
     cfg = load_config(config)
     _ensure_kernel()
     nb_dir = REPO_ROOT / "notebooks"
@@ -276,6 +291,10 @@ def decision(
                 _run_notebook(nb_dir / "05_decision_cost.ipynb", reports / "05_decision_cost.html")
             if only in ("rank-audit", "all"):
                 _run_notebook(nb_dir / "05b_rank_invariance.ipynb", reports / "05b_rank_invariance.html")
+            if only in ("threshold", "all"):
+                html = "05c_threshold_analysis_smoke.html" if smoke else "05c_threshold_analysis.html"
+                _run_notebook(nb_dir / "05c_threshold_analysis.ipynb", reports / html,
+                              parameters={"SMOKE": smoke})
     except OutputLockError as exc:
         raise typer.Exit(code=1) from exc
     typer.echo("[phase5] E15 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")

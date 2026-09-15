@@ -292,3 +292,31 @@ decision_cost:
   # D2: decisions use the one-sided UPPER bound directly; the two-sided interval's
   # upper edge is never substituted. Any other value fails loudly at load time.
   bound_side: upper
+
+# --- E15 expansion: threshold-based decision analysis (absorbs E16) ------------
+# Every value here is fixed by the 2026-09-18 PRE-REGISTRATION "expanded
+# threshold-based decision analysis" in DECISIONS.md, written BEFORE any threshold
+# result existed (CLAUDE.md §3).
+threshold_analysis:
+  # §2: percentiles of the pooled CALIBRATION-split point predictions (all four
+  # learners, all seeds). Duplicates (the -30 floor atom) are removed at run time
+  # and the number removed is reported.
+  grid_percentiles: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
+  # §2: fixed operational thresholds added regardless of the percentile grid; must
+  # include the challenge high-risk threshold.
+  operational_thresholds: [-6.0]
+  # §0: horizon set PENDING Sidh's resolution of Q-METH-04. Only the challenge
+  # cutoff (2 d) is constructible on the official test set (no test CDM lies between
+  # 1 and 2 days before TCA); any other value fails loudly at load time.
+  horizons_days: [2.0]
+  # §4: the split the deployable cost-minimizing threshold is selected on.
+  selection_split: self_test
+  # §9: among equal-cost thresholds, choose the highest (fewest alerts).
+  selection_tie_break: highest_threshold
+  # §1: persistence's one-sided bounds are excluded with disclosure (degenerate
+  # quantile, Gate 2).
+  exclude_persistence_one_sided: true
+  # §9: the reduced configuration used ONLY to validate and time the pipeline
+  # (1 seed, 3 percentiles). Its numbers are not findings.
+  smoke_seeds: [42]
+  smoke_grid_percentiles: [10, 50, 90]

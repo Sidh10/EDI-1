@@ -81,6 +81,34 @@ def test_validate_rejects_invalid_decision_cost(key, value, match):
         validate(raw)
 
 
+def test_threshold_analysis_block_matches_the_pre_registration():
+    ta = load_config().threshold_analysis
+    assert ta.grid_percentiles == tuple(float(p) for p in range(5, 100, 5))
+    assert -6.0 in ta.operational_thresholds
+    assert ta.horizons_days == (2.0,)
+    assert ta.selection_split == "self_test"
+    assert ta.selection_tie_break == "highest_threshold"
+    assert ta.exclude_persistence_one_sided is True
+    assert len(ta.smoke_seeds) == 1 and len(ta.smoke_grid_percentiles) < len(ta.grid_percentiles)
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "match"),
+    [
+        ("horizons_days", [2.0, 1.0], "Q-METH-04"),
+        ("operational_thresholds", [-5.0], "high-risk threshold"),
+        ("grid_percentiles", [50, 10], "grid_percentiles"),
+        ("selection_split", "official_test", "selection_split"),
+        ("selection_tie_break", "lowest_threshold", "selection_tie_break"),
+    ],
+)
+def test_validate_rejects_invalid_threshold_analysis(key, value, match):
+    raw = copy.deepcopy(load_config().raw)
+    raw["threshold_analysis"][key] = value
+    with pytest.raises(ConfigError, match=match):
+        validate(raw)
+
+
 def test_config_hash_is_deterministic():
     a = load_config().config_hash
     b = load_config().config_hash

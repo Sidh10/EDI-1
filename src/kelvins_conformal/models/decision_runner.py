@@ -408,7 +408,10 @@ def run_e15(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
 
 
 # --- rank-invariance audit (extends the 2026-09-18 E15 matched-budget entry) ------------
-def rank_audit_scores(data, weights, preds: dict, heads: dict, level: float, supported: np.ndarray) -> list[dict]:
+def rank_audit_scores(
+    data, weights, preds: dict, heads: dict, level: float, supported: np.ndarray,
+    split: str = "official_test",
+) -> list[dict]:
     """Every (method, learner, sidedness) decision score, with what Proposition 1 predicts.
 
     Each entry carries the score (the one-sided bound, or the upper edge of the
@@ -418,9 +421,14 @@ def rank_audit_scores(data, weights, preds: dict, heads: dict, level: float, sup
     event-specific), and the structural class. Constructions reproduce the E11
     (weighted_interval, incl. conditional clipping), E12 (two-sided CQR with
     quantile-crossing repair) and E15 (one-sided CQR, Bayesian bound) code paths.
+
+    ``split`` selects the scored subset (official test by default; the threshold
+    analysis also scores ``self_test`` for threshold selection). Every conformal
+    quantile comes from the calibration split and is shared by all events, so the
+    same Q applies on any split.
     """
-    cal, test = data.subsets["calibration"], data.subsets["official_test"]
-    n = test["y"].size
+    cal = data.subsets["calibration"]
+    n = data.subsets[split]["y"].size
     alpha = 1.0 - level
     tw = weights.rule.test_weight
 
@@ -431,7 +439,7 @@ def rank_audit_scores(data, weights, preds: dict, heads: dict, level: float, sup
 
     entries = []
     for lrn in BASE_LEARNERS:
-        p = np.asarray(preds[lrn]["official_test"], dtype=float)
+        p = np.asarray(preds[lrn][split], dtype=float)
         cal_scores = {
             "upper": signed_residual_scores(cal["y"], preds[lrn]["calibration"]),
             "two": absolute_residual_scores(cal["y"], preds[lrn]["calibration"]),
@@ -451,20 +459,20 @@ def rank_audit_scores(data, weights, preds: dict, heads: dict, level: float, sup
                 "point": p, "construction_reference": p, "structural_class": TRANSLATION_OF_POINT,
             })
 
-    p_gbm = np.asarray(preds["gbm"]["official_test"], dtype=float)
+    p_gbm = np.asarray(preds["gbm"][split], dtype=float)
     head = heads[round(float(level), 6)]
     entries.append({
         "method": E12, "learner": "gbm", "sided": "upper",
         "construction": "q_(1-alpha)(x) + Q, one-sided CQR on the GBM quantile head (rule-weighted)",
         "score": _expand(cqr_upper_bound(
-            head["official_test"][supported], cqr_upper_scores(cal["y"], head["calibration"]), alpha,
+            head[split][supported], cqr_upper_scores(cal["y"], head["calibration"]), alpha,
             weights=weights.rule.w, test_weight=tw).hi),
-        "point": p_gbm, "construction_reference": head["official_test"],
+        "point": p_gbm, "construction_reference": head[split],
         "structural_class": TRANSLATION_OF_QUANTILE_HEAD,
     })
     lo_l, hi_l = round(alpha / 2, 6), round(1.0 - alpha / 2, 6)
     qlo_c, qhi_c = enforce_monotone_quantiles(heads[lo_l]["calibration"], heads[hi_l]["calibration"])
-    qlo_t, qhi_t = enforce_monotone_quantiles(heads[lo_l]["official_test"], heads[hi_l]["official_test"])
+    qlo_t, qhi_t = enforce_monotone_quantiles(heads[lo_l][split], heads[hi_l][split])
     iv_two = cqr_interval(qlo_t[supported], qhi_t[supported], cqr_scores(cal["y"], qlo_c, qhi_c), alpha,
                           weights=weights.rule.w, test_weight=tw)
     entries.append({
@@ -474,7 +482,7 @@ def rank_audit_scores(data, weights, preds: dict, heads: dict, level: float, sup
         "structural_class": TRANSLATION_OF_QUANTILE_HEAD,
     })
 
-    dist = preds["_mc_dropout_dist"]["official_test"]
+    dist = preds["_mc_dropout_dist"][split]
     mu = np.asarray(dist.mean, dtype=float)
     entries.append({
         "method": E8, "learner": "mc_dropout", "sided": "upper",
