@@ -200,6 +200,24 @@ class LabelNoiseConfig:
 
 
 @dataclass(frozen=True)
+class DecisionCostConfig:
+    """E15 decision-cost settings (Phase 5).
+
+    Fixed by the 2026-09-18 E15 design review (Sidh) and the E15 pre-registration
+    in DECISIONS.md, both written before E15 read the official test set
+    (CLAUDE.md §3). ``cost_ratios`` are missed-high-risk : unnecessary-maneuver
+    costs and the budgets are matched alert counts (D3); ``bound_side`` must be
+    ``"upper"`` (D2).
+    """
+
+    cost_ratios: tuple[float, ...]
+    budget_fractions: tuple[float, ...]
+    include_prevalence_matched_budget: bool
+    primary_budget: str
+    bound_side: str
+
+
+@dataclass(frozen=True)
 class Config:
     """Validated configuration with a stable content hash.
 
@@ -229,6 +247,7 @@ class Config:
     bayesian: BayesianConfig
     pc_spike: PcSpikeConfig
     labelnoise: LabelNoiseConfig
+    decision_cost: DecisionCostConfig
     config_hash: str = field(compare=False)
 
     # --- path helpers (resolved against repo root) --------------------------
@@ -571,6 +590,46 @@ def validate(raw: dict[str, Any]) -> Config:
             "rescaled labels is logged as future work, not a supported code path."
         )
 
+    dc_raw = _require(raw, "decision_cost", dict, "root")
+    ratios_raw = _require(dc_raw, "cost_ratios", list, "decision_cost")
+    fractions_raw = _require(dc_raw, "budget_fractions", list, "decision_cost")
+    for name, values in (("cost_ratios", ratios_raw), ("budget_fractions", fractions_raw)):
+        if not values or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in values
+        ):
+            raise ConfigError(f"decision_cost.{name} must be a non-empty list of numbers")
+    decision_cost = DecisionCostConfig(
+        cost_ratios=tuple(float(v) for v in ratios_raw),
+        budget_fractions=tuple(float(v) for v in fractions_raw),
+        include_prevalence_matched_budget=_require(
+            dc_raw, "include_prevalence_matched_budget", bool, "decision_cost"
+        ),
+        primary_budget=_require(dc_raw, "primary_budget", str, "decision_cost"),
+        bound_side=_require(dc_raw, "bound_side", str, "decision_cost"),
+    )
+    if any(r <= 0 for r in decision_cost.cost_ratios):
+        raise ConfigError(
+            f"decision_cost.cost_ratios must be positive, got {decision_cost.cost_ratios}"
+        )
+    if any(not (0.0 < f < 1.0) for f in decision_cost.budget_fractions):
+        raise ConfigError(
+            f"decision_cost.budget_fractions must lie in (0, 1), got {decision_cost.budget_fractions}"
+        )
+    # D2 (DECISIONS.md, 2026-09-18 E15 design review): the one-sided upper bound is
+    # used directly. Any other sidedness would silently change what E15 measures.
+    if decision_cost.bound_side != "upper":
+        raise ConfigError(
+            "decision_cost.bound_side must be 'upper': the E15 design review (D2) fixed the "
+            "one-sided upper bound and forbids substituting the two-sided upper edge"
+        )
+    # Pre-registration §2: the prevalence-matched budget is the one primary point.
+    if (decision_cost.primary_budget != "prevalence_matched"
+            or not decision_cost.include_prevalence_matched_budget):
+        raise ConfigError(
+            "decision_cost.primary_budget must be 'prevalence_matched', with "
+            "include_prevalence_matched_budget: true (E15 pre-registration §2)"
+        )
+
     return Config(
         raw=copy.deepcopy(raw),
         seed=seed,
@@ -594,6 +653,7 @@ def validate(raw: dict[str, Any]) -> Config:
         bayesian=bayesian,
         pc_spike=pc_spike,
         labelnoise=labelnoise,
+        decision_cost=decision_cost,
         config_hash=compute_config_hash(raw),
     )
 

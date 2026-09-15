@@ -272,3 +272,23 @@ labelnoise:
     representativeness_max_prevalence_diff_pp: 1.5   # ... high-risk prevalence gap
                                       # BOTH must fire; KS alone rejects on
                                       # trivial differences at n ~ 2,000.
+
+# --- E15 decision-cost evaluation (Phase 5) ----------------------------------
+# Every value here is fixed by the 2026-09-18 E15 design review (Sidh's decisions
+# D1-D4) and the E15 PRE-REGISTRATION entry in DECISIONS.md, both written BEFORE
+# E15 read the official test set (CLAUDE.md §3).
+decision_cost:
+  # D3: missed-high-risk-event cost : unnecessary-maneuver cost.
+  cost_ratios: [5, 10, 20]
+  # D3 matched alert budget: every compared method raises the SAME number of
+  # alerts K at an evaluation point (equal operator burden, not equal threshold).
+  # These budgets are fractions of the official test set size N.
+  budget_fractions: [0.05, 0.10, 0.20]
+  # Also evaluate K = round(test high-risk prevalence x N): the burden at which a
+  # perfect ranking would miss nothing and raise no false alarm. It is the
+  # PRIMARY evaluation point (pre-registration §2).
+  include_prevalence_matched_budget: true
+  primary_budget: prevalence_matched   # only supported value
+  # D2: decisions use the one-sided UPPER bound directly; the two-sided interval's
+  # upper edge is never substituted. Any other value fails loudly at load time.
+  bound_side: upper

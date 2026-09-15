@@ -188,6 +188,10 @@ def base_predictions(cfg: Config, data: ConformalData, seed: int) -> dict:
             n_samples=cfg.bayesian.n_mc_samples, aleatoric_std=aleatoric, seed=seed,
         )
         out["mc_dropout"][s] = dist.mean
+        # E15 needs the full predictive distribution for the one-sided Bayesian
+        # bound. It is stored under a private key, so the E9-E11 loops over
+        # BASE_LEARNERS never see it and their outputs are unchanged.
+        out.setdefault("_mc_dropout_dist", {})[s] = dist
 
     return out
 

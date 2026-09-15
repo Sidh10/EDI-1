@@ -97,3 +97,44 @@ def enforce_monotone_quantiles(
     lo = np.minimum(q_lo, q_hi)
     hi = np.maximum(q_lo, q_hi)
     return lo, hi
+
+
+# --- one-sided (upper-bound) CQR — E15 -------------------------------------------
+def cqr_upper_scores(y_cal: np.ndarray, q_hi_cal: np.ndarray) -> np.ndarray:
+    """One-sided CQR score E_i = y_i - q_hi(x_i), for an UPPER bound (E15, D2).
+
+    The upper half of the CQR construction (Romano, Patterson & Candès 2019): only
+    the upper quantile predictor is kept, so this is split conformal on the signed
+    residual of that predictor. Finite-sample validity follows from the same
+    exchangeability argument as ``split.signed_residual_scores`` (Lei et al. 2018),
+    and the weighted version from Tibshirani et al. (2019).
+
+    E12 computed TWO-SIDED CQR only; this one-sided variant is new at E15 and is
+    validated on the exchangeable self-test split before it is trusted.
+    """
+    y_cal = np.asarray(y_cal, dtype=float)
+    q_hi = np.asarray(q_hi_cal, dtype=float)
+    if y_cal.shape != q_hi.shape:
+        raise ValueError("y_cal and q_hi_cal must share a shape")
+    return y_cal - q_hi
+
+
+def cqr_upper_bound(
+    q_hi_test: np.ndarray,
+    scores_cal: np.ndarray,
+    alpha: float,
+    *,
+    weights: np.ndarray | None = None,
+    test_weight: float | None = None,
+) -> Interval:
+    """One-sided CQR upper bound ``(-inf, q_hi(x) + Q]`` on the test points.
+
+    ``Q`` is the (weighted) finite-sample conformal quantile of ``cqr_upper_scores``
+    — the same primitive as every other interval here (invariant I5). ``Q`` may be
+    negative (the head is too high) or ``+inf`` (calibration set too small for the
+    level), in which case the honest bound is unbounded.
+    """
+    q_hi = np.asarray(q_hi_test, dtype=float)
+    q = conformal_quantile(scores_cal, alpha, weights=weights, test_weight=test_weight)
+    hi = np.full_like(q_hi, np.inf) if np.isinf(q) else q_hi + q
+    return Interval(lo=np.full_like(q_hi, -np.inf), hi=hi)

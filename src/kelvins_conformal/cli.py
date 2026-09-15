@@ -240,5 +240,36 @@ def labelnoise(
     typer.echo("[phase4] E14 report rendered. Gate 3 is Sidh's call (CLAUDE.md §13).")
 
 
+@app.command()
+def decision(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E15: decision-cost evaluation under a matched alert budget (Phase 5).
+
+    Renders ``reports/05_decision_cost.html``. Turns point predictions and one-sided
+    upper bounds into maneuver alerts at matched alert budgets and reports missed
+    high-risk events first (the 2026-09-18 E15 design review, D1-D4). Slow by
+    design: all four base learners are refit for three seeds, and the config-hash
+    change re-runs the cached searches once. Progress is written to
+    ``artifacts/e15_progress.log``.
+    """
+    import time as _time
+
+    from .reporting import OutputLockError, output_lock
+
+    cfg = load_config(config)
+    _ensure_kernel()
+    run_id = f"phase5-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            _run_notebook(
+                REPO_ROOT / "notebooks" / "05_decision_cost.ipynb",
+                cfg.path("reports_dir") / "05_decision_cost.html",
+            )
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
+    typer.echo("[phase5] E15 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")
+
+
 if __name__ == "__main__":
     app()

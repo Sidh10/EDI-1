@@ -56,6 +56,31 @@ def test_validate_rejects_strata_count_mismatch():
         validate(raw)
 
 
+def test_decision_cost_block_matches_the_e15_design_review():
+    dcfg = load_config().decision_cost
+    assert dcfg.cost_ratios == (5.0, 10.0, 20.0)      # D3
+    assert dcfg.bound_side == "upper"                  # D2
+    assert dcfg.primary_budget == "prevalence_matched"
+    assert dcfg.include_prevalence_matched_budget is True
+    assert all(0.0 < f < 1.0 for f in dcfg.budget_fractions)
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "match"),
+    [
+        ("bound_side", "two_sided", "bound_side"),
+        ("cost_ratios", [5, 0, 20], "cost_ratios"),
+        ("budget_fractions", [0.05, 1.5], "budget_fractions"),
+        ("primary_budget", "frac_0.1", "primary_budget"),
+    ],
+)
+def test_validate_rejects_invalid_decision_cost(key, value, match):
+    raw = copy.deepcopy(load_config().raw)
+    raw["decision_cost"][key] = value
+    with pytest.raises(ConfigError, match=match):
+        validate(raw)
+
+
 def test_config_hash_is_deterministic():
     a = load_config().config_hash
     b = load_config().config_hash

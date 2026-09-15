@@ -76,6 +76,18 @@ class PredictiveDistribution:
             return lo - z * self.aleatoric_std, hi + z * self.aleatoric_std
         raise ValueError(f"unknown interval mode: {mode!r}")
 
+    def upper_bound(self, level: float) -> np.ndarray:
+        """One-sided Gaussian predictive upper bound ``mu + z_level * std`` (E15).
+
+        The one-sided analogue of ``interval(mode="gaussian")``: the ``level``
+        quantile of N(mu, std^2), using the same total (epistemic + aleatoric)
+        predictive sd. It is the UNCALIBRATED Bayesian bound E15 compares against
+        (D2: one-sided bounds are used directly, never a two-sided upper edge).
+        """
+        if not (0.0 < level < 1.0):
+            raise ValueError(f"level must be in (0, 1), got {level}")
+        return self.mean + float(stats.norm.ppf(level)) * self.std
+
 
 def mc_dropout_predict(
     result: SequenceResult,
