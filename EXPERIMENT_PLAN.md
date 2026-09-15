@@ -362,21 +362,25 @@ Determines target venue tier based on the combined strength of Contributions 1 a
 
 ## E15 — Decision-Cost Evaluation
 
-- **Objective:** Translate calibrated intervals into operational terms: maneuver/no-maneuver outcomes under explicit cost assumptions.
-- **Hypothesis:** Decisions informed by calibrated (weighted conformal / CQR) intervals achieve a better missed-high-risk-event vs. unnecessary-maneuver tradeoff than decisions based on uncalibrated point predictions or the naive Bayesian baseline (E8), at matched alert budgets.
-- **Dataset split:** Official test set, using outputs from E8, E11, E12.
-- **Inputs:** Interval/point outputs from prior experiments; a small set of pre-declared cost ratios (missed-event cost vs. unnecessary-maneuver cost).
-- **Outputs:** Decision outcomes (maneuver/no-maneuver) per event per method per cost ratio.
-- **Metrics:** F2-style decision score; false-negative rate (missed high-risk events); false-positive rate (unnecessary maneuvers); cost-weighted total.
-- **Statistical tests:** Paired comparison of decision outcomes across methods (e.g., McNemar's test on maneuver decisions where applicable).
-- **Confidence intervals:** Bootstrap CI, event-level, on decision-cost metrics.
-- **Figures produced:** Cost-tradeoff curves (false-negative vs. false-positive rate) across methods, at varying thresholds.
-- **Tables produced:** Decision-cost summary table across methods and cost ratios.
-- **Failure criteria:** Calibrated methods provide no decision-relevant advantage over point predictions at any tested cost ratio (a reportable, honest negative result, not a project failure — ties to the pre-agreed "intervals too wide to matter" outcome).
-- **Success criteria:** A clear decision-relevant advantage in at least one realistic cost regime, or an honestly characterized absence thereof.
+*Spec amended 2026-09-18 to match the E15 design review (DECISIONS.md, "E15 design review (Gate 3 binding requirement)"). The four resolutions are marked (D1)–(D4) below; the pre-amendment text is in git history.*
+
+- **Objective:** Translate calibrated intervals into operational terms: maneuver/no-maneuver outcomes under explicit cost assumptions, judged first on the events that matter operationally — the true high-risk events (D1, per the Gate 3 binding requirement).
+- **Hypothesis:** Decisions informed by calibrated one-sided upper bounds (weighted conformal / CQR) miss fewer high-risk events, and achieve a better missed-high-risk-event vs. unnecessary-maneuver tradeoff, than decisions based on uncalibrated point predictions or the naive Bayesian baseline (E8), at matched alert budgets (D3).
+- **Dataset split:** Official test set, using outputs from E8, E11, E12. **Primary reporting population:** the true high-risk events (n = 150). **Secondary:** the whole official test set (D1).
+- **Inputs:** Point predictions and **one-sided upper bounds** from E10/E11 (split and rule-weighted conformal), E12 (CQR), and E8 (MC-dropout). The one-sided upper bound is used directly; the two-sided interval's upper edge is **not** substituted (D2). Pre-registered cost ratios **{5:1, 10:1, 20:1}** (missed-high-risk-event cost : unnecessary-maneuver cost) (D3).
+- **Decision rule — matched alert budget (D3):** at each evaluation point, every compared method raises the **same total number of maneuver alerts**, so methods are compared at equal operator burden rather than at equal threshold value.
+- **Outputs:** Decision outcomes (maneuver/no-maneuver) per event per method per alert budget; cost per cost ratio.
+- **Metrics:** **PRIMARY — high-risk events (D1):** missed high-risk events (**the lead number**) and miss rate / recall on high-risk events. **SECONDARY — whole population (D1):** unnecessary maneuvers (false positives) and false-positive rate; F2-style decision score; cost-weighted total at each cost ratio.
+- **Mandatory caveat (D2):** every E15 table and figure states that the one-sided upper bound under-covers on the official test set. Per the E11 diagnostic, the one-sided machinery is validated under exchangeability (E9), but rule-derived weighting does not restore one-sided validity. The bound's realised one-sided coverage is reported alongside the decision metrics.
+- **Statistical tests:** **None (D4).** E15 is descriptive. Q-STAT-04's single confirmatory contrast (Gate 2's naive-vs-weighted two-sided coverage) stands alone; the previously listed McNemar comparison is withdrawn.
+- **Confidence intervals:** Bootstrap CI, event-level, on every reported decision metric.
+- **Figures produced:** Tradeoff curves — missed high-risk events vs. unnecessary maneuvers — across methods, swept over the alert budget, with the D2 caveat in the caption.
+- **Tables produced:** Decision-cost summary table across methods, alert budgets and cost ratios, with the high-risk (primary) block first and the whole-population (secondary) block after, each carrying the D2 caveat.
+- **Failure criteria:** Calibrated methods provide no decision-relevant advantage over point predictions — no reduction in missed high-risk events at matched alert budgets — at any tested cost ratio. This is a reportable, honest negative result, not a project failure; it ties to the pre-agreed "intervals too wide to matter" outcome.
+- **Success criteria:** A clear decision-relevant advantage (fewer missed high-risk events at a matched alert budget) in at least one realistic cost regime, or an honestly characterized absence thereof.
 - **Expected runtime:** 1–2 hours.
 - **Compute requirements:** CPU only.
-- **Dependencies:** E8, E11, E12.
+- **Dependencies:** E8, E11, E12; the E15 design review (DECISIONS.md, 2026-09-18).
 
 ---
 
