@@ -310,6 +310,52 @@ positivity partition in Q-SEL-03(C)).
 
 ---
 
+### 2026-09-18 — E15 design review (Gate 3 binding requirement): high-risk lens, one-sided bound, cost ratios, no second formal test
+
+**Context:** Gate 3 made it binding that E15 report high-risk-conditional performance as a primary
+lens, and that E15's design be reviewed before execution rather than retrofitted. The review found
+four open points in the E15 spec: it had no high-risk lens; Gate 2 had deferred the choice of
+interval bound; the cost ratios and "matched alert budget" were never defined; and it proposed
+McNemar tests that Q-STAT-04 does not authorize. Resolved as follows.
+
+**Decision 1 — reporting lens.** High-risk events (n = 150 on the official test set) are the
+**PRIMARY** reporting lens for every E15 metric; whole-population figures are reported as
+**secondary** context. **Missed high-risk events is the lead number.**
+
+**Decision 2 — interval bound: option (b).** E15 uses the **one-sided upper bound directly**. Its
+known under-coverage is stated **explicitly as a caveat on every E15 result**: per the E11
+diagnostic, the one-sided machinery is validated under exchangeability (E9), but the rule-derived
+weighting does not restore one-sided validity on the official test set. The two-sided interval's
+upper edge is **NOT** substituted. This resolves the consequence the Gate 2 decision flagged forward
+to the Phase 4/5 design review.
+
+**Decision 3 — cost ratios and matched alert budget.** Pre-registered now, before any E15 number
+exists: cost ratios (missed-high-risk-event cost : unnecessary-maneuver cost) of **{5:1, 10:1,
+20:1}**. **"Matched alert budget"** is defined as: the total number of predicted-maneuver alerts is
+held equal across compared methods at a given evaluation point, so methods are compared at **equal
+operator burden, not equal threshold value**.
+
+**Decision 4 — no second formal test.** E15 stays **descriptive with event-level bootstrap CIs
+throughout**. Q-STAT-04's single confirmatory claim (Gate 2's naive-vs-weighted two-sided coverage
+contrast) stands alone; E15's decision-cost analysis gets **no hypothesis test of its own**, and the
+spec's McNemar line is withdrawn.
+
+**Rationale:**
+1. Follows directly from Gate 3's binding requirement and from E14's finding that good marginal
+   coverage can coexist with poor coverage on the events that matter most operationally.
+2. Keeps E15 on the operationally relevant object, since underestimating risk is the dangerous
+   error, and carries that object's known limitation openly as a caveat instead of swapping in a
+   bound with a cleaner coverage claim.
+3. Fixes the cost regimes before results exist. Comparing at equal operator burden stops a method
+   from looking better simply by alerting more often.
+4. Preserves the multiplicity discipline the paper's primary claim rests on.
+
+**Decided by:** Sidh, at the E15 design review following Gate 3.
+**Supersedes:** resolves the E15 interval-bound choice deferred in the Gate 2 decision entry; amends
+EXPERIMENT_PLAN.md E15 (updated to match in the following commit).
+
+---
+
 ## PRE-REGISTRATION (PROPOSED — awaiting Sidh's confirmation)
 
 <!--
