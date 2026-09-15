@@ -243,29 +243,39 @@ def labelnoise(
 @app.command()
 def decision(
     config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+    only: str = typer.Option(
+        "e15", "--only",
+        help="Which notebook(s): 'e15' (05, the matched-budget run), 'rank-audit' "
+             "(05b, the rank-invariance classification), or 'all'.",
+    ),
 ) -> None:
     """E15: decision-cost evaluation under a matched alert budget (Phase 5).
 
-    Renders ``reports/05_decision_cost.html``. Turns point predictions and one-sided
-    upper bounds into maneuver alerts at matched alert budgets and reports missed
-    high-risk events first (the 2026-09-18 E15 design review, D1-D4). Slow by
-    design: all four base learners are refit for three seeds, and the config-hash
-    change re-runs the cached searches once. Progress is written to
-    ``artifacts/e15_progress.log``.
+    ``--only e15`` renders ``reports/05_decision_cost.html``: point predictions and
+    one-sided upper bounds turned into maneuver alerts at matched alert budgets,
+    missed high-risk events first (the 2026-09-18 E15 design review, D1-D4).
+    ``--only rank-audit`` renders ``reports/05b_rank_invariance.html``: the formal
+    rank-invariance result and its per-method empirical confirmation. Both refit all
+    four base learners for three seeds (slow by design). Progress is written to
+    ``artifacts/e15_progress.log`` / ``artifacts/e15_rank_audit_progress.log``.
     """
     import time as _time
 
     from .reporting import OutputLockError, output_lock
 
+    if only not in ("e15", "rank-audit", "all"):
+        raise typer.BadParameter("--only must be one of: e15, rank-audit, all")
     cfg = load_config(config)
     _ensure_kernel()
+    nb_dir = REPO_ROOT / "notebooks"
+    reports = cfg.path("reports_dir")
     run_id = f"phase5-{cfg.config_hash[:12]}-{int(_time.time())}"
     try:
         with output_lock(cfg.path("tables_dir"), run_id):
-            _run_notebook(
-                REPO_ROOT / "notebooks" / "05_decision_cost.ipynb",
-                cfg.path("reports_dir") / "05_decision_cost.html",
-            )
+            if only in ("e15", "all"):
+                _run_notebook(nb_dir / "05_decision_cost.ipynb", reports / "05_decision_cost.html")
+            if only in ("rank-audit", "all"):
+                _run_notebook(nb_dir / "05b_rank_invariance.ipynb", reports / "05b_rank_invariance.html")
     except OutputLockError as exc:
         raise typer.Exit(code=1) from exc
     typer.echo("[phase5] E15 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")

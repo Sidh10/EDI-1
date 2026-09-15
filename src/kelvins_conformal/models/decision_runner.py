@@ -3,7 +3,8 @@
 Responsibility: turn point predictions and ONE-SIDED upper bounds into maneuver
 alerts at matched alert budgets, and report missed high-risk events first and
 whole-population costs second, with event-level bootstrap CIs. Nothing here is a
-hypothesis test (D4).
+hypothesis test (D4). Also hosts the rank-invariance audit that extends the E15
+matched-budget finding with its formal classification (Proposition 1).
 
 Inputs:  the four Phase-2 base learners (via ``conformal_runner.base_predictions``),
          the conformal core (``conformal/``), the decision core (``decision.py``),
@@ -12,7 +13,8 @@ Outputs: decision tables per (method, learner, level, budget) with CIs; paired
          bootstrap differences in missed high-risk events; budget-sweep tradeoff
          curves; the realised one-sided coverage of every bound (the D2 caveat,
          quantified); the one-sided CQR self-test validation; an alert-identity
-         check (pre-registration §4) and a search-integrity check (§8).
+         check (pre-registration §4) and a search-integrity check (§8); and, for the
+         audit, the per-method rank-invariance classification.
 
 Serves: EXPERIMENT_PLAN.md E15.
 
@@ -34,8 +36,19 @@ import pandas as pd
 from .. import decision as dc
 from ..config import Config
 from ..conformal import diagnostics as diag
-from ..conformal.cqr import cqr_upper_bound, cqr_upper_scores
-from ..conformal.split import Interval, signed_residual_scores, split_interval
+from ..conformal.cqr import (
+    cqr_interval,
+    cqr_scores,
+    cqr_upper_bound,
+    cqr_upper_scores,
+    enforce_monotone_quantiles,
+)
+from ..conformal.split import (
+    Interval,
+    absolute_residual_scores,
+    signed_residual_scores,
+    split_interval,
+)
 from ..conformal.weighted import weighted_interval
 from ..data import load_events
 from .conformal_runner import (
@@ -45,6 +58,7 @@ from .conformal_runner import (
     base_predictions,
     build_weights,
     coverage_with_ci,
+    cqr_quantile_levels,
     prepare_conformal_data,
 )
 from .runner import cached_search
@@ -64,23 +78,41 @@ E12 = "E12_cqr_weighted_rule_upper"
 E8 = "E8_bayes_upper"
 METHODS: tuple[str, ...] = (POINT, E10, E11, E12, E8)
 
+# Two-sided variants, used by the rank-invariance audit only (their upper edges).
+E10_TWO = "E10_naive_two_sided_upper_edge"
+E11_TWO = "E11_weighted_rule_two_sided_upper_edge"
+E12_TWO = "E12_cqr_weighted_rule_two_sided_upper_edge"
+E8_TWO = "E8_bayes_two_sided_upper_edge"
+
 PRIMARY_METRICS: tuple[str, ...] = ("missed_high_risk", "miss_rate_high_risk", "recall_high_risk")
 SECONDARY_METRICS: tuple[str, ...] = (
     "unnecessary_maneuvers", "false_positive_rate", "precision", "f2",
 )
 SEARCH_EXPERIMENTS: tuple[str, ...] = ("e6_gbm", "e7_sequence", "e8_mcdropout")
 
+# Structural classes of Proposition 1 (DECISIONS.md, E15 rank-invariance entry).
+TRANSLATION_OF_POINT = "translation_of_point"
+TRANSLATION_OF_QUANTILE_HEAD = "translation_of_quantile_head"
+EVENT_SPECIFIC_DISPERSION = "event_specific_dispersion"
 
-# --- progress log (observability only; never read back) -----------------------
+
+# --- progress logs (observability only; never read back) -----------------------
 def progress_path(cfg: Config) -> Path:
     return Path(cfg.path("artifacts_dir")) / "e15_progress.log"
 
 
-def _log(cfg: Config, message: str) -> None:
-    path = progress_path(cfg)
+def audit_progress_path(cfg: Config) -> Path:
+    return Path(cfg.path("artifacts_dir")) / "e15_rank_audit_progress.log"
+
+
+def _append(path: Path, message: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(f"{time.strftime('%H:%M:%S')} {message}\n")
+
+
+def _log(cfg: Config, message: str) -> None:
+    _append(progress_path(cfg), message)
 
 
 # --- the pre-registered budget grid (§2) ---------------------------------------
@@ -105,7 +137,7 @@ def budget_grid(cfg: Config, n_events: int, test_high_risk_prevalence: float) ->
 
 # --- predictions -------------------------------------------------------------------
 def _fit_upper_heads(cfg: Config, data, seed: int, levels) -> dict:
-    """GBM quantile heads at each one-sided level (the CQR upper predictor)."""
+    """GBM quantile heads at the given levels (the CQR quantile predictors)."""
     from . import gbm as gbm_mod
     from .runner import search_gbm
 
@@ -372,4 +404,212 @@ def run_e15(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
             "n_test": n, "n_high_risk": int(hr.sum()), "caveat": CAVEAT,
             "high_risk_threshold": cfg.high_risk_threshold, "seed_seconds": seed_seconds,
         },
+    }
+
+
+# --- rank-invariance audit (extends the 2026-09-18 E15 matched-budget entry) ------------
+def rank_audit_scores(data, weights, preds: dict, heads: dict, level: float, supported: np.ndarray) -> list[dict]:
+    """Every (method, learner, sidedness) decision score, with what Proposition 1 predicts.
+
+    Each entry carries the score (the one-sided bound, or the upper edge of the
+    two-sided interval), the learner's own point prediction, the construction
+    reference the score is a translation of (the point prediction; for CQR its
+    quantile head; ``None`` for the Bayesian bound, whose dispersion is
+    event-specific), and the structural class. Constructions reproduce the E11
+    (weighted_interval, incl. conditional clipping), E12 (two-sided CQR with
+    quantile-crossing repair) and E15 (one-sided CQR, Bayesian bound) code paths.
+    """
+    cal, test = data.subsets["calibration"], data.subsets["official_test"]
+    n = test["y"].size
+    alpha = 1.0 - level
+    tw = weights.rule.test_weight
+
+    def _expand(values_supported: np.ndarray) -> np.ndarray:
+        full = np.full(n, np.inf)
+        full[supported] = values_supported
+        return full
+
+    entries = []
+    for lrn in BASE_LEARNERS:
+        p = np.asarray(preds[lrn]["official_test"], dtype=float)
+        cal_scores = {
+            "upper": signed_residual_scores(cal["y"], preds[lrn]["calibration"]),
+            "two": absolute_residual_scores(cal["y"], preds[lrn]["calibration"]),
+        }
+        for sided, s_cal in cal_scores.items():
+            what = "one-sided upper bound" if sided == "upper" else "upper edge of the two-sided interval"
+            entries.append({
+                "method": E10 if sided == "upper" else E10_TWO, "learner": lrn, "sided": sided,
+                "construction": f"point + Q, one shared split-conformal quantile ({what})",
+                "score": split_interval(p, s_cal, alpha, sided=sided).hi,
+                "point": p, "construction_reference": p, "structural_class": TRANSLATION_OF_POINT,
+            })
+            entries.append({
+                "method": E11 if sided == "upper" else E11_TWO, "learner": lrn, "sided": sided,
+                "construction": f"point + Q_w, one shared weighted quantile, one representative test weight ({what})",
+                "score": _expand(weighted_interval(p[supported], s_cal, weights.rule, alpha, sided=sided).interval.hi),
+                "point": p, "construction_reference": p, "structural_class": TRANSLATION_OF_POINT,
+            })
+
+    p_gbm = np.asarray(preds["gbm"]["official_test"], dtype=float)
+    head = heads[round(float(level), 6)]
+    entries.append({
+        "method": E12, "learner": "gbm", "sided": "upper",
+        "construction": "q_(1-alpha)(x) + Q, one-sided CQR on the GBM quantile head (rule-weighted)",
+        "score": _expand(cqr_upper_bound(
+            head["official_test"][supported], cqr_upper_scores(cal["y"], head["calibration"]), alpha,
+            weights=weights.rule.w, test_weight=tw).hi),
+        "point": p_gbm, "construction_reference": head["official_test"],
+        "structural_class": TRANSLATION_OF_QUANTILE_HEAD,
+    })
+    lo_l, hi_l = round(alpha / 2, 6), round(1.0 - alpha / 2, 6)
+    qlo_c, qhi_c = enforce_monotone_quantiles(heads[lo_l]["calibration"], heads[hi_l]["calibration"])
+    qlo_t, qhi_t = enforce_monotone_quantiles(heads[lo_l]["official_test"], heads[hi_l]["official_test"])
+    iv_two = cqr_interval(qlo_t[supported], qhi_t[supported], cqr_scores(cal["y"], qlo_c, qhi_c), alpha,
+                          weights=weights.rule.w, test_weight=tw)
+    entries.append({
+        "method": E12_TWO, "learner": "gbm", "sided": "two",
+        "construction": "max(q_(alpha/2), q_(1-alpha/2))(x) + Q, two-sided CQR upper edge (rule-weighted)",
+        "score": _expand(iv_two.hi), "point": p_gbm, "construction_reference": qhi_t,
+        "structural_class": TRANSLATION_OF_QUANTILE_HEAD,
+    })
+
+    dist = preds["_mc_dropout_dist"]["official_test"]
+    mu = np.asarray(dist.mean, dtype=float)
+    entries.append({
+        "method": E8, "learner": "mc_dropout", "sided": "upper",
+        "construction": "mu(x) + z_level * sigma(x), Gaussian predictive (uncalibrated)",
+        "score": dist.upper_bound(level), "point": mu, "construction_reference": None,
+        "structural_class": EVENT_SPECIFIC_DISPERSION,
+    })
+    entries.append({
+        "method": E8_TWO, "learner": "mc_dropout", "sided": "two",
+        "construction": "mu(x) + z_(1-alpha/2) * sigma(x), Gaussian predictive upper edge (uncalibrated)",
+        "score": dist.interval(level)[1], "point": mu, "construction_reference": None,
+        "structural_class": EVENT_SPECIFIC_DISPERSION,
+    })
+    return entries
+
+
+def run_rank_invariance_audit(cfg: Config, *, seeds=None) -> dict:
+    """Confirm Proposition 1's classification on the E15 per-event scores.
+
+    Refits the four learners and the GBM quantile heads with the CACHED
+    hyperparameters (no search, no model selection; the official test set is
+    scored only). The refit is deterministic, so the scores are E15's own; the
+    report cross-checks this against the saved E15 table.
+    """
+    from scipy import stats
+
+    path = audit_progress_path(cfg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("", encoding="utf-8")
+    t0 = time.time()
+    _append(path, "rank audit start: loading events and assembling conformal data")
+
+    events = load_events(cfg)
+    data = prepare_conformal_data(cfg, events)
+    weights = build_weights(cfg, data)
+    seeds = list(seeds if seeds is not None else cfg.train.seeds)
+    levels = [cfg.power.nominal_coverage_primary, *cfg.power.nominal_coverage_secondary]
+    head_levels = sorted({round(float(lv), 6) for lv in levels}
+                         | {round(float(lv), 6) for lv in cqr_quantile_levels(levels)})
+    test = data.subsets["official_test"]
+    hr = np.asarray(test["is_high_risk"], dtype=bool)
+    n = int(hr.size)
+    sup = diag.positivity_partition(test["recency_ok"]).supported
+    budgets = budget_grid(cfg, n, float(np.mean(hr)))
+    z_primary = float(stats.norm.ppf(cfg.power.nominal_coverage_primary))
+
+    cls_rows, alert_rows, disp_rows = [], [], []
+    for seed in seeds:
+        _append(path, f"seed {seed}: fitting base learners (cached hyperparameters)")
+        preds = base_predictions(cfg, data, seed)
+        _append(path, f"seed {seed}: fitting GBM quantile heads at {head_levels}")
+        heads = _fit_upper_heads(cfg, data, seed, head_levels)
+        _append(path, f"seed {seed}: auditing")
+
+        dist = preds["_mc_dropout_dist"]["official_test"]
+        mu, sd = np.asarray(dist.mean, float), np.asarray(dist.std, float)
+        epi = np.asarray(dist.epistemic_std, float)
+        disp_rows.append({
+            "seed": seed,
+            "aleatoric_std": float(dist.aleatoric_std),
+            "epistemic_std_p05": float(np.quantile(epi, 0.05)),
+            "epistemic_std_median": float(np.median(epi)),
+            "epistemic_std_p95": float(np.quantile(epi, 0.95)),
+            "total_std_min": float(sd.min()),
+            "total_std_median": float(np.median(sd)),
+            "total_std_max": float(sd.max()),
+            "aleatoric_share_of_mean_variance": float(dist.aleatoric_std ** 2 / np.mean(sd ** 2)),
+            "range_of_mean": float(np.ptp(mu)),
+            "range_of_z_primary_times_std": float(np.ptp(z_primary * sd)),
+            "spearman_mean_vs_total_std": float(stats.spearmanr(mu, sd).statistic),
+        })
+
+        point_alerts: dict = {}
+        for lvl in levels:
+            for e in rank_audit_scores(data, weights, preds, heads, lvl, sup):
+                chk = dc.monotone_transform_check(e["point"], e["score"])
+                ref = e["construction_reference"]
+                chk_ref = dc.monotone_transform_check(ref, e["score"]) if ref is not None else None
+                cls_rows.append({
+                    "seed": seed, "nominal": lvl, "method": e["method"], "learner": e["learner"],
+                    "sided": e["sided"], "structural_class": e["structural_class"],
+                    "construction": e["construction"],
+                    "strictly_increasing_in_point": chk["strictly_increasing"],
+                    "order_violations_vs_point": chk["order_violations"],
+                    "tie_violations_vs_point": chk["tie_violations"],
+                    "kendall_tau_vs_point": float(stats.kendalltau(e["point"], e["score"]).statistic),
+                    "offset_spread_vs_point": float(np.ptp(e["score"] - e["point"])),
+                    "has_construction_reference": chk_ref is not None,
+                    "strictly_increasing_in_construction_reference": bool(chk_ref["strictly_increasing"]) if chk_ref else False,
+                })
+                for _, b in budgets.iterrows():
+                    k = int(b["K"])
+                    if (e["learner"], k) not in point_alerts:
+                        point_alerts[(e["learner"], k)] = dc.matched_budget_alerts(e["point"], k)
+                    a_p = point_alerts[(e["learner"], k)]
+                    a_s = dc.matched_budget_alerts(e["score"], k)
+                    alert_rows.append({
+                        "seed": seed, "nominal": lvl, "method": e["method"], "learner": e["learner"],
+                        "sided": e["sided"], "budget": str(b["budget"]), "K": k,
+                        "max_abs_alert_difference_vs_point": float(np.max(np.abs(a_s - a_p))),
+                        "alert_overlap_vs_point": dc.alert_overlap(a_s, a_p),
+                        "missed_high_risk": dc.decision_counts(a_s, hr).fn,
+                        "missed_high_risk_point": dc.decision_counts(a_p, hr).fn,
+                    })
+        _append(path, f"seed {seed}: done")
+
+    cls_raw = pd.DataFrame(cls_rows)
+    keys = ["method", "learner", "sided", "structural_class", "construction"]
+    classification = cls_raw.groupby(keys, sort=False).agg(
+        strictly_increasing_in_point_all=("strictly_increasing_in_point", "all"),
+        order_violations_vs_point_max=("order_violations_vs_point", "max"),
+        tie_violations_vs_point_max=("tie_violations_vs_point", "max"),
+        kendall_tau_vs_point_min=("kendall_tau_vs_point", "min"),
+        kendall_tau_vs_point_mean=("kendall_tau_vs_point", "mean"),
+        offset_spread_vs_point_max=("offset_spread_vs_point", "max"),
+        has_construction_reference=("has_construction_reference", "all"),
+        strictly_increasing_in_construction_reference_all=("strictly_increasing_in_construction_reference", "all"),
+        n_level_seed_rows=("seed", "size"),
+    ).reset_index()
+    alerts_raw = pd.DataFrame(alert_rows)
+    alerts = alerts_raw.groupby(["method", "learner", "sided", "nominal", "budget", "K"], sort=False).agg(
+        max_abs_alert_difference_vs_point=("max_abs_alert_difference_vs_point", "max"),
+        alert_overlap_vs_point_mean=("alert_overlap_vs_point", "mean"),
+        alert_overlap_vs_point_min=("alert_overlap_vs_point", "min"),
+        missed_high_risk=("missed_high_risk", "mean"),
+        missed_high_risk_point=("missed_high_risk_point", "mean"),
+    ).reset_index()
+    _append(path, f"rank audit done in {round(time.time() - t0, 1)} s")
+    return {
+        "classification": classification,
+        "classification_raw": cls_raw,
+        "alerts": alerts,
+        "alerts_raw": alerts_raw,
+        "e8_dispersion": pd.DataFrame(disp_rows),
+        "budgets": budgets,
+        "meta": {"seeds": seeds, "levels": levels, "head_levels": head_levels, "n_test": n,
+                 "n_high_risk": int(hr.sum()), "n_supported": int(sup.sum())},
     }

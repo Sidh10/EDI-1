@@ -307,3 +307,52 @@ def bootstrap_paired_difference(
     alpha = 1.0 - level
     lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
     return {"point": float(delta.sum()), "lo": float(lo), "hi": float(hi)}
+
+
+# --- rank-invariance audit (E15 extension) ---------------------------------------
+def monotone_transform_check(reference: np.ndarray, score: np.ndarray) -> dict:
+    """Is ``score`` a strictly increasing function of ``reference`` on these events?
+
+    Proposition 1 (DECISIONS.md, E15 rank-invariance entry): the matched-budget
+    alerts from ``score`` equal those from ``reference`` at EVERY budget if and only
+    if the two are order-isomorphic — ``reference_i < reference_j`` exactly when
+    ``score_i < score_j``, and ties exactly when ties. On a finite set that is
+    precisely "``score`` is a strictly increasing function of ``reference``".
+
+    Checked on adjacent pairs after ordering events by (reference, score):
+      * ``order_violations``: the reference rises but the score does not;
+      * ``tie_violations``: the reference ties but the score differs.
+    Both zero is necessary and sufficient (by transitivity along the ordering).
+    Non-finite values are rejected: an infinite bound has no order information.
+    """
+    r = np.asarray(reference, dtype=float)
+    s = np.asarray(score, dtype=float)
+    if r.ndim != 1 or r.size == 0 or r.shape != s.shape:
+        raise ValueError("reference and score must be matching non-empty 1-D arrays")
+    if not (np.all(np.isfinite(r)) and np.all(np.isfinite(s))):
+        raise ValueError("reference and score must be finite")
+    order = np.lexsort((s, r))               # by reference, then by score within ties
+    dr = np.diff(r[order])
+    ds = np.diff(s[order])
+    order_violations = int(np.sum((dr > 0) & ~(ds > 0)))
+    tie_violations = int(np.sum((dr == 0) & (ds != 0)))
+    return {
+        "strictly_increasing": order_violations == 0 and tie_violations == 0,
+        "order_violations": order_violations,
+        "tie_violations": tie_violations,
+    }
+
+
+def alert_overlap(alerts_a: np.ndarray, alerts_b: np.ndarray) -> float:
+    """Shared alerts ``sum(min(a, b))`` as a fraction of ``sum(a)``; 1 means identical sets.
+
+    Intended for two alert vectors raised at the SAME matched budget (equal sums).
+    """
+    a = np.asarray(alerts_a, dtype=float)
+    b = np.asarray(alerts_b, dtype=float)
+    if a.ndim != 1 or a.shape != b.shape:
+        raise ValueError("alert vectors must be matching 1-D arrays")
+    total = float(a.sum())
+    if total <= 0:
+        raise ValueError("alerts_a raises no alerts; overlap is undefined")
+    return float(np.minimum(a, b).sum() / total)
