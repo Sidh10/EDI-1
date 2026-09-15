@@ -201,6 +201,12 @@ reviewer than an over-broad claim.
 **Decided by:** Sidh.
 **Supersedes:** none (first E12 disposition; refines the Gate 2 scoping to add the CQR boundary case).
 
+> **[ANNOTATION 2026-09-18 — scope correction]** Item (ii) above says weighting fails for "CQR of
+> **either sidedness**". The E12 run (`run_e12`) computed **two-sided CQR only**; one-sided CQR was
+> never computed or validated at E12. The supported claim is therefore for two-sided CQR. One-sided
+> CQR is first built and validated in E15 (E15 pre-registration §5), and whatever it shows is
+> recorded there, not back-filled here. No number changes.
+
 ### 2026-09-16 — Q-LBL-02: covariance-rescaling grid semantics (label-noise, E14)
 **Decision:** The **primary** covariance-rescaling grid uses a **single scalar factor applied to the
 combined/total covariance** (option (a)), matching the grid already scoped in EXPERIMENT_PLAN.md E14
@@ -1281,6 +1287,113 @@ whether the high-risk conditional-coverage anomaly (finding 5) warrants any scop
 and whether to confirm or revise the E14 pre-registration and its amendment. Execution stops at the
 Gate 3 boundary — no Phase 5 (E15–E18) work was started (CLAUDE.md §13.4, §13.7).
 **Reported by:** Claude Code.
+
+
+---
+
+## Phase 5 Pre-registration (PROPOSED — written BEFORE E15 executes)
+
+### 2026-09-18 — PRE-REGISTRATION: E15 decision-cost protocol (turning the E15 design review into a protocol)
+
+**Status:** PROPOSED by Claude Code. Written before any E15 code read the official test set. It
+turns Sidh's four E15 decisions (RESOLVED, 2026-09-18) into an executable protocol. Where those
+decisions leave a choice open, the choice is made here, before results, and flagged (§3, §4).
+
+**§1 Methods.** Decision scores on the official test set, 3 seeds (42/43/44):
+
+| method | learners | decision score |
+|---|---|---|
+| `point` | persistence, GBM, GRU, MC-dropout (MC mean) | uncalibrated point prediction |
+| `E10_naive_upper` | same four | one-sided split-conformal upper bound (signed residual score) |
+| `E11_weighted_rule_upper` | same four | rule-weighted one-sided upper bound (the Gate 2 weights) |
+| `E12_cqr_weighted_rule_upper` | GBM | rule-weighted one-sided CQR bound on the level-ℓ quantile head (§5) |
+| `E8_bayes_upper` | MC-dropout | uncalibrated Gaussian predictive bound μ + Φ⁻¹(ℓ)·σ |
+
+- Nominal ℓ ∈ {0.80, 0.90, 0.95}; primary 0.90.
+- Hyperparameters come from the Phase-2 searches.
+- Events outside the Q-SEL-03 supported region get a bound of +∞ (always alerted), and they are
+  counted. E11 found none.
+
+**§2 Matched alert budget (D3).**
+- The K highest-scoring events are alerted.
+- Events tied at the boundary share the remaining alerts equally (the expected value under uniform
+  random tie-breaking). This is deterministic, and no method gains from an arbitrary tie order.
+- **Primary evaluation point:** K = round(p_test × N), the prevalence-matched budget. At this
+  burden a perfect ranking misses nothing and raises no false alarm. p_test is the same test
+  high-risk prevalence the rule weights already use.
+- **Secondary evaluation points:** K = 5%, 10% and 20% of N.
+- The tradeoff figure sweeps every K from 1 to N.
+
+**§3 The high-risk lens (D1) in practice — flagged for Sidh.** High-risk means true final risk ≥
+−6 (the challenge definition; n = 150).
+- **High-risk block (primary).** Missed high-risk events (the lead number), miss rate, recall, and
+  the bound's realised one-sided coverage on high-risk events. These are computed on the high-risk
+  events.
+- **Whole-population block (secondary).** Unnecessary maneuvers, false-positive rate, precision, F2
+  and cost all count non-high-risk events by definition, so they **cannot** be computed on the 150
+  high-risk events alone.
+- Every table puts the high-risk block first.
+
+**§4 Two identities, stated before results — flagged for Sidh.**
+
+(i) *Rank invariance.* Alerts depend on a score only through its order.
+- The split and weighted one-sided bounds are pred + Q with one shared Q (the rule weights use one
+  representative test weight).
+- One-sided CQR is q_hi(x) + Q.
+- So at every matched budget, `E10_naive_upper` and `E11_weighted_rule_upper` raise **the same
+  alerts as their own learner's `point`**. `E12_cqr_weighted_rule_upper` raises the same alerts as
+  the GBM upper quantile head.
+- Only three things can change which events are alerted: the choice of learner, CQR's quantile
+  head, and MC-dropout's per-event σ.
+- **Consequence:** under D3, split/weighted conformal cannot beat its own point prediction, by
+  construction. For those methods the E15 failure criterion is met by construction.
+- The runner reports the largest alert difference against the matching point score. It is expected
+  to be exactly 0, except where float rounding in pred + Q creates a new tie. Any non-zero value is
+  reported, not hidden.
+
+(ii) *Cost at a matched budget.* C_r = r·FN + FP = (r+1)·FN + K − n_HR.
+- At a fixed K, ordering methods by cost is the same for 5:1, 10:1 and 20:1.
+- That ordering is the same as ordering by missed high-risk events.
+- The ratios scale cost differences but cannot reorder methods.
+
+Together, (i) and (ii) mean the D2 caveat (one-sided under-coverage) cannot change any matched-budget
+decision. The caveat bears on the bound's value, which is reported as realised coverage (§3). It
+would also bear on a threshold rule (alert if the bound is ≥ −6), but D3 excludes that rule and E15
+does not run it.
+
+**§5 New construction — one-sided CQR.**
+- E12 computed two-sided CQR only (see the annotation on the 2026-09-16 E12 disposition entry), so
+  one-sided CQR is new here.
+- It is implemented in `conformal/cqr.py` with analytic tests.
+- It is validated on the exchangeable self-test split (the E9 analog) before its official-test
+  numbers are read.
+- If self-test coverage misses nominal (the Clopper–Pearson CI excludes it), that is reported and
+  the CQR arm is marked unvalidated.
+
+**§6 Uncertainty.**
+- 2,000 event-level resamples per seed, using the same draws `coverage_with_ci` uses.
+- Decisions stay fixed at their full-sample values; the events are resampled.
+- 95% percentile intervals, averaged over seeds (project convention).
+- Resamples where a metric is undefined are excluded and counted.
+- **"Advantage"** in the success/failure criteria is read from a **paired** bootstrap interval of
+  the difference in missed high-risk events. Each calibrated method is compared with (a) its own
+  learner's point prediction and (b) `E8_bayes_upper`, at the primary budget and level.
+- That interval is descriptive: no p-values, no significance language (D4).
+
+**§7 Caveat text.** Every E15 table and figure carries: *"One-sided upper bounds under-cover on the
+official test set (E11 diagnostic: the one-sided machinery is validated under exchangeability, but
+rule-derived weighting does not restore one-sided validity); persistence's one-sided bound is
+additionally degenerate (a 65.9% zero-atom in its signed scores, Gate 2)."*
+
+**§8 Runtime and integrity.**
+- Adding the `decision_cost` config block changes the config hash, so all three searches (GBM, GRU,
+  MC-dropout) re-run.
+- The searches are seeded; their `best_params` must match the existing caches (E6 `30b803eb…`;
+  E7/E8 `eb89df79…`).
+- A mismatch is reported, not silently accepted.
+
+**Decided by:** PROPOSED by Claude Code; to be confirmed or revised by Sidh at the E15 checkpoint.
+**Supersedes:** none.
 
 
 ## Gate Outcomes
