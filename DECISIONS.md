@@ -1209,6 +1209,22 @@ reading is uncomfortable: the learned models' intervals miss the true risk for r
 high-risk events they are supposed to protect. Surfaced for Sidh; **not** acted on, and no method
 was retried to improve it (CLAUDE.md §9).
 
+> **[ANNOTATION 2026-09-15 — bootstrap CIs added, per the Gate 3 requirement]** The three figures
+> above were point estimates only; Gate 3 required event-level bootstrap CIs before treating them as
+> final. They are now reported in `reports/04_labelnoise.html` §10 and
+> `reports/tables/e14_conditional_coverage_anomaly_ci.csv` (+ figure
+> `e14_conditional_coverage_anomaly_ci`). High-risk stratum, n = 150, s = 1.0, nominal 90%,
+> 3 seeds, 2,000 resamples, seed-averaged percentile-bootstrap bounds (same convention as E9–E14):
+> - `E11_weighted_rule` / GBM: **0.467 [0.387, 0.544]** (anchored); **0.500 [0.420, 0.580]** (direct)
+> - `E12_cqr_weighted_rule` / GBM: **0.200 [0.138, 0.262]** (anchored); **0.269 [0.200, 0.340]** (direct)
+> - `E11_weighted_rule` / persistence: **0.967 [0.933, 0.993]** (both arms)
+>
+> No new computation: `coverage_with_ci` had already produced these bounds in `e14_coverage.csv`;
+> the addendum only surfaces them. A re-render reproduced every previously recorded E14 coverage
+> value exactly. Descriptive only — conditional coverage is not tested against nominal (Q-STAT-04;
+> conformal's guarantee is marginal). The GBM and CQR bootstrap intervals exclude nominal 90% by a
+> wide margin, and both lie entirely below persistence's interval.
+
 **6. Seed behaviour is sane.** Persistence is seed-invariant (sd = 0.000, expected — it fits
 nothing). GBM sd across 3 seeds is 0.001–0.003 for split conformal and ~0.027 for CQR, so the CQR
 arm carries visibly more seed variance than the split arms.

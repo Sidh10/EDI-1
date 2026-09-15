@@ -2,7 +2,7 @@
   "experiment_ids": [
     "E14"
   ],
-  "git_commit_sha": "e636d3427bcf49ebfbc9b8cd0982cd85feaa3d78",
+  "git_commit_sha": "dc89c9ebe5586f69b10e53bec55dcebe677b3e57",
   "config_hash": "30b803eb42abf9b8e44b04a05dd6767dca21271d6d9a3236a2ffc50ab91d4b68",
   "seeds": [
     42,
@@ -19,6 +19,6 @@
     2.0
   ],
   "bootstrap_resamples": 2000,
-  "executed_utc": "2026-09-12T14:39:37.407759+00:00",
+  "executed_utc": "2026-09-15T09:24:16.554709+00:00",
   "python": "3.13.11"
 }
