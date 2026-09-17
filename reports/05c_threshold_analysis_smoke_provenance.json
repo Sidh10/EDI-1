@@ -4,7 +4,7 @@
   ],
   "analysis": "expanded threshold-based decision analysis",
   "smoke": true,
-  "git_commit_sha": "6b4350972046a1e612c0f622a18bad237439b375",
+  "git_commit_sha": "f86ed153a7c7644707a47b3a3aebaaab6a2e9599",
   "config_hash": "ce0f4e214df4b50040a049dff946d996c90706b2fa06ac343e1bd0a37ae07106",
   "run_kwargs": {
     "seeds": [
@@ -19,6 +19,6 @@
   "horizons_days": [
     2.0
   ],
-  "executed_utc": "2026-09-15T20:12:06.063927+00:00",
+  "executed_utc": "2026-09-15T20:38:49.283193+00:00",
   "python": "3.13.11"
 }

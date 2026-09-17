@@ -26,6 +26,7 @@ kc baselines-phase2 # E6/E7/E8: train baselines + audit MC-dropout coverage (slo
 kc conformal       # E9-E11 (Gate 2 batch) and E12/CQR; --only gate2|cqr|all
 kc labelnoise      # E14: label-noise sensitivity -> the Gate 3 input
 kc decision        # E15: decision cost at matched alert budgets (slow; refits all learners)
+                   #   --only rank-audit: Proposition 1 classification; --only threshold [--smoke]: expanded analysis
 ```
 
 `kc reproduce-all` regenerates every manuscript number and figure; it is not implemented yet
@@ -53,7 +54,15 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
 - [x] Gate 2 — Weighted conformal (Contribution 1) *(**GO**, scoped to two-sided coverage: rule-derived weighting restores marginal coverage on the official test set. Weighting does **not** restore one-sided upper bounds, nor CQR coverage (E12) — both logged as honest secondary findings, outside the claim.)*
 - [x] Phase 3 — Conformal prediction *(E9 machinery validation, E10 the bias problem, E11 the correction, E12 CQR: large efficiency gain but a genuine coverage negative)*
 - [x] Gate 3 — Label-noise sensitivity / venue decision (Contribution 2) *(**GO** on Contribution 2; venue tier locked at **Q2**, not contingent on Phase 5. The flat persistence curve must be reported as interval-width insensitivity, not noise-robustness. High-risk conditional coverage is flagged forward to E15. Decided by Sidh, see `DECISIONS.md`.)*
-- [ ] Phase 5 — Decision-cost, robustness, release (Contribution 3) *(E15 design reviewed by Sidh — high-risk lens, one-sided bound, cost ratios 5/10/20:1 at matched alert budgets, descriptive only — and pre-registered; **E15 in progress**; E16–E18 not started)*
+- [ ] Phase 5 — Decision-cost, robustness, release (Contribution 3)
+  - **E15 matched-budget run: done.** Design reviewed by Sidh (high-risk lens, one-sided bound, cost ratios 5/10/20:1, descriptive only) and pre-registered. Formally grounded by Proposition 1 (rank invariance): the classification is confirmed for all 20 method arms (`kc decision --only rank-audit`).
+  - **E15 expanded threshold analysis (absorbs E16): pre-registered; design decisions resolved by Sidh (2026-09-19).**
+    - Lead times {2-day, 3-day}, both on the official test set (Q-METH-04 revised; 1-day was infeasible).
+    - A fresh hyperparameter search per horizon.
+    - Two-sided arms retained.
+    - The grid is built on the internal validation split.
+    - The full run is in progress (`kc decision --only threshold [--smoke]`).
+  - **E17–E18:** not started.
 
 ## Reproducibility
 

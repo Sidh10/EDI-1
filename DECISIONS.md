@@ -1610,6 +1610,47 @@ threshold-rule note that bounds and point predictions share one grid defined in 
 **Supersedes:** the earlier narrower single-threshold addendum; EXPERIMENT_PLAN.md E16 as a
 separate experiment (merged into E15).
 
+### 2026-09-19 — AMENDMENT to the expanded threshold pre-registration: implementing the {2-day, 3-day} resolution
+
+**Status:** PROPOSED by Claude Code. Written after Sidh's 2026-09-19 decisions and **before any
+full-grid result exists**. It records what implementing those decisions requires; item 1 is a
+consequence of Decision 1's own rationale and is flagged for Sidh.
+
+**1. Event populations — flagged.**
+- At the 3-day cutoff, **122 of the 2,167 official-test events** have no input CDM at least 3 days
+  before TCA, so they cannot be predicted. 12 of them are high-risk.
+- The 3-day set (2,045 events, 138 high-risk) is a strict subset of the 2-day set. Measured on the
+  real data before any threshold result.
+- Evaluating each horizon on its own set would confound the lead-time effect with a change of
+  population — exactly what Decision 1's rationale rules out. Therefore:
+  - **Primary lead-time comparison:** both horizons are scored on the **common set**, the 2,045
+    official-test events predictable at both horizons.
+  - **Also reported:** each horizon on its own full set. For 2-day that is all 2,167 events,
+    matching E15; for 3-day it is identical to the common set. The 122 excluded events are
+    disclosed with their high-risk count.
+  - Calibration, weights, self-test threshold selection and the grid all stay per horizon, on that
+    horizon's own training-pool splits. Only the official-test scoring population is harmonised.
+
+**2. Per-horizon configuration.**
+- Each horizon runs from a derived configuration. It is identical to the base except that
+  `cutoff.cutoff_days_before_tca` equals the horizon and the horizon list is reduced to it.
+- Features, splits, calibration and the search cache are therefore horizon-specific, and each
+  horizon's searches get their own cache key.
+- The search-integrity check compares a cache only with earlier caches for the same cutoff. Every
+  cache written before horizon support existed is a 2-day cache.
+
+**3. Grid source (Decision 3).** The grid uses the pooled point predictions of the four learners,
+over all seeds, on each horizon's `val_inner`. `val_inner` is also the learners' early-stopping
+split; here it only places the percentile boundaries and is never scored.
+
+**4. Real-data smoke before the full run.** The horizon machinery is new code, so per standing
+practice a real-data smoke run comes first: 1 seed, reduced grid, both horizons, numbers not
+findings. Smoke and full run share one configuration, so the searches the smoke run performs are
+cached and reused by the full run, with no double search cost.
+
+**Decided by:** PROPOSED by Claude Code, implementing Sidh's 2026-09-19 decisions. Sidh may revise
+item 1 before the full run's results are read.
+
 
 ---
 
