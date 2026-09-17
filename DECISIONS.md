@@ -362,6 +362,54 @@ EXPERIMENT_PLAN.md E15 (updated to match in the following commit).
 
 ---
 
+### 2026-09-19 — Expanded E15 design decisions: Q-METH-04 revised to {2-day, 3-day} on the official test set; fresh 3-day search; two-sided arms retained; grid built on the internal validation split
+
+**Context:** The expanded threshold-analysis pre-registration (2026-09-18) left three points open:
+§0 (lead times), §1 (two-sided arms) and §2 (the grid's source split). They are resolved below
+**before any full-grid result exists**. The only threshold numbers produced so far come from smoke
+runs, which pre-registration §9 declares not to be findings.
+
+**Decision 1 — Q-METH-04, revised: horizons {2-day, 3-day}, both on the OFFICIAL TEST SET.**
+Both horizons are evaluated on the official test set. This replaces any design with one horizon on
+the official test set and the other on the self-test split.
+- *Rationale:* the originally specified {2-day, 1-day} pair is infeasible. The official test set has
+  **zero** CDMs between 1 and 2 days before TCA — a data-availability fact discovered during the
+  E15 threshold-analysis smoke test, not a code defect. Keeping both horizons on the same
+  evaluation population preserves the comparability of the lead-time effect, without confounding
+  it with a different underlying event population.
+- This is the **first recorded resolution of Q-METH-04**. It supersedes every reference to a
+  {2-day, 1-day} pair, and to Q-METH-04 as pending, in this file (annotated in place) and in
+  EXPERIMENT_PLAN.md (corrected there).
+
+**Decision 2 — fresh 24-trial search for the 3-day horizon.** The 3-day horizon does **not** reuse
+the 2-day horizon's cached hyperparameters. A fresh 24-trial search — E6 GBM, E7 GRU and E8
+MC-dropout, with the equal Phase-2 budgets — runs on the 3-day feature cutoff.
+- *Rationale:* reusing 2-day hyperparameters for a different cutoff would be an unjustified
+  shortcut. Given confirmed schedule availability, the cost of a proper search (up to about 3.5 h
+  on the established timing range) is accepted.
+
+**Decision 3 — two-sided arms retained; grid built on the internal validation split; −6 always
+included.**
+- **Two-sided arms stay** in the threshold-based analysis alongside the one-sided arms, for every
+  method where both are already validated.
+- **The grid's structure** (its percentile boundaries) is chosen using the training pool's
+  **internal validation split only**. The official test set is never used to select the grid, only
+  to score against it once built. This preserves the project's standing single-use rule for the
+  official test set.
+- **The fixed operational threshold −6** is included in the grid regardless of where it falls
+  percentile-wise.
+
+**Decided by:** Sidh.
+**Supersedes:**
+- the expanded pre-registration's §0 (lead times blocked) and its §1 flag on the two-sided arms;
+- §2's grid source (calibration split → internal validation split);
+- the open status of Q-METH-04.
+
+**Unchanged:** §4's split for selecting cost-minimizing thresholds (self-test) and every other
+pre-registered choice.
+
+---
+
 ## PRE-REGISTRATION (PROPOSED — awaiting Sidh's confirmation)
 
 <!--
@@ -1425,6 +1473,11 @@ approved the runtime estimate.
 - Until this is resolved, everything below is written for a generic horizon set H, and the smoke
   test runs H = {2d} only.
 
+> **[RESOLVED 2026-09-19 — Sidh]** Q-METH-04 is revised to horizons **{2-day, 3-day}, both on the
+> official test set** (option 2 above, with the pair {2d, 3d}). The {2d, 1d} pair is infeasible, as
+> recorded above, and no longer describes the design. See the RESOLVED entry "Expanded E15 design
+> decisions" (2026-09-19).
+
 **§1 Methods (decision scores).**
 - **All four learners** (persistence, GBM, GRU, MC-dropout):
   - `point`;
@@ -1440,6 +1493,9 @@ approved the runtime estimate.
   for the one-sided bound. Here the two-sided arms are separately labelled methods reported
   *alongside* the one-sided ones, never in their place. If D2 is meant to exclude two-sided upper
   edges from decision analysis altogether, these arms are dropped.
+
+> **[RESOLVED 2026-09-19 — Sidh]** Two-sided arms are **retained** alongside the one-sided arms,
+> for every method where both are already validated.
 - Nominal levels {0.80, 0.90, 0.95}, primary 0.90; seeds 42/43/44; hyperparameters from the Phase-2
   searches.
 
@@ -1456,6 +1512,10 @@ approved the runtime estimate.
   threshold (with no ties this equals the budget sweep of E15), with markers at each t ∈ T. The
   same t is linked between a point prediction and its bounds, so the shift is visible across the
   whole range, not at one point.
+
+> **[REVISED 2026-09-19 — Sidh]** The grid's percentile boundaries are computed on the training
+> pool's **internal validation split** (`val_inner`), not the calibration split. The official test
+> set is never used to select the grid, and −6 is always included. Everything else in §2 stands.
 
 **§3 Metrics, per horizon, level, method, learner and threshold.**
 - **PRIMARY — high-risk events (D1):** missed high-risk events (the lead number), miss rate, recall,
@@ -1512,6 +1572,10 @@ Choosing the cost-minimizing threshold *on the official test set* would be tunin
 - calibration is done separately per horizon (Q-CONF-01);
 - bounds are recomputed, CQR is self-test validated, and the positivity partition is recomputed
   per horizon.
+
+> **[RESOLVED 2026-09-19 — Sidh]** No hyperparameter reuse across horizons: the 3-day horizon gets a
+> **fresh 24-trial search** (E6/E7/E8, equal budgets). The 2-day search also re-runs, because the
+> config hash changes; being seeded, it must reproduce the earlier 2-day caches, and that is checked.
 
 **§7 Caveats carried.** The E15 one-sided caveat; the persistence one-sided exclusion; and a
 threshold-rule note that bounds and point predictions share one grid defined in point space.
