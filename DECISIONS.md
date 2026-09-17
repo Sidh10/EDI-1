@@ -1849,6 +1849,96 @@ two-sided arms enter decision analysis). No conclusion is drawn here.
 the expanded threshold analysis.
 **Reported by:** Claude Code.
 
+### 2026-09-19 — Expanded E15 threshold analysis over lead times (E16 merged): P1 holds exactly; calibration moves operating points; persistence stays cheapest; the grid ceiling censors the deployable read-out
+
+**Report:** `reports/05c_threshold_analysis.html`, run at `c9f423f`. It took 3,648 s (61 min) with no
+system sleep, no unexpected search and no stage over its flag limit.
+- **Setup:** 3 seeds; nominal {80, 90, 95}%; horizons {2 d, 3 d}, both on the official test set.
+- **Protocol:** exactly as pre-registered — the 2026-09-18 pre-registration, Sidh's 2026-09-19
+  decisions, and the 2026-09-19 amendment.
+- A real-data smoke run covering both horizons (not findings) preceded it. That smoke run was paused
+  by a 2 h 36 min laptop sleep, which the Windows System log confirms; seeded results are unaffected.
+- All numbers are **measurement only**. Every E15 caveat applies, including one-sided under-coverage
+  and the persistence one-sided exclusion.
+
+**Integrity, all passed.**
+- **Searches.** The fresh 2-day searches reproduce all 10 earlier 2-day caches bit-for-bit. The
+  fresh 3-day searches have no earlier cache at that cutoff, as expected.
+- **Populations as pre-registered.** 2-day full set: 2,167 events (150 high-risk). Common set:
+  2,045 (138); 122 excluded, 12 of them high-risk. The 3-day full set equals the common set.
+- **Tables.** 4,884 decision rows, as expected, with 0 NaN or infinite values. Every count identity,
+  rate bound, CI bracket and threshold monotonicity check holds.
+- **Grids,** from `val_inner` with −6 added: 2-day, 18 thresholds (2 duplicates removed) from −30.96
+  to −6.00; 3-day, 19 thresholds (1 removed) from −30.22 to −6.00.
+
+**1. Prediction P1, as made precise before the run: holds exactly.** Across both horizons, both
+populations and all levels (168 translation-class rows):
+- **P1a:** 0 count difference between `bound ≥ t` and `point ≥ t − Q`;
+- **P1b:** 0 operating-locus difference;
+- **P1c:** 0 unrestricted-optimal-cost difference.
+
+The fixed-threshold alert-set change tracks Q: Spearman ρ = 0.951 over the 84 translation-class
+arms in the common population (descriptive). Calibration **does** change alert sets under the
+threshold rule, by exactly a Q-shift along an unchanged operating locus.
+
+**2. At the operational threshold −6, nominal 90%, common population.** Values are mean over 3 seeds,
+with 95% CIs.
+- **Learned-model point predictions almost never alert.** Both horizons: GBM 1.3 alerts, missing
+  137.3 of 138 high-risk events. GRU: 10.7 / 6.0 alerts, missing 133.0 / 136.3. MC-dropout: 2.0 / 6.3
+  alerts, missing 138.0 / 137.3.
+- **Persistence point** (2 d / 3 d): missed 30.0 [19.7, 41.0] / 28.0 [18.0, 38.7], unnecessary maneuvers
+  58 / 112.
+- **The bounds are what make the learned models alert at −6.** 2-day GBM, missed / unnecessary:
+  - split one-sided 123.3 / 30.7; weighted one-sided 122.3 / 35.3;
+  - split two-sided 93.3 / 143.7; weighted two-sided 62.0 [48.0, 77.7] / 217.3;
+  - CQR one-sided 91.7 / 20.0; **CQR two-sided 45.7 [33.0, 59.0] / 44.3**.
+- **Persistence two-sided bounds** alert on 839–1,250 events: missed 4–8, unnecessary 706–1,120.
+
+**3. Lead time: 2-day → 3-day, same 2,045 events, at −6.**
+- Persistence point: missed 30.0 → 28.0, but unnecessary 58 → 112 (alerts 166 → 222).
+- CQR two-sided (GBM): missed **45.7 → 109.7**. CQR one-sided: 91.7 → 114.0.
+- Conformal arms on the learned models: unnecessary maneuvers generally rise at 3 d (e.g. GBM
+  weighted two-sided 217 → 254), with missed roughly unchanged (62.0 → 67.0).
+- **Best achievable cost** (unrestricted oracle; point predictions; 5:1 / 10:1 / 20:1; not
+  deployable):
+  - persistence: 178 / 283 / 409 at 2 d, and 246 / 361 / 572 at 3 d;
+  - learned models: at least 476 / 560 / 660 at 2 d, and at least 558 / 706 / 831 at 3 d.
+  Persistence is cheapest at both horizons, and every cost is higher at 3 days.
+
+**4. Cost-minimizing thresholds — FLAGGED: the grid ceiling censors the deployable read-out.**
+- **Why:** both grids top out at exactly **−6**. Every point-prediction percentile on `val_inner`
+  lies below −6, and bounds sit above their points by Q.
+- **How often:** the threshold selected on the self-test split lands **on the grid maximum for 63%
+  of bound selections**, against 29% of point selections. The rule-weighted variant: 62% of bound
+  selections and 79% of point selections. The grid-restricted test oracle: 13%. 14% of unrestricted
+  bound optima lie above −6.
+- **Consequence:** the deployable "threshold shift vs point" largely measures the distance from the
+  point's choice to the ceiling, not Q. For example, every 2-day GBM bound selects −6 against the
+  point's −8.562, a shift of +2.562 for all of them. This is a consequence of the pre-registered
+  design (grid built from point predictions and applied to bounds), not a code defect, and nothing
+  was changed after the fact. **P1c remains the clean calibration comparison.**
+- **Read with that caveat — the deployable cost change vs own point prediction** (10:1, 90%, common,
+  paired CIs):
+  - Learned-model bounds **lower** cost against their own point prediction. 2-day GBM: CQR two-sided
+    −829 [−1014, −647], weighted two-sided −493 [−660, −337]. 3-day GBM: CQR one-sided −359
+    [−496, −233]. Some 3-day one-sided intervals include 0 (e.g. GBM weighted one-sided −10
+    [−45, +21]).
+  - Persistence two-sided bounds **raise** cost: +398 [+283, +502] at 2 d, +764 [+655, +859] at 3 d.
+  - **Lowest deployable cost** at 10:1: persistence point, 358 [255, 472] at 2 d and 392 [292, 500]
+    at 3 d. Best learned arm: GBM CQR two-sided, 501 [373, 633] at 2 d; GBM weighted two-sided,
+    924 [771, 1086] at 3 d.
+
+**Explicitly NOT decided here (Sidh's):**
+- whether P1 counts as confirmed;
+- how to handle the grid-ceiling censoring of §4 — for example reading P1c only, or a grid extension
+  that would need a new pre-registration;
+- the framing of the lead-time effect and of persistence's dominance;
+- whether the two-sided CQR result enters the manuscript;
+- anything in E17–E18.
+
+Execution stops at this checkpoint.
+**Reported by:** Claude Code.
+
 
 ## Gate Outcomes
 

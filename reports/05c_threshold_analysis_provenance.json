@@ -3,23 +3,14 @@
     "E15"
   ],
   "analysis": "expanded threshold-based decision analysis (E16 merged)",
-  "smoke": true,
+  "smoke": false,
   "git_commit_sha": "c9f423fc67c98725db593d2fe2ce54194828725a",
   "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
-  "run_kwargs": {
-    "seeds": [
-      42
-    ],
-    "percentiles": [
-      10.0,
-      50.0,
-      90.0
-    ]
-  },
+  "run_kwargs": {},
   "horizons_days": [
     2.0,
     3.0
   ],
-  "executed_utc": "2026-09-17T06:00:36.756207+00:00",
+  "executed_utc": "2026-09-17T10:39:01.346635+00:00",
   "python": "3.13.11"
 }

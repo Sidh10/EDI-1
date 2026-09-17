@@ -61,7 +61,7 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
     - A fresh hyperparameter search per horizon.
     - Two-sided arms retained.
     - The grid is built on the internal validation split.
-    - The full run is in progress (`kc decision --only threshold [--smoke]`).
+    - **Full run complete** (`kc decision --only threshold`). Results are recorded in `DECISIONS.md`, awaiting Sidh's review.
   - **E17–E18:** not started.
 
 ## Reproducibility
