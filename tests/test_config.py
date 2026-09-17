@@ -85,7 +85,8 @@ def test_threshold_analysis_block_matches_the_pre_registration():
     ta = load_config().threshold_analysis
     assert ta.grid_percentiles == tuple(float(p) for p in range(5, 100, 5))
     assert -6.0 in ta.operational_thresholds
-    assert ta.horizons_days == (2.0,)
+    assert ta.horizons_days == (2.0, 3.0)          # Q-METH-04, resolved 2026-09-19
+    assert ta.grid_source_split == "val_inner"     # Sidh, 2026-09-19 (Decision 3)
     assert ta.selection_split == "self_test"
     assert ta.selection_tie_break == "highest_threshold"
     assert ta.exclude_persistence_one_sided is True
@@ -96,6 +97,8 @@ def test_threshold_analysis_block_matches_the_pre_registration():
     ("key", "value", "match"),
     [
         ("horizons_days", [2.0, 1.0], "Q-METH-04"),
+        ("horizons_days", [1.0, 2.0], "Q-METH-04"),
+        ("grid_source_split", "calibration", "grid_source_split"),
         ("operational_thresholds", [-5.0], "high-risk threshold"),
         ("grid_percentiles", [50, 10], "grid_percentiles"),
         ("selection_split", "official_test", "selection_split"),

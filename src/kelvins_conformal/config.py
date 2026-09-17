@@ -223,9 +223,12 @@ class ThresholdAnalysisConfig:
 
     Fixed by the 2026-09-18 PRE-REGISTRATION "expanded threshold-based decision
     analysis" in DECISIONS.md, written before any threshold result existed
-    (CLAUDE.md §3). ``horizons_days`` is pending Sidh's resolution of Q-METH-04:
-    only the challenge cutoff is accepted. ``smoke_*`` define the reduced
-    configuration used ONLY to validate and time the pipeline (pre-registration §9).
+    (CLAUDE.md §3), as revised by Sidh's 2026-09-19 decisions: ``horizons_days`` is
+    {2-day, 3-day}, both on the official test set (Q-METH-04), starting at this
+    config's own cutoff (a per-horizon derived config carries exactly one horizon);
+    ``grid_source_split`` is the internal validation split. ``smoke_*`` define the
+    reduced configuration used ONLY to validate and time the pipeline
+    (pre-registration §9).
     """
 
     grid_percentiles: tuple[float, ...]
@@ -236,6 +239,7 @@ class ThresholdAnalysisConfig:
     exclude_persistence_one_sided: bool
     smoke_seeds: tuple[int, ...]
     smoke_grid_percentiles: tuple[float, ...]
+    grid_source_split: str
 
 
 @dataclass(frozen=True)
@@ -671,6 +675,7 @@ def validate(raw: dict[str, Any]) -> Config:
         exclude_persistence_one_sided=_require(ta_raw, "exclude_persistence_one_sided", bool, "threshold_analysis"),
         smoke_seeds=tuple(int(v) for v in smoke_seeds_raw),
         smoke_grid_percentiles=ta_lists["smoke_grid_percentiles"],
+        grid_source_split=_require(ta_raw, "grid_source_split", str, "threshold_analysis"),
     )
     for name in ("grid_percentiles", "smoke_grid_percentiles"):
         pct = getattr(threshold_analysis, name)
@@ -681,14 +686,24 @@ def validate(raw: dict[str, Any]) -> Config:
             "threshold_analysis.operational_thresholds must include the challenge high-risk threshold "
             "(pre-registration §2)"
         )
-    # Pre-registration §0: the horizon set is pending Sidh's resolution of Q-METH-04. Only the
-    # challenge cutoff is constructible on the official test set, which has no CDM between 1 and
-    # 2 days before TCA; any other horizon would silently degenerate, so it fails loudly.
-    if threshold_analysis.horizons_days != (float(cutoff.cutoff_days_before_tca),):
+    # Q-METH-04 (resolved by Sidh, 2026-09-19): horizons {2-day, 3-day}, both on the official
+    # test set. The list starts at this config's own cutoff (a per-horizon derived config carries
+    # exactly one horizon, equal to its cutoff) and rises strictly. A horizon below the cutoff -
+    # e.g. the infeasible 1-day horizon, since the official test set has no CDM between 1 and 2
+    # days before TCA - fails loudly instead of silently degenerating.
+    hz = threshold_analysis.horizons_days
+    if hz[0] != float(cutoff.cutoff_days_before_tca) or any(b <= a for a, b in zip(hz, hz[1:], strict=False)):
         raise ConfigError(
-            "threshold_analysis.horizons_days: only the challenge cutoff is supported until Sidh "
-            "resolves Q-METH-04 (pre-registration §0); the official test set has no CDMs between "
-            "1 and 2 days before TCA"
+            "threshold_analysis.horizons_days must start at cutoff.cutoff_days_before_tca and be "
+            "strictly ascending (Q-METH-04, resolved 2026-09-19); a horizon below the cutoff cannot "
+            "be built on the official test set"
+        )
+    # Sidh, 2026-09-19 (Decision 3): the grid is built on the training pool's internal
+    # validation split only; the official test set never selects it.
+    if threshold_analysis.grid_source_split != "val_inner":
+        raise ConfigError(
+            "threshold_analysis.grid_source_split must be 'val_inner' (Sidh's 2026-09-19 decision: "
+            "grid built on the internal validation split only)"
         )
     if threshold_analysis.selection_split != "self_test":
         raise ConfigError("threshold_analysis.selection_split must be 'self_test' (pre-registration §4)")

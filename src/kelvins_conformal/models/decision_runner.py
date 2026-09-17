@@ -202,15 +202,21 @@ def decision_scores(data, weights, preds: dict, heads: dict, level: float, suppo
 
 
 # --- integrity (§8) -------------------------------------------------------------------
-def search_integrity(cfg: Config) -> pd.DataFrame:
+def search_integrity(cfg: Config, *, legacy_cutoff_days: float | None = None) -> pd.DataFrame:
     """Do the searches re-run under the new config hash reproduce every earlier cache?
 
     Adding ``decision_cost`` changed the config hash, so each search ran again under
     a new cache key. The searches are seeded, so the new ``best_params`` must equal
     those cached under every earlier hash. A mismatch is reported, never hidden.
+
+    Only caches for the SAME feature cutoff are compared: a 3-day search is not
+    expected to match a 2-day one. Caches written before horizon support carry no
+    cutoff field; they all ran at ``legacy_cutoff_days`` (default: this config's cutoff).
     """
     root = Path(cfg.path("artifacts_dir")) / "search_cache"
     current = cfg.config_hash[:16]
+    cutoff = float(cfg.cutoff.cutoff_days_before_tca)
+    legacy = cutoff if legacy_cutoff_days is None else float(legacy_cutoff_days)
     rows = []
     for exp in SEARCH_EXPERIMENTS:
         cur_path = root / f"{exp}_{current}_seed{cfg.seed}.json"
@@ -220,12 +226,17 @@ def search_integrity(cfg: Config) -> pd.DataFrame:
                          "best_params_equal": None, "objective_equal": None})
             continue
         cur = json.loads(cur_path.read_text(encoding="utf-8"))
-        refs = sorted(p for p in root.glob(f"{exp}_*_seed{cfg.seed}.json") if p != cur_path)
-        if not refs:
-            rows.append({**base, "reference_hash": None, "status": "no earlier cache to compare",
-                         "best_params_equal": None, "objective_equal": None})
-        for p in refs:
+        refs = []
+        for p in sorted(root.glob(f"{exp}_*_seed{cfg.seed}.json")):
+            if p == cur_path:
+                continue
             ref = json.loads(p.read_text(encoding="utf-8"))
+            if float(ref.get("cutoff_days", legacy)) == cutoff:
+                refs.append((p, ref))
+        if not refs:
+            rows.append({**base, "reference_hash": None, "status": "no earlier cache at this cutoff",
+                         "best_params_equal": None, "objective_equal": None})
+        for p, ref in refs:
             rows.append({
                 **base,
                 "reference_hash": p.name[len(exp) + 1: len(exp) + 17],

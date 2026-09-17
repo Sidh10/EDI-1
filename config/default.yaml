@@ -298,17 +298,21 @@ decision_cost:
 # threshold-based decision analysis" in DECISIONS.md, written BEFORE any threshold
 # result existed (CLAUDE.md §3).
 threshold_analysis:
-  # §2: percentiles of the pooled CALIBRATION-split point predictions (all four
-  # learners, all seeds). Duplicates (the -30 floor atom) are removed at run time
-  # and the number removed is reported.
+  # §2 as revised by Sidh (2026-09-19): percentiles of the pooled point predictions
+  # (all four learners, all seeds) on the training pool's INTERNAL VALIDATION split,
+  # per horizon. The official test set never selects the grid. Duplicates (the -30
+  # floor atom) are removed at run time and the number removed is reported.
   grid_percentiles: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
+  grid_source_split: val_inner
   # §2: fixed operational thresholds added regardless of the percentile grid; must
   # include the challenge high-risk threshold.
   operational_thresholds: [-6.0]
-  # §0: horizon set PENDING Sidh's resolution of Q-METH-04. Only the challenge
-  # cutoff (2 d) is constructible on the official test set (no test CDM lies between
-  # 1 and 2 days before TCA); any other value fails loudly at load time.
-  horizons_days: [2.0]
+  # Q-METH-04 (resolved by Sidh, 2026-09-19): horizons {2-day, 3-day}, both on the
+  # official test set. The {2-day, 1-day} pair is infeasible (no official-test CDM
+  # lies between 1 and 2 days before TCA). Each horizon runs from a derived config
+  # (cutoff = horizon) with its own fresh 24-trial search. Must start at the cutoff
+  # and rise strictly; anything else fails loudly at load time.
+  horizons_days: [2.0, 3.0]
   # §4: the split the deployable cost-minimizing threshold is selected on.
   selection_split: self_test
   # §9: among equal-cost thresholds, choose the highest (fewest alerts).

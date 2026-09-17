@@ -570,6 +570,9 @@ def cached_search(cfg: Config, experiment: str, seed: int, compute):
         "best_objective_value": budget.best_objective_value,
         "config_hash": cfg.config_hash,
         "seed": seed,
+        # The feature cutoff the search ran at, so integrity checks compare like with like
+        # (expanded E15: per-horizon searches; caches without this field predate horizons).
+        "cutoff_days": float(cfg.cutoff.cutoff_days_before_tca),
     }
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")

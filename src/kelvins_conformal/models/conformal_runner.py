@@ -144,7 +144,10 @@ def base_predictions(cfg: Config, data: ConformalData, seed: int) -> dict:
     from . import sequence as seq_mod
     from .runner import search_gbm, search_mc_dropout, search_sequence
 
-    eval_splits = ("calibration", "self_test", "official_test")
+    # val_inner is included for the expanded E15 threshold grid, which is built on the internal
+    # validation split (Sidh, 2026-09-19). Adding a split changes no other split's predictions:
+    # each learner predicts deterministically, and MC-dropout reseeds on every call.
+    eval_splits = ("calibration", "self_test", "official_test", "val_inner")
     out: dict = {lrn: {} for lrn in BASE_LEARNERS}
 
     # persistence: yhat = r_last (observable pre-cutoff persistence forecast).
