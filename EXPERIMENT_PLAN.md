@@ -26,7 +26,7 @@
 | ~~E13~~ | ~~Group-conditional calibration~~ — **SKIPPED — Gate 1 PIVOT, see DECISIONS.md** | 3 | — |
 | E14 | Label-noise sensitivity analysis | 4 | **Gate 3 (venue tier decision input)** |
 | E15 | Decision-cost evaluation | 5 | — |
-| E16 | Lead-time / horizon tradeoff analysis | 5 | — |
+| ~~E16~~ | ~~Lead-time / horizon tradeoff analysis~~ — **merged into E15 (expanded): horizons {2-day, 3-day}, both on the official test set; see DECISIONS.md 2026-09-19** | 5 | — |
 | E17 | Robustness & sensitivity consolidation | 5 | — |
 | E18 | Final manuscript figure/table consolidation | 5 | — |
 
@@ -366,15 +366,18 @@ Determines target venue tier based on the combined strength of Contributions 1 a
 
 *Expansion 2026-09-18 — per Sidh's instruction to prioritise thoroughness given confirmed schedule slack. E15 now also contains a threshold-based decision analysis that absorbs E16's lead-time dimension. This **supersedes the earlier narrower single-threshold addendum and the separate E16 design**. The matched-budget spec below is unchanged and its results stand. The full protocol is in DECISIONS.md, "PRE-REGISTRATION: expanded threshold-based decision analysis"; in summary:*
 - **Rank invariance.** The matched-budget finding is formally grounded by Proposition 1: alerts are identical at every budget if and only if two scores are order-isomorphic. Every method is classified against it, and the classification is empirically confirmed (`reports/05b_rank_invariance.html`).
-- **Added decision rule:** alert iff score ≥ t. The grid T is the 5th–95th percentiles of pooled calibration-split point predictions, deduplicated, plus the fixed operational threshold −6.
+- **Added decision rule:** alert iff score ≥ t. The grid T is the 5th–95th percentiles of pooled point predictions on the training pool's **internal validation split** (`val_inner`), deduplicated, plus the fixed operational threshold −6. It is built per horizon, and the official test set is never used to select it (Sidh, 2026-09-19).
 - **Added methods:** point prediction; split and weighted conformal, each as a one-sided upper bound and a two-sided upper edge; CQR in both sidednesses; the E8 Bayesian bound in both. Persistence's one-sided bounds are excluded with disclosure (degenerate quantile, Gate 2).
 - **Added outputs.**
   - Per horizon, level, method and threshold: alerts issued, missed high-risk events (primary), and unnecessary maneuvers and rate (secondary), all with bootstrap CIs.
   - Missed-vs-unnecessary operating curves per method, with point-vs-bound shift markers at every grid threshold.
   - Cost-minimizing thresholds per cost ratio: selected on the self-test split and evaluated on the official test set (primary). In-sample oracle optima are reported separately and labelled as not achievable.
-- **Lead times: pending Sidh's resolution of Q-METH-04.** No resolution is recorded, and the official test set contains no CDMs between 1 and 2 days before TCA, so a 1-day horizon cannot be built on it (pre-registration §0).
+- **Lead times (Q-METH-04, resolved by Sidh 2026-09-19): horizons {2-day, 3-day}, both on the official test set.**
+  - The originally specified {2-day, 1-day} pair was infeasible: the official test set has no CDMs between 1 and 2 days before TCA.
+  - Each horizon gets its own fresh 24-trial hyperparameter search (E6/E7/E8); no reuse across cutoffs.
+  - The lead-time comparison uses the official-test events predictable at **both** horizons (2,045 of 2,167). Each horizon's full set is also reported (pre-registration amendment, 2026-09-19).
 - **Pre-registered prediction.** Calibration changes alert sets under the threshold rule, with the shift tracking interval half-width. The pre-registration makes this precise as P1a (fixed-threshold operating point shifts by exactly Q), P1b (the translation class's operating locus is unchanged) and P1c (cost optima).
-- **Runtime:** estimated from a smoke run; the full run launches only after Sidh approves the estimate.
+- **Runtime:** estimated from the smoke runs. The full run was launched on Sidh's instruction (2026-09-19), after a real-data smoke run covering both horizons.
 
 - **Objective:** Translate calibrated intervals into operational terms: maneuver/no-maneuver outcomes under explicit cost assumptions, judged first on the events that matter operationally — the true high-risk events (D1, per the Gate 3 binding requirement).
 - **Hypothesis:** Decisions informed by calibrated one-sided upper bounds (weighted conformal / CQR) miss fewer high-risk events, and achieve a better missed-high-risk-event vs. unnecessary-maneuver tradeoff, than decisions based on uncalibrated point predictions or the naive Bayesian baseline (E8), at matched alert budgets (D3).
@@ -400,7 +403,7 @@ Determines target venue tier based on the combined strength of Contributions 1 a
 
 > **MERGED INTO E15 (expansion, 2026-09-18).** Per Sidh's instruction to prioritise thoroughness given confirmed schedule slack, E16's lead-time dimension is absorbed into the expanded, threshold-based E15 analysis (see E15 above, and DECISIONS.md, "PRE-REGISTRATION: expanded threshold-based decision analysis"). This supersedes E16 as a separate experiment.
 >
-> **The horizon set is pending Sidh's resolution of Q-METH-04.** No resolution is recorded. The official test set also has no CDMs between 1 and 2 days before TCA, so the {2d, 1d} option cannot be built on it.
+> **Horizon set (Q-METH-04, resolved by Sidh 2026-09-19): {2-day, 3-day}, both on the official test set.** The {2-day, 1-day} pair once recommended for Q-METH-04 is infeasible: the official test set has no CDMs between 1 and 2 days before TCA. Each horizon gets its own fresh 24-trial hyperparameter search.
 >
 > The original E16 specification is kept below for the record.
 
