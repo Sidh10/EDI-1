@@ -62,6 +62,10 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
     - Two-sided arms retained.
     - The grid is built on the internal validation split.
     - **Full run complete** (`kc decision --only threshold`). Results are recorded in `DECISIONS.md`, awaiting Sidh's review.
+    - **Grid ceiling fixed and re-run (2026-09-20).** The original grid topped out at the operational −6, pinning 62.3% of bound
+      threshold selections; the grid is now the union of point-prediction and validated-bound percentiles on `val_inner` plus −6,
+      pre-registered before the re-run. Everything read at −6 is unchanged and P1a/P1b/P1c stay exactly 0; pinning on the primary
+      deployable read-out fell to 26.9%, while the rule-weighted variant remains censored at 69.4% — disclosed, not corrected post hoc.
   - **E17–E18:** not started.
 
 ## Reproducibility

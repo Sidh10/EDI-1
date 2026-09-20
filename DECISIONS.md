@@ -1741,6 +1741,11 @@ move.
   57 minutes of the run's ~61. Nothing upstream is *re-decided*, but it is re-*computed*.
   Verification that it reproduced: component (a) of the extended grid must be **bit-identical** to
   the original grid's percentile thresholds. If it is not, the run is a loud failure and stops.
+  *(ANNOTATION 2026-09-20, after the run: this wording was too strong. Component (a) came back
+  within 1 ULP (3.55e-15 absolute, 1.9e-16 relative), not bit-for-bit, because the learned fits
+  use multithreaded reductions whose summation order is not bitwise reproducible. CLAUDE.md §4's
+  standard is "byte-identical **or** numerically-identical-within-tolerance"; this meets the
+  latter. Recorded as a deviation in the findings entry of the same date, not waved through.)*
 - **Implementation consequence:** the GBM quantile heads must also predict on `val_inner` (they
   previously predicted calibration / self-test / official-test only), so that component (b) can be
   computed on the same split as (a). Adding a split changes no existing split's values.
@@ -2056,6 +2061,118 @@ with 95% CIs.
   quantity read at the fixed threshold −6 in §1–§3 stands.)*
 - the framing of the lead-time effect and of persistence's dominance;
 - whether the two-sided CQR result enters the manuscript;
+- anything in E17–E18.
+
+Execution stops at this checkpoint.
+**Reported by:** Claude Code.
+
+
+### 2026-09-20 — Extended-grid re-run: the instrument is fixed for the primary read-out, the ceiling moved for the rule-weighted one, and every conclusion at −6 is unchanged
+
+**Status:** REPORTED by Claude Code. Measurement only, under the 2026-09-20 pre-registration,
+written before any of these numbers existed. Run: `kc decision --only threshold`, git
+`6e8debd`, config hash `00d1cb2d…`, 3 seeds, 2,000 event-level resamples, 3,404.6 s, no sleep.
+Report `reports/05c_threshold_analysis.html`; tables `reports/tables/e15c_*.csv`.
+
+**0. The pre-registered checks, answered.**
+- **Component (a) reproduced — to round-off, NOT bit-for-bit.** The pre-registration said the
+  point-prediction percentiles must come back *bit-identical*; they came back within **1 ULP**
+  (max |difference| 3.55e-15, max relative 1.9e-16, at both horizons). The claim was too strong:
+  the learned fits use multithreaded reductions, whose summation order is not bitwise
+  reproducible. This meets CLAUDE.md §4's determinism standard ("byte-identical **or**
+  numerically-identical-within-tolerance") but not the wording of the pre-registration, and is
+  recorded as a deviation rather than passed over. Every original threshold is present in the
+  extended grid at that tolerance, and −6.0 is present exactly.
+- **Everything read at the fixed threshold −6 is unchanged** — matching the 2026-09-19 entry
+  digit for digit: 2-day GBM point 137.3 missed of 138 with 1.3 alerts; 2-day GBM two-sided CQR
+  45.7 [33.0, 59.0] missed with 44.3 unnecessary; 3-day the same arm 109.7; persistence point
+  30.0 [19.7, 41.0] at 2 d and 28.0 [18.0, 38.7] at 3 d, unnecessary 58 → 112; GBM weighted
+  two-sided 62.0 → 67.0 missed, 217.3 → 254.0 unnecessary. §1–§3 of that entry therefore stand
+  in full.
+- **P1a = P1b = P1c = 0 exactly**, across 168 translation-class rows, on the new grid. (The
+  offset spread is 7.1e-15, the same round-off as above.)
+- **No search ran.** All 13 integrity rows compare cached searches at the same cutoff with
+  `best_params_equal` and `objective_equal` True; the run took 3,405 s against a single 24-trial
+  search's ~3.5 h.
+- **Populations unchanged:** common 2,045 events, 138 high-risk, at both horizons.
+- **Integrity:** 9,900 decision rows (4,884 × 75/37 thresholds, exactly as the grid growth
+  predicts), 0 NaN, 0 inf, alert counts consistent everywhere.
+
+**1. The grid.**
+
+| | 2-day | 3-day |
+|---|---|---|
+| thresholds | 37 (was 18) | 38 (was 19) |
+| range | [−30.957, **+2.866**] (was [−30.957, −6.000]) | [−30.221, **+6.882**] (was [−30.221, −6.000]) |
+| contributed by bound percentiles only | 19 | 19 |
+| above −6 | 3 (was 0) | 4 (was 0) |
+
+The grid now has resolution above −6, but **sparsely**: the pooled bounds' 5th–95th percentile
+range still lies mostly below −6, so only 3–4 grid points sit above it.
+
+**2. Ceiling pinning — fixed for the primary read-out, worse for the rule-weighted one.**
+
+| read-out | arm | now | was |
+|---|---|---|---|
+| `selected_on_self_test` | bound | **26.9%** | 62.7% |
+| `selected_on_self_test` | point | **0.0%** | 29% |
+| `selected_on_self_test_rule_weighted` | bound | **69.4%** | 62.0% |
+| `selected_on_self_test_rule_weighted` | point | **66.7%** | 79% |
+| `oracle_on_official_test_grid` | bound | 10.2% | 13% |
+| `unrestricted_oracle_on_official_test` | any | 0.0% | 0% (grid-independent) |
+
+- The **primary deployable read-out is repaired**: bound pinning fell from 62.7% to 26.9% and
+  point pinning to zero.
+- The **rule-weighted variant is not**. Its optimum wants a threshold *above* the extended grid's
+  maximum, so the censoring moved from −6 up to the new ceiling rather than disappearing. Bound
+  selections now land above −6 in 70.1% of 2-day and 83.3% of 3-day cases, with median selected
+  threshold −0.960 (2 d) and +6.882 (3 d — the grid maximum itself). **This is a real residual
+  limitation, not a fixed one**, and it is disclosed rather than corrected post hoc.
+
+**3. The quantity the ceiling was destroying now measures something.** "Threshold shift vs point",
+deployable, 10:1: originally *every* 2-day GBM bound reported exactly +2.562 — one
+ceiling-determined value. Now the shifts are dispersed: 14 distinct values spanning
+[+1.930, +13.356] at 2 d (median +7.103) and 15 spanning [+4.552, +13.841] at 3 d (median
++9.570). The GBM bounds alone span +1.93 to +11.25 at 2 d. The instrument now reflects Q.
+
+**4. What did NOT change in the substantive story.**
+- **Best achievable cost (unrestricted oracle, point arms, 5:1/10:1/20:1) is identical** to the
+  2026-09-19 entry, as P1c requires: persistence 178/283/409 at 2 d and 246/361/572 at 3 d;
+  learned models at least 476/560/660 at 2 d and at least 558/706/831 at 3 d.
+- **Persistence still dominates.** It is the cheapest arm at both horizons, every cost ratio, on
+  both the deployable and the unrestricted-oracle read-outs (the sole variation: at 2 d, 20:1 the
+  cheapest deployable arm is persistence's *two-sided split-conformal bound*, 611, rather than its
+  point prediction).
+- **Every cost is still higher at 3 days.**
+- **Lowest deployable cost at 10:1 is unchanged**: persistence point, 358 [255, 472] at 2 d and
+  392 [292, 500] at 3 d — both select −6, which was in both grids.
+
+**5. What DID change.**
+- **The best learned arm at 3 days changed identity**: previously GBM weighted two-sided,
+  924 [771, 1086]; now **GBM CQR one-sided, 938 [763, 1120]** at t = −6.731. At 2 days it is
+  unchanged (GBM CQR two-sided, 501 [373, 633], t = −6.000).
+- **Deployable cost change vs own point prediction** shifts slightly where the point arm's own
+  selection un-pinned: 2-day GBM CQR two-sided −834 [−1020, −652] (was −829 [−1014, −647]);
+  2-day GBM CQR one-sided −528 [−681, −382]. The 3-day GBM CQR one-sided figure is unchanged at
+  −359 [−496, −233].
+- Persistence's two-sided bounds now select the grid maximum and buy very low misses at extreme
+  burden (2 d: 7.0 missed for 471 unnecessary; 3 d: 11.0 for 719) — behaviour the old grid could
+  not express.
+
+**6. Known defect in the rendered artifacts.** The caveat sentence stamped on this run's tables
+and figures still reads "compared on ONE grid defined in point-prediction space", which the
+extension made untrue. The string was corrected in code after the run; **the currently rendered
+`05c_threshold_analysis.html` and both figures carry the stale wording**. No number is affected —
+only that sentence. Re-rendering costs a full re-run (~57 min of refitting) and was not done
+unilaterally.
+
+**Explicitly NOT decided here (Sidh's):**
+- whether the residual rule-weighted censoring (69.4%) warrants a further grid extension, and if
+  so under what new pre-registration — noting that a grid reaching high enough for that read-out
+  approaches "never alert";
+- whether the 3-day best-learned-arm change alters any intended manuscript claim;
+- whether to spend a re-run correcting the stale caveat on the rendered artifacts;
+- the framing of the lead-time effect and of persistence's dominance;
 - anything in E17–E18.
 
 Execution stops at this checkpoint.

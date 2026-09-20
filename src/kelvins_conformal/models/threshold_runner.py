@@ -76,8 +76,9 @@ PERSISTENCE_ONE_SIDED_EXCLUSION = (
     "disclosure, as everywhere else in the project"
 )
 THRESHOLD_CAVEAT = (
-    CAVEAT + " Threshold rule: bounds and point predictions are compared on ONE grid defined in "
-    "point-prediction space, so at a fixed threshold a bound alerts more (it sits above its point)."
+    CAVEAT + " Threshold rule: bounds and point predictions are compared on ONE grid, the union of "
+    "point-prediction and validated-bound percentiles on val_inner plus the operational threshold "
+    "(Sidh, 2026-09-20). At a fixed threshold a bound still alerts more (it sits above its point)."
 )
 
 
