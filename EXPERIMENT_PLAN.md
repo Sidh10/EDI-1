@@ -25,10 +25,10 @@
 | E12 | Conformalized quantile regression (CQR) | 3 | — |
 | ~~E13~~ | ~~Group-conditional calibration~~ — **SKIPPED — Gate 1 PIVOT, see DECISIONS.md** | 3 | — |
 | E14 | Label-noise sensitivity analysis | 4 | **Gate 3 (venue tier decision input)** |
-| E15 | Decision-cost evaluation | 5 | — |
-| ~~E16~~ | ~~Lead-time / horizon tradeoff analysis~~ — **merged into E15 (expanded): horizons {2-day, 3-day}, both on the official test set; see DECISIONS.md 2026-09-19** | 5 | — |
-| E17 | Robustness & sensitivity consolidation | 5 | — |
-| E18 | Final manuscript figure/table consolidation | 5 | — |
+| E15 | Decision-cost evaluation (expanded: matched-budget + rank-invariance proof + threshold-based analysis across 2-day/3-day horizons + cost-ratio optimization) — **COMPLETE** | 5 | — |
+| E16 | Lead-time / horizon tradeoff analysis — **MERGED INTO E15**, do not re-run separately; see the E16 entry below and DECISIONS.md 2026-09-19 | 5 | — |
+| E17 | Robustness, consistency & gap-closure consolidation (expanded: H1 robustness, H2 one-sided CQR coverage backfill, H3 cross-experiment synthesis) | 5 | — |
+| E18 | Final manuscript figure/table consolidation + reviewer-checklist dry run (expanded) | 5 | — |
 
 ---
 
@@ -399,69 +399,52 @@ Determines target venue tier based on the combined strength of Contributions 1 a
 
 ---
 
-## E16 — Lead-Time / Horizon Tradeoff Analysis
+## E16 — MERGED INTO E15 (entry retained, not deleted, per standing convention)
 
-> **MERGED INTO E15 (expansion, 2026-09-18).** Per Sidh's instruction to prioritise thoroughness given confirmed schedule slack, E16's lead-time dimension is absorbed into the expanded, threshold-based E15 analysis (see E15 above, and DECISIONS.md, "PRE-REGISTRATION: expanded threshold-based decision analysis"). This supersedes E16 as a separate experiment.
->
-> **Horizon set (Q-METH-04, resolved by Sidh 2026-09-19): {2-day, 3-day}, both on the official test set.** The {2-day, 1-day} pair once recommended for Q-METH-04 is infeasible: the official test set has no CDMs between 1 and 2 days before TCA. Each horizon gets its own fresh 24-trial hyperparameter search.
->
-> The original E16 specification is kept below for the record.
+**Original objective:** characterize how forecast quality and calibration validity change with decision lead time.
 
-- **Objective:** Characterize how forecast quality and calibration validity change with decision lead time (per Q-METH-04's resolved horizon set).
-- **Hypothesis:** Coverage validity is maintained across horizons (a property of the conformal guarantee), but interval width increases at longer lead times, quantifying the accuracy-vs-warning-time tradeoff operators face.
-- **Dataset split:** Official test set, predictions re-generated at each horizon cutoff.
-- **Inputs:** Horizon-specific feature/prediction pipelines (re-run of E6/E7/E11/E12 at each horizon).
-- **Outputs:** Per-horizon coverage and width tables.
-- **Metrics:** Coverage and interval width at each horizon; degradation trend.
-- **Statistical tests:** Trend test across horizons (regression of width/coverage on horizon).
-- **Confidence intervals:** Bootstrap CI, event-level, per horizon.
-- **Figures produced:** Interval width vs. lead time; coverage vs. lead time.
-- **Tables produced:** Per-horizon results table.
-- **Failure criteria:** Coverage breaks down materially at longer horizons (would need discussion of why the guarantee weakens — likely a positivity/support issue) rather than the expected width-only degradation.
-- **Success criteria:** Coverage remains valid across horizons with the expected, interpretable width-vs-lead-time tradeoff — this is the paper's operational takeaway figure.
-- **Expected runtime:** 3–5 hours (repeats core pipeline per horizon).
-- **Compute requirements:** CPU only.
-- **Dependencies:** E11, E12, resolution of Q-METH-04.
+**Disposition:** absorbed into E15's expanded design. The {2-day, 3-day} horizon comparison (itself a pre-registered revision of the original {2-day, 1-day} pair — see the Q-METH-04 revision decision) was built directly into E15's threshold-based analysis rather than run as a separate experiment, because doing so let the lead-time comparison and the decision-cost comparison share one coherent, cross-validated pipeline instead of two disconnected ones. E15's report already contains the lead-time results (cost rising and unnecessary maneuvers roughly doubling from 2→3 days; persistence remains cheapest at both horizons). No further E16 work is needed. This entry stays in the plan, marked merged, so nobody re-derives it as if it were still outstanding.
 
 ---
 
-## E17 — Robustness & Sensitivity Consolidation
+## E17 — Robustness, Consistency & Gap-Closure Consolidation (EXPANDED)
 
-- **Objective:** Consolidate the robustness checks flagged throughout (cluster bootstrap, weight positivity/clipping sensitivity, multiple-comparison policy application) into one coherent supplementary analysis.
-- **Hypothesis:** Headline results (E11, E14) are robust to: (a) clustering assumption in the bootstrap (Q-STAT-03c), (b) reasonable variation in the weight-clipping cap (Q-SEL-03), (c) the declared multiple-comparison policy (Q-STAT-04) not altering the primary conclusion.
-- **Dataset split:** Reuses E11/E14 outputs; no new modeling.
-- **Inputs:** Outputs of E11, E14; alternative bootstrap/clipping configurations.
-- **Outputs:** Robustness supplement (tables/figures for the appendix).
-- **Metrics:** Headline coverage/width results recomputed under each robustness variant.
-- **Statistical tests:** Consistency check across variants (qualitative + CI overlap).
-- **Confidence intervals:** As in E11/E14, recomputed per variant.
-- **Figures produced:** Robustness comparison plot (headline result under default vs. alternative configurations).
-- **Tables produced:** Robustness supplement table.
-- **Failure criteria:** Headline conclusions reverse under reasonable alternative configurations — must be disclosed prominently, not buried, and would likely soften the paper's claims.
-- **Success criteria:** Headline conclusions are stable across reasonable variants — supports the "not p-hacked" narrative directly.
-- **Expected runtime:** 2–3 hours.
-- **Compute requirements:** CPU only.
-- **Dependencies:** E11, E14.
+- **Objective:** (a) confirm the project's headline results are stable under reasonable alternative statistical choices, as originally scoped; (b) close one specific, identified, unclosed scientific question left open by E15's own findings; (c) consolidate the cross-experiment "train/test imbalance" narrative into a single, checkable artifact rather than leaving it scattered across dated log entries.
+- **Hypothesis:** H1 (original scope): headline results (Gate 2's naive-vs-weighted coverage restoration, E14's label-noise sensitivity curve) are robust to reasonable variation in (i) the bootstrap's clustering assumption (Q-STAT-03c), (ii) the weight-clipping cap — noting clipping was never actually triggered (rule k̂ = −2.34, classifier k̂ = 0.17, both comfortably stable), so this sub-check becomes "confirm clipping remains untriggered under a stricter cap, and report why" rather than a live sensitivity sweep — and (iii) the declared multiple-comparison policy (Q-STAT-04). H2 (new): one-sided CQR, whose machinery is now built and validated on the exchangeable self-test split (via E15), also fails to have its coverage restored by rule-derived weighting on the official test set — consistent with the pattern already established for split-conformal one-sided (E11) and CQR two-sided (E12). H3 (new): the "five manifestations of train/test high-risk imbalance" pattern (Phase 2 point-prediction collapse → E14 conditional-coverage collapse → E15 matched-budget ranking collapse → E15's grid-instrument distortion → the grid-extension's asymmetric, partial fix) holds together as a single coherent phenomenon rather than five coincidentally similar but structurally unrelated findings — testable by checking whether a common diagnostic (e.g., per-event high-risk-vs-low-risk prediction residual) predicts which of the five effects an event contributes to.
+- **Dataset split:** reuses E11/E12/E14/E15 outputs and cached predictions; the one new computation (H2, one-sided CQR coverage restoration) uses the existing calibration/official-test split structure, no new split needed.
+- **Inputs:** E11, E12, E14, E15 outputs; the already-built and self-test-validated one-sided CQR machinery from E15.
+- **Outputs:**
+  - Robustness supplement (cluster-bootstrap comparison, clipping-cap sensitivity, multiple-comparison policy check) — as originally scoped.
+  - The completed {split, CQR} × {two-sided, one-sided} coverage-restoration matrix (currently 3 of 4 cells filled: split two-sided restored, split one-sided not restored, CQR two-sided not restored; this closes the fourth cell for CQR one-sided).
+  - A single consolidated cross-experiment synthesis table/figure for the five-manifestation narrative, with the shared diagnostic from H3 if it holds, or an honest statement that the five findings are related in effect but not reducible to one shared per-event mechanism if it doesn't.
+  - The stale caveat-string display defect (flagged and deferred at the E15 grid-extension checkpoint) is fixed in this phase's natural re-render — not via a dedicated isolated re-run.
+- **Metrics:** coverage and its CIs (for H2, matching E11/E12's existing convention exactly, so the new cell is directly comparable to the other three); qualitative robustness (do headline conclusions reverse under alternative specifications, yes/no, with the CI overlap shown); for H3, correlation/association strength between the candidate shared diagnostic and manifestation membership, reported descriptively (no new formal hypothesis test, consistent with Q-STAT-04's single-primary-contrast policy).
+- **Statistical tests:** none beyond what's inherited from E11/E12's existing coverage-test convention for the new CQR one-sided cell. No new formal comparisons introduced.
+- **Confidence intervals:** bootstrap, event-level, matching prior convention, for the new CQR one-sided coverage result.
+- **Figures produced:** headline-result robustness comparison plot (as originally scoped); the completed 2×2 coverage-restoration matrix, rendered as a single clean table/heatmap — likely the clearest single figure in the paper for stating exactly where the selection-bias correction does and doesn't work; the cross-experiment synthesis figure for the five-manifestation narrative.
+- **Tables produced:** robustness supplement table (original scope); completed coverage-restoration matrix table; cross-experiment synthesis summary table.
+- **Failure criteria:** headline conclusions reverse under a robustness variant (must be disclosed prominently if so, not buried — unchanged from original scope); H2 comes back ambiguous (neither clearly restored nor clearly not) — report honestly with full CIs rather than forcing a binary call; H3's shared-diagnostic search comes back null — report as "five related but mechanistically distinct findings" rather than overclaiming a single root cause that the data doesn't actually support.
+- **Success criteria:** robustness confirmed for headline results (original scope); the coverage-restoration matrix is complete and internally consistent with each cell's own prior finding; the synthesis artifact is honest about what is and isn't shown to be a single mechanism.
+- **Expected runtime:** H1 (robustness checks): 1–2 hours, reuses existing outputs. H2 (CQR one-sided backfill): small — reuses already-fitted quantile heads and already-validated bound construction; primarily a scoring pass against the official test set, likely under 30 minutes given no new model fitting is required. H3 (synthesis): analysis/writing time, not compute-heavy.
+- **Compute requirements:** CPU only throughout.
+- **Dependencies:** E11, E12, E14, E15 (all complete).
 
 ---
 
-## E18 — Final Manuscript Figure/Table Consolidation
+## E18 — Final Manuscript Figure/Table Consolidation + Reviewer-Checklist Dry Run (EXPANDED)
 
-- **Objective:** Produce the final, publication-ready set of figures and tables from all prior experiments, with consistent styling, captions, and provenance stamps.
-- **Hypothesis:** N/A (production step).
-- **Dataset split:** N/A (aggregation of prior outputs).
-- **Inputs:** All figures/tables from E1–E17.
-- **Outputs:** `reports/manuscript_figures/`, `reports/manuscript_tables/`, each traceable to its generating experiment and commit hash.
-- **Metrics:** N/A.
-- **Statistical tests:** N/A.
-- **Confidence intervals:** Carried through unchanged from source experiments (no re-derivation).
-- **Figures produced:** Final versions of: selection-bias evidence (E1), Bayesian-baseline coverage failure (E8), naive-vs-weighted coverage (E11), CQR adaptivity (E12), group-conditional forest plot (E13), label-noise sensitivity curve (E14), decision-cost tradeoff (E15), lead-time tradeoff (E16), robustness supplement (E17).
-- **Tables produced:** Final versions of all tables listed above, formatted for manuscript submission.
-- **Failure criteria:** Any figure/table cannot be traced to a specific experiment run and commit hash (violates the reproducibility invariant; must be regenerated, not manually adjusted).
-- **Success criteria:** Every manuscript figure/table is regenerable by one command from a tagged release, matching PROJECT_KNOWLEDGE's success metric A1.
-- **Expected runtime:** 2–4 hours (formatting/styling pass).
+- **Objective:** produce the final, publication-ready set of figures and tables from the full, now much larger, experiment suite, with consistent styling, self-contained captions, and provenance stamps — and, new to this revision, perform an explicit walkthrough of `REVIEWER_CHECKLIST.md` against the assembled artifact set as a structured final gate before manuscript drafting begins.
+- **Hypothesis:** N/A (production/verification step).
+- **Inputs:** all figures/tables from E1–E17 (updated from the original E1–E17 scope, which predates E15's expansion and E17's revision above).
+- **Outputs:** `reports/manuscript_figures/`, `reports/manuscript_tables/`, each traceable to its generating experiment and commit hash; an updated `REVIEWER_CHECKLIST.md` walkthrough record (see below).
+- **Figures produced (revised full list):** selection-bias evidence (E1); Bayesian-baseline coverage failure (E8); naive-vs-weighted two-sided coverage restoration — the Gate 2 headline (E11); E9/E11 one-sided coverage validation and the one-sided non-restoration finding; CQR adaptivity and its coverage caveat (E12); label-noise sensitivity curve with the width-driven-flatness caveat stated in the caption itself (E14); high-risk-conditional coverage with CIs (E14 addendum); the rank-invariance proof's empirical confirmation (E15); the threshold-sweep operating curves, both original and extended grid, with the ceiling-artifact episode noted (E15); the completed coverage-restoration matrix (E17); the cross-experiment synthesis figure (E17). (E13's group-conditional forest plot is removed — skipped per the Gate 1 PIVOT; E16's lead-time figure is subsumed into E15's threshold-sweep figures, not separately listed.)
+- **Tables produced:** final versions of all tables listed above, formatted for manuscript submission, each with sample sizes and CIs shown per `REVIEWER_CHECKLIST.md`'s T1/T2 requirements.
+- **Failure criteria:** any figure/table cannot be traced to a specific experiment run and commit hash (unchanged from original scope — regenerate, never manually adjust); the reviewer-checklist walkthrough (below) surfaces a top-tier risk with no completed supporting evidence.
+- **Success criteria:** every manuscript figure/table is regenerable by one command from a tagged release; the reviewer-checklist walkthrough is complete and every item in its "Pre-Submission Triage: Five Most Likely Rejection Reasons" section has a stated, evidenced disposition (not necessarily resolved in the paper's favor — an honestly reported limitation counts as a disposition).
+- **New sub-step — reviewer-checklist dry run:** walk every criticism in `REVIEWER_CHECKLIST.md` (all nine categories) against the now-final artifact set. For each, confirm the cited "supporting experiment" actually produced what the checklist claims it would, and update the checklist itself where new findings from Phases 3–5 (the one-sided/CQR pattern, the five-manifestation imbalance narrative, persistence's dominance under decision-cost analysis) supply a stronger or different defense than what was drafted before those results existed. This is a document-maintenance task, not new experimentation — but it is binding: the manuscript should not go to drafting with a checklist that's stale relative to the actual evidence base.
+- **Expected runtime:** 3–5 hours (styling/formatting pass, revised from the original 2–4 hour estimate given the larger figure/table set, plus the reviewer-checklist walkthrough itself).
 - **Compute requirements:** CPU only.
-- **Dependencies:** All prior experiments (E1–E17).
+- **Dependencies:** E1–E17 (all, including the revised E17 above).
 
 ---
 
