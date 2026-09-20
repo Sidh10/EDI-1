@@ -852,12 +852,13 @@ Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
 
-### 2026-09-20 — SYNTHESIS: the Phase-2 train/test high-risk imbalance surfaces a fourth time, now in the instrument
+### 2026-09-20 — SYNTHESIS: the Phase-2 train/test high-risk imbalance surfaces five times over, most recently in the instrument itself
+*(updated 2026-09-21 with the fifth manifestation, per Sidh's decision of that date.)*
 
 **The observation.** One property of the dataset — the train/test high-risk imbalance identified in
 Phase 2 (high-risk prevalence is far higher in the official test set than in the training pool, by
-the challenge organisers' deliberate construction) — has now produced four independently-measured
-failures, in four different parts of the project:
+the challenge organisers' deliberate construction) — has now produced five independently-measured
+failures, in five different parts of the project:
 
 1. **Point-prediction collapse (E6/E7, Phase 2).** Both learned models regress toward the low-risk
    mass and are much worse than persistence on the official test metric.
@@ -872,11 +873,19 @@ failures, in four different parts of the project:
    live, and 62.3% of bound threshold selections pinned to the grid ceiling. Here the imbalance did
    not degrade a method — it degraded the *measuring device*, and was only visible because the
    pinning fraction was computed and reported.
+5. **The fix is only partly available (E15 expanded, 2026-09-20/21).** Extending the grid with the
+   bounds' own percentiles repaired the primary deployable read-out (bound pinning 62.7% → 26.9%)
+   but pushed the rule-weighted read-out the other way, to 69.4%: its cost optimum sits at or
+   beyond even the extended grid's maximum, where the median pinned arm alerts on 0.26% (2 d) and
+   0.03% (3 d) of events and misses essentially every high-risk event. The imbalance does not just
+   distort the instrument — it drives one reasonable selection criterion toward "never alert",
+   which no amount of grid resolution can make informative.
 
-**Why it is worth stating as one thing.** These read as four separate limitations scattered across
-three contributions. They are four consequences of one dataset property, and the fourth is the
-sharpest version of the point: a selection-biased benchmark biases not only what is learned but how
-it can be evaluated. That unifies the project's three contributions under a single mechanism
+**Why it is worth stating as one thing.** These read as five separate limitations scattered across
+three contributions. They are five consequences of one dataset property, and the last two are the
+sharpest version of the point: a selection-biased benchmark biases not only what is learned, but how
+it can be evaluated — and, at the limit, whether a sensible decision criterion has any non-degenerate
+operating point to choose at all. That unifies the project's three contributions under a single mechanism
 instead of leaving each with its own caveat.
 
 **Status: logged, not acted on beyond the grid fix.** Per CLAUDE.md §2 this is an observation, not a
@@ -2177,6 +2186,71 @@ unilaterally.
 
 Execution stops at this checkpoint.
 **Reported by:** Claude Code.
+
+
+### 2026-09-21 — Grid-extension outcome accepted: the asymmetric fix stands, residual censoring is a finding, the caveat fix rides along
+
+**Status:** RESOLVED by Sidh (2026-09-21), recorded by Claude Code. Closes the four items left open
+by the 2026-09-20 extended-grid findings entry. No new run, no new experiment, no change to any
+number.
+
+**1. The residual rule-weighted censoring is a FINDING, not a defect to be engineered away.**
+The extended grid repaired the primary deployable read-out (bound pinning 62.7% → 26.9%) but the
+rule-weighted variant rose to 69.4%. **Decision: no further grid extension.** This is recorded as
+an honest result about that selection criterion, not as an instrument fault.
+
+What the data supports, stated precisely:
+- Of the 108 rule-weighted bound-selection rows (common population, nominal 90%), **69.4% select
+  the grid maximum** (+2.866 at 2 d, +6.882 at 3 d).
+- At that pinned threshold the **median** pinned arm issues **5.3 alerts of 2,045 events (0.26%)**
+  at 2 d and **0.7 of 2,045 (0.03%)** at 3 d, missing **137 of 138** and **138 of 138** high-risk
+  events respectively. For the majority of pinned arms, this criterion's cost-minimizing threshold
+  therefore sits at or beyond the point where the rule effectively **stops alerting at all**.
+- **The exact optimum is not located and is not claimed.** It lies at or beyond the extended grid's
+  maximum; where beyond, if anywhere, this grid cannot say. The statement on record is a direction
+  and a bound, not a value.
+- **The behaviour is not uniform across arms.** Persistence's two-sided bounds are the exception:
+  at the same pinned threshold they still alert 602–771 times at 2 d and 846–992 at 3 d, because
+  their conformal quantile is large enough that many bounds exceed even +6.882. (This is not a
+  positivity artifact — `n_unsupported` is 0 at both horizons, so no arm is forced to alert by the
+  Q-SEL-03 `+inf` convention.)
+
+**Rationale.** Extending the grid until this criterion's optimum falls strictly inside it would mean
+extending toward "never alert", at which point the grid would be chasing a degenerate optimum rather
+than measuring a decision rule. The informative result is that the rule-weighted criterion *wants*
+that corner on this population — which is itself a statement about how poorly the bounds rank
+high-risk events — not that the grid is too short.
+
+**2. The 3-day best-learned-arm identity change is a second-order detail.**
+At the original grid the cheapest deployable learned arm at 3 days was GBM weighted two-sided,
+924 [771, 1086]; at the extended grid it is GBM CQR one-sided, 938 [763, 1120] (t = −6.731). Their
+intervals overlap almost entirely. **Decision: logged as a narrow factual note, reported as such in
+the manuscript, and not opened as its own investigation.** It does not touch the headline claim —
+persistence remains the cheapest arm at both horizons, at every cost ratio, on both the deployable
+and unrestricted-oracle read-outs — and the 2-day best learned arm is unchanged.
+
+**3. The stale caveat string is display-only and its fix rides along.**
+The sentence "compared on ONE grid defined in point-prediction space" became untrue when the grid
+was extended. It is stamped on the tables and figures rendered by the 2026-09-20 run. **Confirmed:
+it affects no computed quantity — it is presentation text only.** It was corrected in code in
+`cd01ffe`. **Decision: no dedicated re-render.** The correction propagates into the rendered
+artifacts at the next re-render this project performs for its own reasons. Until then the rendered
+`reports/05c_threshold_analysis.html` and both `e15c_operating_curves_h*d` figures carry the stale
+wording, and that is known and accepted rather than overlooked.
+
+**4. Cross-experiment synthesis extended to a fifth manifestation.**
+The whole grid-ceiling episode — diagnosis, pre-registered fix, and the partial, asymmetric outcome —
+is logged as the **fifth** manifestation of the Phase-2 train/test high-risk imbalance, joining
+point-prediction collapse (E6/E7), conditional-coverage collapse (E14), matched-budget ranking
+collapse (E15), and the original grid-instrument distortion. Recorded in full in the Observations
+Log entry of 2026-09-20, updated on this date. **Flagged explicitly as strong material for the
+manuscript's discussion section.**
+
+**Explicitly still NOT decided:** the framing of the lead-time effect and of persistence's
+dominance; whether the two-sided CQR result enters the manuscript; anything in E17–E18, which remain
+unstarted and unscoped.
+
+**Decided by:** Sidh (2026-09-21), recorded by Claude Code.
 
 
 ## Gate Outcomes
