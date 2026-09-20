@@ -852,6 +852,40 @@ Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
 
+### 2026-09-20 — SYNTHESIS: the Phase-2 train/test high-risk imbalance surfaces a fourth time, now in the instrument
+
+**The observation.** One property of the dataset — the train/test high-risk imbalance identified in
+Phase 2 (high-risk prevalence is far higher in the official test set than in the training pool, by
+the challenge organisers' deliberate construction) — has now produced four independently-measured
+failures, in four different parts of the project:
+
+1. **Point-prediction collapse (E6/E7, Phase 2).** Both learned models regress toward the low-risk
+   mass and are much worse than persistence on the official test metric.
+2. **Conditional-coverage collapse (E14, Phase 4).** Coverage conditional on the true high-risk
+   stratum falls far below nominal (GBM ≈0.47, CQR ≈0.20–0.27 at nominal 90%) while marginal
+   coverage holds; persistence ≈0.96.
+3. **Ranking-quality collapse (E15, Phase 5).** At matched alert budgets the ranking score decides
+   everything, and the learned models' ranking of high-risk events is poor enough that persistence
+   is cheapest at every cost ratio.
+4. **Instrument distortion (E15 expanded, 2026-09-19/20).** Because the learned point predictions
+   sit below −6, a threshold grid built from them has no resolution where the conformal bounds
+   live, and 62.3% of bound threshold selections pinned to the grid ceiling. Here the imbalance did
+   not degrade a method — it degraded the *measuring device*, and was only visible because the
+   pinning fraction was computed and reported.
+
+**Why it is worth stating as one thing.** These read as four separate limitations scattered across
+three contributions. They are four consequences of one dataset property, and the fourth is the
+sharpest version of the point: a selection-biased benchmark biases not only what is learned but how
+it can be evaluated. That unifies the project's three contributions under a single mechanism
+instead of leaving each with its own caveat.
+
+**Status: logged, not acted on beyond the grid fix.** Per CLAUDE.md §2 this is an observation, not a
+new goal or contribution. It is flagged as a strong candidate for the **manuscript's discussion
+section** as a unifying theme. Nothing about the pre-registered protocol changes because of it, and
+whether it is used that way is Sidh's decision.
+
+**Noticed by:** Claude Code, while diagnosing the grid ceiling. **Flagged for:** Sidh.
+
 ### 2026-09-10 — DEFERRED (do not run): the `risk_history=false` counterfactual ablation
 **What it would test.** Whether removing pre-cutoff risk-history access from E6 — while E7 retains
 equivalent information implicitly through the raw per-timestep CDM sequence — explains any part of
@@ -1652,6 +1686,91 @@ cached and reused by the full run, with no double search cost.
 item 1 before the full run's results are read.
 
 
+### 2026-09-20 — PRE-REGISTRATION: extended threshold grid (point + bound percentiles), fixing the ceiling artifact
+
+**Status:** PROPOSED by Claude Code, implementing Sidh's 2026-09-20 decision. Written **before any
+number produced under the extended grid exists**, and before the code that builds it was run
+(CLAUDE.md §3). It fixes the limitation flagged — not silently corrected — in §4 of the
+2026-09-19 expanded-threshold findings entry.
+
+**1. The diagnosed cause (measured, already on record).**
+- The original grid is the 5th–95th percentiles of the pooled **point predictions** on the internal
+  validation split, plus the fixed operational −6. Every one of those percentiles lies below −6, so
+  the grid's maximum is exactly −6 at both horizons: 18 thresholds at 2 d (max −6, next −7.167),
+  19 at 3 d (max −6, next −7.097).
+- GBM and GRU point predictions sit systematically below −6 — the same train/test high-risk
+  imbalance identified in Phase 2, where the learned models collapse toward the low-risk mass.
+  Their conformal bounds sit **above** their own points by Q, frequently above −6 itself.
+- Consequence, measured: the self-test-selected threshold lands on the grid maximum for **62.3% of
+  bound selections** across the two deployable read-outs (62.7% / 62.0%), against 54.2% of point
+  selections. The bound arms were being scored on a grid with **no resolution in the range they
+  actually occupy**, so §4's "threshold shift vs point" largely measured the distance to the
+  ceiling rather than Q. The direct point-vs-bound P1c contrast is unaffected: it optimises over
+  every distinct score value, not over the grid.
+
+**2. The fix.** The threshold grid T, per horizon, becomes the sorted, deduplicated union of:
+- **(a)** percentiles of the pooled **point-prediction** distribution — the original design,
+  unchanged: four learners × all seeds, on `val_inner`;
+- **(b)** percentiles of the pooled distribution of **every validated bound's values**, across all
+  methods and both sidednesses, at the same percentile list, on `val_inner`;
+- **(c)** the fixed operational threshold **−6**.
+
+All percentiles are computed on the training pool's **internal validation split only**. The
+official test set is never used to select the grid — it is only scored on the grid once built.
+This is the standing rule of Sidh's 2026-09-19 Decision 3, unchanged.
+
+**3. Why this targets the diagnosed mechanism directly.** The artifact is a resolution failure, not
+a selection failure: the grid had no candidate thresholds where the bounds live, so bound selection
+had nowhere to go but the ceiling. Pooling the bounds' own values into the percentile computation
+puts grid points exactly where the bounds are dense, at the same percentile resolution the point
+predictions already got. Nothing else about the procedure changes. **This was decided before seeing
+what it would do to any reported number**; §5 below records, in advance, what it must and must not
+move.
+
+**4. Scope of the re-run — what is and is not redone.**
+- **Not redone:** every hyperparameter search. All searches are cached, keyed by the per-horizon
+  config hash, and the extended grid does not change that hash's search inputs. The run records
+  `searches_cached_at_start` per horizon in its metadata and provenance; that record is checked
+  after the run, and a cache miss (a search actually executing) is reported as an anomaly, not
+  absorbed silently.
+- **Redone:** grid construction and the whole analysis-over-grid stage, for both horizons, both
+  populations, all three seeds, all nominal levels.
+- **Honest statement of cost:** the pipeline holds **no prediction cache** — `base_predictions` and
+  the quantile heads refit on every invocation. They are pure seeded functions of (config, seed,
+  code version), so they reproduce the completed run's predictions exactly; they cost roughly
+  57 minutes of the run's ~61. Nothing upstream is *re-decided*, but it is re-*computed*.
+  Verification that it reproduced: component (a) of the extended grid must be **bit-identical** to
+  the original grid's percentile thresholds. If it is not, the run is a loud failure and stops.
+- **Implementation consequence:** the GBM quantile heads must also predict on `val_inner` (they
+  previously predicted calibration / self-test / official-test only), so that component (b) can be
+  computed on the same split as (a). Adding a split changes no existing split's values.
+- Bound values that are `+inf` outside the Q-SEL-03 supported region are excluded from the
+  percentile computation; so are persistence's one-sided bounds, which are excluded from the
+  analysis itself (degenerate quantile, Gate 2) and are therefore not "validated bounds".
+
+**5. Stated in advance — what the fix must and must not change.** These are falsifiable checks, not
+expectations to be reinterpreted afterwards:
+- **Must be unchanged (exactly):** every quantity read at the fixed operational threshold −6 — the
+  §4 primary high-risk table, the §5 secondary table, the lead-time comparison — because −6 is in
+  both grids and those tables are read at a fixed threshold, not at a selected one.
+- **Must remain exactly 0:** P1a, P1b and P1c. P1c is grid-independent by construction; P1a and
+  P1b are computed over T and must hold on any grid. A non-zero value is a defect, not a finding.
+- **Expected to change:** the four threshold-selection read-outs, the ceiling-pinned fraction, the
+  grid-restricted oracle, and the density of the operating curves. Whether the corrected read-outs
+  alter the lead-time or persistence-dominance story is **the open question this re-run answers**;
+  no direction is predicted here.
+- **Unchanged by construction:** populations (common 2,045 / horizon-full), arms and exclusions,
+  cost ratios, nominal levels, the highest-threshold tie rule, 2,000-resample event-level
+  bootstrap, the selection split, and the standing caveat that one-sided bounds under-cover.
+
+**6. Cross-experiment synthesis.** This is the fourth independent manifestation of the Phase-2
+train/test high-risk imbalance — this time distorting the evaluation instrument itself. Logged in
+full in the Observations Log (2026-09-20) and flagged there as a manuscript discussion-section
+candidate.
+
+**Decided by:** Sidh (2026-09-20), recorded by Claude Code before execution.
+
+
 ---
 
 ## Phase 5 Empirical Findings (E15) — REPORTED, no decision taken
@@ -1932,6 +2051,9 @@ with 95% CIs.
 - whether P1 counts as confirmed;
 - how to handle the grid-ceiling censoring of §4 — for example reading P1c only, or a grid extension
   that would need a new pre-registration;
+  *(ANNOTATION 2026-09-20: RESOLVED by Sidh — the grid extension, pre-registered that day before any
+  new number existed. §4's selection read-outs above are superseded by the extended-grid re-run; every
+  quantity read at the fixed threshold −6 in §1–§3 stands.)*
 - the framing of the lead-time effect and of persistence's dominance;
 - whether the two-sided CQR result enters the manuscript;
 - anything in E17–E18.
