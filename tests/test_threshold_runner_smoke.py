@@ -45,7 +45,10 @@ def result(monkeypatch, tmp_path):
 
     test_2d = subset(N_TEST, 0.15, "t")
     test_2d["recency_ok"] = np.ones(N_TEST, dtype=bool)
-    shared = {"calibration": subset(N_CAL, 0.05, "c"), "self_test": subset(N_SELF, 0.05, "s")}
+    # val_inner is the grid-source split: the extended grid (Sidh, 2026-09-20) takes
+    # percentiles of BOTH the point predictions and the validated bounds on it.
+    shared = {"calibration": subset(N_CAL, 0.05, "c"), "self_test": subset(N_SELF, 0.05, "s"),
+              "val_inner": subset(N_VAL, 0.05, "v")}
     data_2d = SimpleNamespace(subsets={**shared, "official_test": test_2d},
                               test_high_risk_prevalence=0.15, train_high_risk_prevalence=0.05)
     keep = np.sort(np.random.default_rng(7).choice(N_TEST, size=N_TEST_3D, replace=False))
@@ -54,7 +57,7 @@ def result(monkeypatch, tmp_path):
     weights = SimpleNamespace(rule=WeightVector(w=rng.uniform(0.5, 2.0, N_CAL), method="rule", test_weight=1.2))
 
     def n_of(data_, split):
-        return N_VAL if split == "val_inner" else data_.subsets[split]["y"].size
+        return data_.subsets[split]["y"].size
 
     def preds_for(cfg_, data_, seed):
         r = np.random.default_rng(seed)
@@ -124,6 +127,31 @@ def test_arms_exclusions_and_table_shapes(result):
     for h in (2.0, 3.0):
         d = res["decisions"][res["decisions"]["horizon_days"] == h]
         assert set(d["population"]) == set(TR.POPULATIONS)
+
+
+def test_grid_is_the_union_of_point_and_bound_percentiles(result):
+    """The 2026-09-20 ceiling fix, end to end: both components reach the grid.
+
+    Every threshold is attributed to a source, -6 is always present, and the grid
+    carries thresholds the point percentiles alone could not produce.
+    """
+    res, _ = result
+    grid = res["grid"]
+    assert set(grid.columns) >= {"horizon_days", "threshold", "operational", "source",
+                                 "from_point_percentiles", "from_bound_percentiles"}
+    assert set(grid["source"]) <= {"point", "bound", "point+bound", "operational"}
+    for h in (2.0, 3.0):
+        g = grid[grid["horizon_days"] == h]
+        assert -6.0 in set(g["threshold"])
+        assert g["from_point_percentiles"].any() and g["from_bound_percentiles"].any()
+        # attribution is exhaustive: nothing is in the grid without a reason
+        unexplained = g[~g["from_point_percentiles"] & ~g["from_bound_percentiles"]]
+        assert set(unexplained["threshold"]) <= {-6.0}
+        meta_h = res["meta"]["per_horizon"][f"{h:g}d"]
+        assert meta_h["n_thresholds"] == len(g)
+        assert meta_h["grid_min"] == pytest.approx(g["threshold"].min())
+        assert meta_h["grid_max"] == pytest.approx(g["threshold"].max())
+        assert meta_h["n_pooled_bound_values"] > 0
 
 
 def test_p1_predictions_hold_exactly_for_the_translation_class(result):

@@ -151,10 +151,13 @@ def _fit_upper_heads(cfg: Config, data, seed: int, levels) -> dict:
         num_boost_round=cfg.gbm.num_boost_round,
         early_stopping_rounds=cfg.train.early_stopping_rounds,
     )
+    # val_inner is included so the extended threshold grid can take percentiles of the
+    # bounds' own values on the same split the point percentiles come from (Sidh,
+    # 2026-09-20). Adding a split changes no other split's predictions.
     return {
         lv: {
             split: np.asarray(qmodels[lv].predict(data.subsets[split]["tab_X"], num_iteration=qbest[lv]), float)
-            for split in ("calibration", "self_test", "official_test")
+            for split in ("calibration", "self_test", "official_test", "val_inner")
         }
         for lv in qlevels
     }

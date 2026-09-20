@@ -134,6 +134,33 @@ def threshold_arms(data, weights, preds: dict, heads: dict, level: float, suppor
     return arms, excluded
 
 
+def grid_bound_values(data, weights, preds: dict, heads: dict, levels, *,
+                      split: str, exclude_persistence_one_sided: bool) -> np.ndarray:
+    """Every validated bound's finite values on ``split`` — component (b) of the grid.
+
+    Sidh's 2026-09-20 decision: the grid is extended with percentiles of the pooled
+    values of every validated bound, across all methods and both sidednesses, computed
+    on the internal validation split only. The arms are exactly those the analysis
+    scores — persistence's one-sided bounds are excluded here for the same reason they
+    are excluded there (degenerate quantile, Gate 2), so they are not validated bounds.
+    Values that are ``+inf`` outside the Q-SEL-03 supported region carry no threshold
+    information and are dropped.
+    """
+    n = data.subsets[split]["y"].size
+    supported = diag.positivity_partition(data.subsets[split]["recency_ok"]).supported
+    pooled = []
+    for level in levels:
+        for e in rank_audit_scores(data, weights, preds, heads, level, supported, split=split):
+            if exclude_persistence_one_sided and e["learner"] == "persistence" and e["sided"] == "upper":
+                continue
+            s = np.asarray(e["score"], dtype=float)
+            pooled.append(s[np.isfinite(s)])
+    values = np.concatenate(pooled) if pooled else np.empty(0)
+    if values.size == 0:
+        raise ValueError(f"no finite validated bound values on {split!r} (n={n}); cannot build the grid")
+    return values
+
+
 def unrestricted_optimum(score: np.ndarray, is_high_risk: np.ndarray, ratio: float) -> dict:
     """§9: the cost minimiser over every distinct finite score value, plus +inf (no alerts)."""
     s = np.asarray(score, dtype=float)
@@ -370,17 +397,48 @@ def run_threshold_analysis(cfg: Config, *, seeds=None, percentiles=None, n_boot:
     out = {"decisions": [], "paired": [], "selection": [], "p1": [], "curves": []}
     grid_rows, excluded_rows, meta_h = [], [], {}
     for h in horizons:
+        data = datas[h]
+        # Component (a): pooled point predictions on val_inner (the original design).
         pooled = np.concatenate([np.asarray(fitted[(h, s)][0][lrn][ta.grid_source_split], dtype=float)
                                  for s in seeds for lrn in BASE_LEARNERS])
-        grid = dc.threshold_grid(pooled, percentiles, ta.operational_thresholds)
+        # Component (b): pooled values of every validated bound on the same split
+        # (Sidh, 2026-09-20 — the ceiling fix). Same seeds, same split, same percentiles.
+        pooled_bounds = np.concatenate([
+            grid_bound_values(data, weights_by_h[h], fitted[(h, s)][0], fitted[(h, s)][1], levels,
+                              split=ta.grid_source_split,
+                              exclude_persistence_one_sided=ta.exclude_persistence_one_sided)
+            for s in seeds
+        ])
+        grid = dc.threshold_grid(pooled, percentiles, ta.operational_thresholds,
+                                 pooled_bound_values=pooled_bounds)
         T = grid["thresholds"]
-        grid_rows.extend({"horizon_days": h, "threshold": float(t),
-                          "operational": bool(np.isin(t, grid["operational_thresholds"]))} for t in T)
-        meta_h[f"{h:g}d"] = {"config_hash": hcfgs[h].config_hash, "n_thresholds": int(T.size),
-                             "n_duplicate_percentiles_removed": grid["n_duplicates_removed"]}
-        _append(path, f"horizon {h:g} d: grid {T.size} thresholds ({grid['n_duplicates_removed']} duplicates removed)")
+        point_vals = np.unique(grid["percentile_values"])
+        bound_vals = np.unique(grid["bound_percentile_values"])
+        for t_ in T:
+            from_point = bool(np.isin(t_, point_vals))
+            from_bound = bool(np.isin(t_, bound_vals))
+            grid_rows.append({
+                "horizon_days": h, "threshold": float(t_),
+                "operational": bool(np.isin(t_, grid["operational_thresholds"])),
+                "from_point_percentiles": from_point, "from_bound_percentiles": from_bound,
+                "source": ("point+bound" if from_point and from_bound
+                           else "point" if from_point else "bound" if from_bound else "operational"),
+            })
+        meta_h[f"{h:g}d"] = {
+            "config_hash": hcfgs[h].config_hash, "n_thresholds": int(T.size),
+            "n_duplicate_percentiles_removed": grid["n_duplicates_removed"],
+            "n_bound_duplicate_percentiles_removed": grid["n_bound_duplicates_removed"],
+            "n_grid_from_point_percentiles": grid["n_from_point_only"],
+            "n_grid_from_bound_percentiles_only": grid["n_from_bound_only"],
+            "grid_min": float(T.min()), "grid_max": float(T.max()),
+            "n_grid_above_operational": int((T > float(ta.operational_thresholds[0])).sum()),
+            "n_pooled_point_values": int(pooled.size), "n_pooled_bound_values": int(pooled_bounds.size),
+        }
+        _append(path, f"horizon {h:g} d: grid {T.size} thresholds in [{T.min():.3f}, {T.max():.3f}] "
+                      f"({grid['n_from_bound_only']} contributed by bound percentiles only, "
+                      f"{int((T > float(ta.operational_thresholds[0])).sum())} above "
+                      f"{float(ta.operational_thresholds[0]):g})")
 
-        data = datas[h]
         test = data.subsets["official_test"]
         hr_full = np.asarray(test["is_high_risk"], dtype=bool)
         hr_self = np.asarray(data.subsets["self_test"]["is_high_risk"], dtype=bool)

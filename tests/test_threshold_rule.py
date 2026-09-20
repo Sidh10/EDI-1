@@ -79,6 +79,48 @@ def test_threshold_grid_dedupes_the_floor_atom_and_adds_the_operational_threshol
     assert g["percentile_values"][3] == pytest.approx(-27.0)   # 70th: 0.3 of the way from -30 to -20
 
 
+def test_threshold_grid_extension_adds_resolution_above_the_point_ceiling():
+    """Sidh's 2026-09-20 ceiling fix: the bound percentiles must reach above -6.
+
+    Point predictions all sit below -6 and bounds sit above their points, exactly
+    the diagnosed geometry. Without component (b) the grid's maximum is the
+    operational threshold itself; with it, the grid extends above -6 and every
+    original percentile threshold survives unchanged.
+    """
+    point = np.linspace(-30.0, -8.0, 400)
+    bound = point + 8.0                      # bounds sit above their points by Q = 8
+    pct = [5, 25, 50, 75, 95]
+    original = threshold_grid(point, pct, [-6.0])
+    extended = threshold_grid(point, pct, [-6.0], pooled_bound_values=bound)
+
+    assert original["thresholds"].max() == -6.0                       # the ceiling artifact
+    assert extended["thresholds"].max() > -6.0                        # fixed
+    assert (extended["thresholds"] > -6.0).sum() == 2                 # 75th/95th of the bounds
+    # Component (a) is untouched: every original threshold is still present.
+    assert set(original["thresholds"]).issubset(set(extended["thresholds"]))
+    np.testing.assert_array_equal(original["percentile_values"], extended["percentile_values"])
+    np.testing.assert_allclose(extended["bound_percentile_values"],
+                               np.asarray(original["percentile_values"]) + 8.0)
+    assert extended["n_from_bound_only"] == 5
+    assert list(extended["thresholds"]) == sorted(set(extended["thresholds"]))
+
+
+def test_threshold_grid_without_bound_values_is_unchanged():
+    """Omitting component (b) must reproduce the pre-2026-09-20 grid exactly."""
+    pooled = np.r_[np.full(700, -30.0), np.linspace(-20.0, -1.0, 300)]
+    g = threshold_grid(pooled, [5, 10, 50, 70, 95], [-6.0])
+    np.testing.assert_array_equal(g["thresholds"],
+                                  np.unique(np.r_[np.unique(np.percentile(pooled, [5, 10, 50, 70, 95])), -6.0]))
+    assert g["bound_percentile_values"].size == 0
+    assert g["n_from_bound_only"] == 0
+
+
+@pytest.mark.parametrize("bad", [np.array([]), np.array([-1.0, np.inf]), np.array([[-1.0, -2.0]])])
+def test_threshold_grid_rejects_unusable_bound_values(bad):
+    with pytest.raises(ValueError):
+        threshold_grid(np.linspace(-30, 0, 50), [5, 50, 95], [-6.0], pooled_bound_values=bad)
+
+
 @pytest.mark.parametrize("bad", [[0, 50], [50, 100], []])
 def test_threshold_grid_rejects_invalid_percentiles(bad):
     with pytest.raises(ValueError):

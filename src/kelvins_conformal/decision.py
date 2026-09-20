@@ -381,13 +381,24 @@ def threshold_counts(
     return {"threshold": t, "tp": tp, "fn": n_hr - tp, "fp": fp, "tn": n_lo - fp, "n_alerts": tp + fp}
 
 
-def threshold_grid(pooled_point_predictions: np.ndarray, percentiles, operational_thresholds) -> dict:
-    """The pre-registered threshold grid T (pre-registration §2).
+def threshold_grid(pooled_point_predictions: np.ndarray, percentiles, operational_thresholds,
+                   pooled_bound_values: np.ndarray | None = None) -> dict:
+    """The pre-registered threshold grid T (pre-registration §2, extended 2026-09-20).
 
-    Percentiles (linear interpolation) of the pooled calibration-split point
-    predictions, deduplicated — the −30 floor atom makes several low percentiles
-    coincide, and the number removed is reported — plus the fixed operational
-    thresholds, added whether or not they coincide with a percentile value.
+    The sorted, deduplicated union of three components:
+      (a) percentiles (linear interpolation) of the pooled point predictions — the
+          −30 floor atom makes several low percentiles coincide, and the number
+          removed is reported;
+      (b) the same percentiles of ``pooled_bound_values``, the pooled values of
+          every validated bound across all methods and both sidednesses, when
+          given. Added by Sidh's 2026-09-20 decision: without it every percentile
+          lies below −6, the grid's maximum is the operational threshold itself,
+          and bound thresholds pin to that ceiling (62.3% of bound selections);
+      (c) the fixed operational thresholds, added whether or not they coincide
+          with a percentile value.
+
+    The caller supplies both pooled arrays from the internal validation split
+    only; the official test set never selects the grid.
     """
     p = np.asarray(pooled_point_predictions, dtype=float)
     if p.ndim != 1 or p.size == 0 or not np.all(np.isfinite(p)):
@@ -400,11 +411,24 @@ def threshold_grid(pooled_point_predictions: np.ndarray, percentiles, operationa
         raise ValueError("operational thresholds must be finite")
     values = np.percentile(p, pct)
     unique_values = np.unique(values)
+    bound_values = np.asarray([], dtype=float)
+    if pooled_bound_values is not None:
+        b = np.asarray(pooled_bound_values, dtype=float)
+        if b.ndim != 1 or b.size == 0 or not np.all(np.isfinite(b)):
+            raise ValueError("pooled bound values must be a non-empty finite 1-D array")
+        bound_values = np.percentile(b, pct)
+    unique_bound = np.unique(bound_values)
+    thresholds = np.unique(np.concatenate([unique_values, unique_bound, ops]))
     return {
-        "thresholds": np.unique(np.concatenate([unique_values, ops])),
+        "thresholds": thresholds,
         "percentile_values": values,
+        "bound_percentile_values": bound_values,
         "n_percentiles": int(pct.size),
         "n_duplicates_removed": int(values.size - unique_values.size),
+        "n_bound_duplicates_removed": int(bound_values.size - unique_bound.size),
+        "n_from_point_only": int(np.isin(thresholds, unique_values).sum()),
+        "n_from_bound_only": int((np.isin(thresholds, unique_bound)
+                                  & ~np.isin(thresholds, unique_values)).sum()),
         "operational_thresholds": ops,
     }
 
