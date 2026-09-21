@@ -9,7 +9,11 @@ conclusion.
 Inputs:  per-event indicator/statistic arrays plus a cluster label per event.
 Outputs: percentile confidence intervals and adjusted p-values.
 
-Serves: EXPERIMENT_PLAN.md E17 (H1 — robustness, consistency & gap-closure).
+Serves: EXPERIMENT_PLAN.md E17 (H1 — robustness, consistency & gap-closure), and E12's
+coverage labels: ``meets_coverage_guarantee`` (validity under shift, one-sided) and
+``consistent_with_exact_coverage`` (exactness on exchangeable data, two-sided) are the
+project's single definitions of those two questions (DECISIONS.md 2026-09-21,
+methodological note).
 
 Protocol: Q-STAT-03c (coverage uncertainty: event-level bootstrap plus a cluster
 bootstrap sensitivity check grouping by mission) and Q-STAT-04 (hierarchical
@@ -169,14 +173,55 @@ NOT_RESTORED = "not restored"
 NO_DEFICIT = "no deficit to restore"
 
 
+def _check_ci(ci_lo: float, ci_hi: float, nominal: float) -> None:
+    if not all(np.isfinite(v) for v in (ci_lo, ci_hi, nominal)):
+        raise ValueError("CI bounds and nominal must all be finite")
+    if ci_lo > ci_hi:
+        raise ValueError("a CI must have lo <= hi")
+    if not (0.0 < nominal < 1.0):
+        raise ValueError(f"nominal must be in (0, 1), got {nominal}")
+
+
+def meets_coverage_guarantee(ci_lo: float, ci_hi: float, nominal: float) -> bool:
+    """VALIDITY UNDER SHIFT: is under-coverage NOT established? (one-sided)
+
+    The conformal guarantee is coverage >= 1 - alpha — a one-sided bound, for a
+    one-sided bound AND for a two-sided interval alike (Vovk et al. 2005; Lei et al.
+    2018; under covariate shift, Tibshirani et al. 2019). So a method meets it unless
+    its coverage CI lies wholly BELOW nominal: ``ci_hi >= nominal``. Over-coverage passes.
+
+    Use this for any "is the method valid on the official (shifted) test set?" check.
+    Do NOT use CI containment for that question: it marks a conservative method as a
+    failure (DECISIONS.md 2026-09-21, methodological note, B2).
+    """
+    _check_ci(ci_lo, ci_hi, nominal)
+    return bool(ci_hi >= nominal)
+
+
+def consistent_with_exact_coverage(ci_lo: float, ci_hi: float, nominal: float) -> bool:
+    """EXACTNESS ON EXCHANGEABLE DATA: does the CI contain nominal? (two-sided)
+
+    Under exchangeability with almost-surely distinct scores, unweighted split conformal
+    and CQR coverage lies in the band [1 - alpha, 1 - alpha + 1/(n+1)] (Lei et al. 2018;
+    Romano, Patterson & Candes 2019). A deviation in EITHER direction then signals an
+    implementation defect, so the check is two-sided. At this project's n = 2,391 the
+    band's upper slack is 0.042 pp, so containing nominal is the band test up to that slack.
+
+    Use this only for machinery validation on the exchangeable self-split — never for
+    validity under shift (see ``meets_coverage_guarantee``).
+    """
+    _check_ci(ci_lo, ci_hi, nominal)
+    return bool(ci_lo <= nominal <= ci_hi)
+
+
 def restoration_verdict(naive_lo: float, naive_hi: float, weighted_lo: float, weighted_hi: float,
                         nominal: float) -> dict:
     """Does rule-weighting restore coverage? Both criteria, the corrected one primary.
 
     **Primary — the one-sided conformal guarantee** (Sidh, 2026-09-21). Split and weighted
-    conformal guarantee coverage >= 1 - alpha (Vovk et al. 2005; Tibshirani et al. 2019,
-    Thm 2); the bound is one-sided, so over-coverage satisfies it and only under-coverage
-    violates it. Tested on each arm's CI UPPER bound:
+    conformal guarantee coverage >= 1 - alpha (Vovk et al. 2005; Tibshirani et al. 2019);
+    the bound is one-sided, so over-coverage satisfies it and only under-coverage
+    violates it. Tested on each arm's CI UPPER bound, via ``meets_coverage_guarantee``:
 
       * naive_hi >= nominal                  -> "no deficit to restore"
         (under-coverage was never established, so there is nothing to restore);
@@ -193,23 +238,19 @@ def restoration_verdict(naive_lo: float, naive_hi: float, weighted_lo: float, we
     a conservative (over-covering) arm as a failure. That was a specification bug
     (DECISIONS.md 2026-09-21 correction), not an alternative reading of the guarantee.
     """
-    vals = (naive_lo, naive_hi, weighted_lo, weighted_hi, nominal)
-    if not all(np.isfinite(v) for v in vals):
-        raise ValueError("CI bounds and nominal must all be finite")
-    if naive_lo > naive_hi or weighted_lo > weighted_hi:
-        raise ValueError("each CI must have lo <= hi")
-    if not (0.0 < nominal < 1.0):
-        raise ValueError(f"nominal must be in (0, 1), got {nominal}")
-
-    if naive_hi >= nominal:
+    # Both criteria are built from the two named single-arm primitives, so "valid" and
+    # "exact" each have exactly one definition in the project.
+    naive_valid = meets_coverage_guarantee(naive_lo, naive_hi, nominal)
+    weighted_valid = meets_coverage_guarantee(weighted_lo, weighted_hi, nominal)
+    if naive_valid:
         primary = NO_DEFICIT
-    elif weighted_hi >= nominal:
+    elif weighted_valid:
         primary = RESTORED
     else:
         primary = NOT_RESTORED
 
-    naive_in = naive_lo <= nominal <= naive_hi
-    weighted_in = weighted_lo <= nominal <= weighted_hi
+    naive_in = consistent_with_exact_coverage(naive_lo, naive_hi, nominal)
+    weighted_in = consistent_with_exact_coverage(weighted_lo, weighted_hi, nominal)
     if naive_in and weighted_in:
         containment = NO_DEFICIT
     elif weighted_in and not naive_in:

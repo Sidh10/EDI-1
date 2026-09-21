@@ -618,3 +618,46 @@ def run_e12(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
         "meta": {"seeds": seeds, "nominal_levels": nominal_levels, "primary_level": primary,
                  "cqr_quantile_levels": qlevels, "n_supported": int(sup.sum())},
     }
+
+
+# --- E12 coverage labels: each names the question it answers (2026-09-21 fix) -------
+
+E12_OFFICIAL_METHODS: tuple[str, ...] = ("E12_cqr_naive", "E12_cqr_weighted_rule",
+                                         "E11ref_split_weighted_rule")
+E12_SELFTEST_METHOD = "E12_cqr_selftest"
+VALIDITY_UNDER_SHIFT = "validity under shift"
+EXACTNESS_ON_EXCHANGEABLE = "exactness on exchangeable data"
+
+
+def e12_coverage_checks(cov: pd.DataFrame, level: float) -> pd.DataFrame:
+    """E12's coverage labels at one nominal level, each tagged with the question it answers.
+
+    The official-test arms (naive CQR, weighted CQR, the E11 split-conformal reference)
+    answer VALIDITY UNDER SHIFT, which is one-sided: ``robustness.meets_coverage_guarantee``
+    (CI upper bound >= nominal). The exchangeable self-test arm answers EXACTNESS, which is
+    two-sided: ``robustness.consistent_with_exact_coverage`` (CI contains nominal).
+
+    Before 2026-09-21 every arm was labelled by CI containment. For the official-test arms
+    that was the wrong form (the E17 H1 error class, DECISIONS.md methodological note B4):
+    it would mark a conservative arm invalid. It was inert — 0 of 9 verdicts changed — but
+    it is corrected here rather than left to fire the first time an arm over-covers.
+    """
+    from ..robustness import consistent_with_exact_coverage, meets_coverage_guarantee
+
+    rows = []
+    for method in (*E12_OFFICIAL_METHODS, E12_SELFTEST_METHOD):
+        r = cov[(cov["method"] == method) & np.isclose(cov["nominal"].astype(float), float(level))]
+        if len(r) != 1:
+            raise ValueError(f"expected exactly one {method!r} row at nominal {level}, found {len(r)}")
+        r = r.iloc[0]
+        lo, hi = float(r["cp_lo_mean"]), float(r["cp_hi_mean"])
+        if method == E12_SELFTEST_METHOD:
+            question, form = EXACTNESS_ON_EXCHANGEABLE, "two-sided: CP CI contains nominal"
+            passes = consistent_with_exact_coverage(lo, hi, float(level))
+        else:
+            question, form = VALIDITY_UNDER_SHIFT, "one-sided: CP CI upper bound >= nominal"
+            passes = meets_coverage_guarantee(lo, hi, float(level))
+        rows.append({"method": method, "nominal": float(level), "question": question, "form": form,
+                     "coverage": float(r["coverage_mean"]), "cp_lo": lo, "cp_hi": hi,
+                     "passes": bool(passes)})
+    return pd.DataFrame(rows)
