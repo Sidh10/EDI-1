@@ -44,7 +44,6 @@ from ..conformal.split import absolute_residual_scores, signed_residual_scores, 
 from ..conformal.weighted import weighted_interval
 from ..data import event_level_frame, load_events
 from .conformal_runner import (
-    BASE_LEARNERS,
     base_predictions,
     build_weights,
     coverage_with_ci,
@@ -55,6 +54,20 @@ from .decision_runner import _append, _fit_upper_heads
 
 # The five manifestations of the Phase-2 train/test high-risk imbalance, in the order
 # the Observations Log records them (DECISIONS.md 2026-09-20, updated 2026-09-21).
+# H1's robustness checks are scoped to these learners (Sidh, 2026-09-21). MC-dropout /
+# E8 is EXCLUDED: its hyperparameters were never cached under the current config hash, and
+# re-searching now would fit a different model from the one E8 published, breaking
+# like-for-like comparison with E8's own findings. The exclusion is reported in the E17
+# output itself, not only in DECISIONS.md.
+H1_LEARNERS: tuple[str, ...] = ("persistence", "gbm", "gru")
+H1_EXCLUDED_LEARNERS: tuple[str, ...] = ("mc_dropout",)
+H1_EXCLUSION_REASON = (
+    "MC-dropout (the E8 Bayesian arm) is excluded from E17's H1 robustness checks: no "
+    "e8_mcdropout hyperparameter cache exists under the current config hash, and running a "
+    "fresh search would select hyperparameters E8 never used, so the arm would no longer be "
+    "the model E8 reported (Sidh, 2026-09-21). H2 and H3 do not depend on this arm."
+)
+
 MANIFESTATIONS = (
     ("M1", "point-prediction collapse (E6/E7)", "event"),
     ("M2", "conditional-coverage collapse (E14)", "event"),
@@ -98,7 +111,7 @@ def _headline_covered_indicators(cfg: Config, data, weights, preds: dict, level:
     y = np.asarray(test["y"], dtype=float)[sup]
     alpha = 1.0 - level
     out = {}
-    for lrn in BASE_LEARNERS:
+    for lrn in H1_LEARNERS:
         p_cal = np.asarray(preds[lrn]["calibration"], dtype=float)
         p_te = np.asarray(preds[lrn]["official_test"], dtype=float)[sup]
         scores = {"upper": signed_residual_scores(cal["y"], p_cal),
@@ -158,7 +171,7 @@ def run_h1(cfg: Config, *, seeds=None, n_boot: int | None = None, data=None, wei
     # outside (below) the naive arm's. Checked under BOTH resampling schemes.
     verdict = []
     for level in levels:
-        for lrn in BASE_LEARNERS:
+        for lrn in H1_LEARNERS:
             sub = cluster_tab[(cluster_tab.nominal == level) & (cluster_tab.learner == lrn)
                               & (cluster_tab.sided == "two")]
             if sub.empty:
@@ -218,10 +231,16 @@ def run_h1(cfg: Config, *, seeds=None, n_boot: int | None = None, data=None, wei
                         n_tests_in_family=holm["n_tests"], check="multiple_comparison",
                         holm_is_identity=bool(holm["n_tests"] == 1))
 
+    excluded_tab = pd.DataFrame([{"learner": lrn, "scope": "H1 robustness checks",
+                                  "included": False, "reason": H1_EXCLUSION_REASON}
+                                 for lrn in H1_EXCLUDED_LEARNERS])
     return {"cluster_bootstrap": cluster_tab, "gate2_verdict": verdict_tab,
-            "clipping": clip_tab, "multiple_comparison": mc_tab,
+            "clipping": clip_tab, "multiple_comparison": mc_tab, "excluded_learners": excluded_tab,
             "meta": {"primary_level": primary, "n_clusters": int(np.unique(clusters).size),
-                     "n_supported_events": int(sup.sum()), "cluster_variable": "mission_id"}}
+                     "n_supported_events": int(sup.sum()), "cluster_variable": "mission_id",
+                     "h1_learners": list(H1_LEARNERS),
+                     "h1_excluded_learners": list(H1_EXCLUDED_LEARNERS),
+                     "h1_exclusion_reason": H1_EXCLUSION_REASON}}
 
 
 class _IndicatorInterval:
@@ -500,7 +519,8 @@ def run_e17(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
     for seed in seeds:
         ts = time.time()
         _append(path, f"seed {seed}: fitting base learners")
-        preds = base_predictions(cfg, data, seed)
+        # learners= is what prevents the E8 search, not output filtering (decision item 7).
+        preds = base_predictions(cfg, data, seed, learners=H1_LEARNERS)
         _append(path, f"seed {seed}: fitting GBM quantile heads at {head_levels}")
         heads = _fit_upper_heads(cfg, data, seed, head_levels)
         fitted[seed] = (preds, heads)
@@ -536,6 +556,7 @@ def run_e17(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
         "h1_gate2_verdict": h1["gate2_verdict"],
         "h1_clipping": h1["clipping"],
         "h1_multiple_comparison": h1["multiple_comparison"],
+        "h1_excluded_learners": h1["excluded_learners"],
         "h2_coverage": h2["coverage"],
         "h2_per_seed": h2["per_seed"],
         "coverage_restoration_matrix": matrix,

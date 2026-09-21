@@ -132,12 +132,21 @@ def prepare_conformal_data(cfg: Config, events: pd.DataFrame) -> ConformalData:
 # --- base-learner point predictions -----------------------------------------
 
 
-def base_predictions(cfg: Config, data: ConformalData, seed: int) -> dict:
+def base_predictions(cfg: Config, data: ConformalData, seed: int,
+                     learners: tuple[str, ...] | None = None) -> dict:
     """Point predictions per base learner on calibration, self_test, official_test.
 
     Fits on ``fit_inner`` (early stop on ``val_inner``) using the Phase-2 cached
     best hyperparameters; persistence needs no fit. Returns
     {learner: {split: yhat}} for the three evaluation subsets plus calibration.
+
+    ``learners`` restricts which learners are FIT, not merely which are returned
+    (E17, Sidh 2026-09-21). This distinction matters: each learner's fit calls
+    ``cached_search``, which runs a full hyperparameter search on a cache miss, so
+    filtering the output afterwards would still pay — and silently hide — that
+    search. Restricting here means the skipped learner's search is never reached.
+    ``None`` (the default) fits all of ``BASE_LEARNERS``, which is what every
+    caller before E17 does, so their behaviour is unchanged.
     """
     from . import bayesian as by
     from . import gbm as gbm_mod
@@ -148,53 +157,63 @@ def base_predictions(cfg: Config, data: ConformalData, seed: int) -> dict:
     # validation split (Sidh, 2026-09-19). Adding a split changes no other split's predictions:
     # each learner predicts deterministically, and MC-dropout reseeds on every call.
     eval_splits = ("calibration", "self_test", "official_test", "val_inner")
-    out: dict = {lrn: {} for lrn in BASE_LEARNERS}
+    wanted = tuple(BASE_LEARNERS) if learners is None else tuple(learners)
+    unknown = set(wanted) - set(BASE_LEARNERS)
+    if unknown:
+        raise ValueError(f"unknown learners {sorted(unknown)}; known: {list(BASE_LEARNERS)}")
+    if not wanted:
+        raise ValueError("at least one learner must be requested")
+    out: dict = {lrn: {} for lrn in wanted}
 
     # persistence: yhat = r_last (observable pre-cutoff persistence forecast).
-    for s in eval_splits:
-        out["persistence"][s] = data.subsets[s]["risk_last"].copy()
+    if "persistence" in wanted:
+        for s in eval_splits:
+            out["persistence"][s] = data.subsets[s]["risk_last"].copy()
 
     fit, val = data.subsets["fit_inner"], data.subsets["val_inner"]
 
     # GBM (cached E6 params).
     from .runner import TabularData as _TD  # noqa: F401 (documents provenance)
-    gbm_budget = cached_search(cfg, "e6_gbm", cfg.seed,
-                               lambda: search_gbm(cfg, _tab_view(data), seed=cfg.seed))
-    gbm_res = gbm_mod.fit_gbm(
-        fit["tab_X"], fit["y"], val["tab_X"], val["y"], seed=seed,
-        params=_gbm_params(gbm_budget.best_params, seed),
-        # E9-E11 use POINT predictions only; the quantile heads feed E12/CQR
-        # (out of scope for this batch), so they are not fit here.
-        quantile_levels=(),
-        num_boost_round=cfg.gbm.num_boost_round,
-        early_stopping_rounds=cfg.train.early_stopping_rounds,
-    )
-    for s in eval_splits:
-        out["gbm"][s] = gbm_res.predict(data.subsets[s]["tab_X"])
+    if "gbm" in wanted:
+        gbm_budget = cached_search(cfg, "e6_gbm", cfg.seed,
+                                   lambda: search_gbm(cfg, _tab_view(data), seed=cfg.seed))
+        gbm_res = gbm_mod.fit_gbm(
+            fit["tab_X"], fit["y"], val["tab_X"], val["y"], seed=seed,
+            params=_gbm_params(gbm_budget.best_params, seed),
+            # E9-E11 use POINT predictions only; the quantile heads feed E12/CQR
+            # (out of scope for this batch), so they are not fit here.
+            quantile_levels=(),
+            num_boost_round=cfg.gbm.num_boost_round,
+            early_stopping_rounds=cfg.train.early_stopping_rounds,
+        )
+        for s in eval_splits:
+            out["gbm"][s] = gbm_res.predict(data.subsets[s]["tab_X"])
 
     # GRU (cached E7 params).
-    seq_budget = cached_search(cfg, "e7_sequence", cfg.seed,
-                               lambda: search_sequence(cfg, _seq_view(data), seed=cfg.seed))
-    gru_res = _fit_sequence(seq_mod, cfg, data, seq_budget.best_params, seed)
-    for s in eval_splits:
-        out["gru"][s] = gru_res.predict(data.subsets[s]["seq_X"], data.subsets[s]["seq_len"])
+    if "gru" in wanted:
+        seq_budget = cached_search(cfg, "e7_sequence", cfg.seed,
+                                   lambda: search_sequence(cfg, _seq_view(data), seed=cfg.seed))
+        gru_res = _fit_sequence(seq_mod, cfg, data, seq_budget.best_params, seed)
+        for s in eval_splits:
+            out["gru"][s] = gru_res.predict(data.subsets[s]["seq_X"], data.subsets[s]["seq_len"])
 
     # MC-dropout (cached E8 params); point prediction = MC predictive mean.
-    mc_budget = cached_search(cfg, "e8_mcdropout", cfg.seed,
-                              lambda: search_mc_dropout(cfg, _seq_view(data), seed=cfg.seed))
-    mc_res = _fit_sequence(seq_mod, cfg, data, mc_budget.best_params, seed)
-    val_pred = mc_res.predict(val["seq_X"], val["seq_len"])
-    aleatoric = by.estimate_aleatoric_std(val["y"], val_pred)
-    for s in eval_splits:
-        dist = by.mc_dropout_predict(
-            mc_res, data.subsets[s]["seq_X"], data.subsets[s]["seq_len"],
-            n_samples=cfg.bayesian.n_mc_samples, aleatoric_std=aleatoric, seed=seed,
-        )
-        out["mc_dropout"][s] = dist.mean
-        # E15 needs the full predictive distribution for the one-sided Bayesian
-        # bound. It is stored under a private key, so the E9-E11 loops over
-        # BASE_LEARNERS never see it and their outputs are unchanged.
-        out.setdefault("_mc_dropout_dist", {})[s] = dist
+    if "mc_dropout" in wanted:
+        mc_budget = cached_search(cfg, "e8_mcdropout", cfg.seed,
+                                  lambda: search_mc_dropout(cfg, _seq_view(data), seed=cfg.seed))
+        mc_res = _fit_sequence(seq_mod, cfg, data, mc_budget.best_params, seed)
+        val_pred = mc_res.predict(val["seq_X"], val["seq_len"])
+        aleatoric = by.estimate_aleatoric_std(val["y"], val_pred)
+        for s in eval_splits:
+            dist = by.mc_dropout_predict(
+                mc_res, data.subsets[s]["seq_X"], data.subsets[s]["seq_len"],
+                n_samples=cfg.bayesian.n_mc_samples, aleatoric_std=aleatoric, seed=seed,
+            )
+            out["mc_dropout"][s] = dist.mean
+            # E15 needs the full predictive distribution for the one-sided Bayesian
+            # bound. It is stored under a private key, so the E9-E11 loops over
+            # BASE_LEARNERS never see it and their outputs are unchanged.
+            out.setdefault("_mc_dropout_dist", {})[s] = dist
 
     return out
 

@@ -119,3 +119,45 @@ def test_cluster_bootstrap_rejects_bad_input():
         cluster_bootstrap_mean(np.array([1.0, np.nan]), np.array([0, 1]))
     with pytest.raises(ValueError):
         cluster_bootstrap_mean(np.array([1.0, 0.0]), np.array([0, 1]), level=1.5)
+
+
+# --- base_predictions learner restriction (E17, Sidh 2026-09-21) --------------------
+
+
+def test_base_predictions_signature_defaults_to_every_learner():
+    """The restriction must be opt-in: existing callers keep fitting all four.
+
+    Checked on the signature rather than by fitting, so the guarantee is verified
+    without the multi-minute real fit. The behavioural half is exercised by the E17
+    smoke tests, which pass an explicit restricted set.
+    """
+    import inspect
+
+    from kelvins_conformal.models.conformal_runner import BASE_LEARNERS, base_predictions
+
+    sig = inspect.signature(base_predictions)
+    assert "learners" in sig.parameters
+    assert sig.parameters["learners"].default is None      # None => all of BASE_LEARNERS
+    assert set(BASE_LEARNERS) == {"persistence", "gbm", "gru", "mc_dropout"}
+
+
+def test_base_predictions_rejects_unknown_or_empty_learner_sets():
+    """Fail loud on a typo rather than silently fitting nothing (CLAUDE.md §1)."""
+    from types import SimpleNamespace
+
+    from kelvins_conformal.models.conformal_runner import base_predictions
+
+    dummy = SimpleNamespace(subsets={})
+    with pytest.raises(ValueError, match="unknown learners"):
+        base_predictions(None, dummy, 42, learners=("gbm", "not_a_learner"))
+    with pytest.raises(ValueError, match="at least one learner"):
+        base_predictions(None, dummy, 42, learners=())
+
+
+def test_h1_learner_set_excludes_mc_dropout_and_says_why():
+    """The exclusion must be machine-readable, not just prose in a log."""
+    from kelvins_conformal.models import robustness_runner as RR
+
+    assert RR.H1_LEARNERS == ("persistence", "gbm", "gru")
+    assert RR.H1_EXCLUDED_LEARNERS == ("mc_dropout",)
+    assert "E8" in RR.H1_EXCLUSION_REASON and "config hash" in RR.H1_EXCLUSION_REASON

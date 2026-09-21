@@ -52,7 +52,7 @@ def assembled(monkeypatch, tmp_path):
     def preds_for(seed):
         r = np.random.default_rng(seed)
         out = {lrn: {s: subsets[s]["y"] + r.normal(0.0, 2.0, subsets[s]["y"].size) for s in SPLITS}
-               for lrn in RR.BASE_LEARNERS}
+               for lrn in RR.H1_LEARNERS}
         return out
 
     def heads_for(seed, levels):
@@ -78,13 +78,19 @@ def test_h1_cluster_bootstrap_is_wider_or_equal_and_reports_its_clusters(assembl
     res = RR.run_h1(cfg, seeds=seeds, n_boot=200, data=data, weights=weights,
                     fitted=fitted, events=events)
     cb = res["cluster_bootstrap"]
-    assert len(cb) == len(levels) * len(RR.BASE_LEARNERS) * 2 * 2   # levels x learners x method x side
+    assert len(cb) == len(levels) * len(RR.H1_LEARNERS) * 2 * 2   # levels x learners x method x side
+    assert set(cb["learner"]) == set(RR.H1_LEARNERS)
+    assert "mc_dropout" not in set(cb["learner"])          # the disclosed exclusion
     assert (cb["n_clusters"] == N_MISSIONS).all()
     assert (cb["n_events"] == N_TEST).all()
     # Both schemes estimate the SAME coverage point; only the interval differs.
     assert cb["coverage"].between(0.0, 1.0).all()
     assert (cb["cluster_half_width"] > 0).all() and (cb["iid_half_width"] > 0).all()
     assert res["meta"]["cluster_variable"] == "mission_id"
+    assert res["meta"]["h1_excluded_learners"] == ["mc_dropout"]
+    ex = res["excluded_learners"]
+    assert list(ex["learner"]) == ["mc_dropout"] and not ex["included"].any()
+    assert "E8" in ex["reason"].iloc[0]
 
 
 def test_h1_clipping_confirms_untriggered_under_stricter_caps(assembled, monkeypatch, tmp_path):
