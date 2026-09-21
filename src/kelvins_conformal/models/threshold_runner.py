@@ -508,3 +508,112 @@ def run_threshold_analysis(cfg: Config, *, seeds=None, percentiles=None, n_boot:
             "searches_cached_at_start": searches_cached_at_start, "caveat": THRESHOLD_CAVEAT,
         },
     }
+
+
+# --- re-render from already-computed tables (no recomputation; E18) ------------------
+
+# Tables the threshold analysis COMPUTES. Every display table and figure in the report is
+# derived from these, so a presentation-only fix (E18: the stale grid caveat) can be
+# rendered without re-running the ~1 h analysis. None of them carries the caveat text.
+COMPUTED_TABLES: tuple[str, ...] = (
+    "decisions", "paired_differences", "selection", "p1_checks", "operating_curves",
+    "grid", "populations", "excluded_arms", "positivity", "search_integrity",
+)
+
+
+def _parse_threshold_timings(log_path: Path) -> dict:
+    """Stage timings as recorded by the run that computed the tables."""
+    import re
+
+    out: dict = {}
+    if not log_path.exists():
+        return out
+    text = log_path.read_text(encoding="utf-8")
+    m = re.search(r"threshold analysis done in ([\d.]+) s", text)
+    if m:
+        out["total_s"] = float(m.group(1))
+    for h, seed, secs in re.findall(r"horizon ([\d.]+) d, seed (\d+): analysis done in ([\d.]+) s", text):
+        out[f"h{float(h):g}_seed_{seed}_analysis_s"] = float(secs)
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    out["computation_log_first_line"] = lines[0] if lines else ""
+    out["computation_log_last_line"] = lines[-1] if lines else ""
+    return out
+
+
+def load_threshold_analysis(cfg: Config) -> dict:
+    """Rebuild the threshold analysis' result dict from the tables a completed run wrote.
+
+    Recomputes NOTHING: loads the computed tables exactly (``float_precision="round_trip"``,
+    so no value moves by an ULP on re-reading) and reconstructs the metadata the report
+    reads. The caveat is the CURRENT ``THRESHOLD_CAVEAT`` — the point of an E18 re-render.
+    Fails loud if a table is missing or belongs to a different run: in particular the
+    original, pre-extension grid (2026-09-19), whose maximum was the operational threshold.
+    """
+    import hashlib
+    import json
+
+    tabs = Path(cfg.path("tables_dir"))
+    missing = [t for t in COMPUTED_TABLES if not (tabs / f"e15c_{t}.csv").exists()]
+    if missing:
+        raise FileNotFoundError(f"cannot re-render the threshold analysis: computed tables missing: {missing}")
+
+    def _load(name: str) -> pd.DataFrame:
+        df = pd.read_csv(tabs / f"e15c_{name}.csv", index_col=0, float_precision="round_trip")
+        return df.drop(columns=[c for c in df.columns if str(c).startswith("Unnamed")])
+
+    res = {t: _load(t) for t in COMPUTED_TABLES}
+    sha = {t: hashlib.sha256((tabs / f"e15c_{t}.csv").read_bytes()).hexdigest() for t in COMPUTED_TABLES}
+
+    ta = cfg.threshold_analysis
+    op_t = float(ta.operational_thresholds[0])
+    horizons = sorted(float(h) for h in res["grid"]["horizon_days"].unique())
+    levels = [cfg.power.nominal_coverage_primary, *cfg.power.nominal_coverage_secondary]
+    grid = res["grid"]
+    # Consistency: these must be the EXTENDED-grid run's tables at this configuration.
+    if horizons != [float(h) for h in ta.horizons_days]:
+        raise ValueError(f"grid horizons {horizons} != configured {list(ta.horizons_days)}")
+    if not {"from_point_percentiles", "from_bound_percentiles", "source"} <= set(grid.columns):
+        raise ValueError("grid table lacks the extended-grid source columns; these are not the "
+                         "2026-09-20 extended-grid run's tables")
+    for h in horizons:
+        if not grid.loc[grid["horizon_days"] == h, "threshold"].max() > op_t:
+            raise ValueError(f"horizon {h:g} d grid tops out at the operational threshold: this is the "
+                             "original pre-extension grid, not the extended one")
+    if set(np.round(res["decisions"]["nominal"].unique(), 6)) != set(np.round(levels, 6)):
+        raise ValueError("decision-table levels do not match the configuration")
+    if set(res["populations"]["population"]) != set(POPULATIONS):
+        raise ValueError("population table does not carry both populations")
+
+    per_h = {}
+    for h in horizons:
+        g = grid[grid["horizon_days"] == h]
+        per_h[f"{h:g}d"] = {
+            "config_hash": horizon_config(cfg, h).config_hash, "n_thresholds": int(len(g)),
+            "grid_min": float(g["threshold"].min()), "grid_max": float(g["threshold"].max()),
+            "n_grid_above_operational": int((g["threshold"] > op_t).sum()),
+            "n_grid_from_bound_percentiles_only": int((g["from_bound_percentiles"].astype(bool)
+                                                       & ~g["from_point_percentiles"].astype(bool)).sum()),
+        }
+    pop = res["populations"]
+    prov_path = Path(cfg.path("reports_dir")) / "05c_threshold_analysis_provenance.json"
+    computed_by = None
+    if prov_path.exists():
+        prov = json.loads(prov_path.read_text(encoding="utf-8"))
+        computed_by = prov.get("computed_by") or {k: prov.get(k) for k in
+                                                  ("git_commit_sha", "config_hash", "executed_utc")}
+    return {
+        **res,
+        "meta": {
+            "recomputed": False, "source_table_sha256": sha, "computed_by": computed_by,
+            "horizons_days": horizons, "seeds": list(cfg.train.seeds),
+            "percentiles": [float(p) for p in ta.grid_percentiles], "n_boot": cfg.bootstrap.n_resamples,
+            "levels": levels, "primary_level": cfg.power.nominal_coverage_primary,
+            "cost_ratios": list(cfg.decision_cost.cost_ratios), "grid_source_split": ta.grid_source_split,
+            "n_common_events": int(pop.loc[pop["population"] == COMMON, "n_events"].iloc[0]),
+            "per_horizon": per_h, "reduced_configuration": False,
+            "timings": _parse_threshold_timings(threshold_progress_path(cfg)),
+            "searches_cached_at_start": "not applicable: a from-tables re-render runs no fit or search "
+                                        "(see search_integrity and the computing run's provenance)",
+            "caveat": THRESHOLD_CAVEAT,
+        },
+    }

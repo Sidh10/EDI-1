@@ -261,6 +261,11 @@ def decision(
         help="With --only threshold: render the reduced smoke configuration (pipeline "
              "validation and timing only; its numbers are not findings).",
     ),
+    from_tables: bool = typer.Option(
+        False, "--from-tables",
+        help="With --only threshold: re-render from the computed tables of a completed full run, "
+             "recomputing nothing and leaving those tables untouched (E18).",
+    ),
 ) -> None:
     """E15: decision-cost evaluation under a matched alert budget (Phase 5).
 
@@ -280,6 +285,10 @@ def decision(
         raise typer.BadParameter("--only must be one of: e15, rank-audit, threshold, all")
     if smoke and only != "threshold":
         raise typer.BadParameter("--smoke applies to --only threshold only")
+    if from_tables and only != "threshold":
+        raise typer.BadParameter("--from-tables applies to --only threshold only")
+    if from_tables and smoke:
+        raise typer.BadParameter("--from-tables re-renders the full run; it cannot be combined with --smoke")
     cfg = load_config(config)
     _ensure_kernel()
     nb_dir = REPO_ROOT / "notebooks"
@@ -294,7 +303,7 @@ def decision(
             if only in ("threshold", "all"):
                 html = "05c_threshold_analysis_smoke.html" if smoke else "05c_threshold_analysis.html"
                 _run_notebook(nb_dir / "05c_threshold_analysis.ipynb", reports / html,
-                              parameters={"SMOKE": smoke})
+                              parameters={"SMOKE": smoke, "RECOMPUTE": not from_tables})
     except OutputLockError as exc:
         raise typer.Exit(code=1) from exc
     typer.echo("[phase5] E15 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")

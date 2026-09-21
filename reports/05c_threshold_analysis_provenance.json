@@ -4,13 +4,31 @@
   ],
   "analysis": "expanded threshold-based decision analysis (E16 merged)",
   "smoke": false,
-  "git_commit_sha": "6e8debd5b1bc8b5478e0445443dbe1426f806d42",
+  "git_commit_sha": "dfb48a9aa1394e65a7d590c291f6fd713de18255",
   "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
   "run_kwargs": {},
   "horizons_days": [
     2.0,
     3.0
   ],
-  "executed_utc": "2026-09-20T06:55:49.309647+00:00",
-  "python": "3.13.11"
+  "executed_utc": "2026-09-21T19:04:35.030466+00:00",
+  "python": "3.13.11",
+  "recomputed": false,
+  "computed_by": {
+    "git_commit_sha": "6e8debd5b1bc8b5478e0445443dbe1426f806d42",
+    "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
+    "executed_utc": "2026-09-20T06:55:49.309647+00:00"
+  },
+  "source_table_sha256": {
+    "decisions": "a4ad7210ad4bd2906d998ea0313c9a3d3d0d422b3bfa238a8296cf2be7538054",
+    "paired_differences": "e0373ded55355f81658109548cef2a6b94c5f5bb8385d64b7fb0cd3e5f583f85",
+    "selection": "17d9f04bb35e7f75feab96f930e38a254ced8e1b585919fa136fe9f99ebf0023",
+    "p1_checks": "4f7365015d2edb47a9e0bdbad6173a70e3a725acca2b0bd071c772a024e63d22",
+    "operating_curves": "b67fa5017710ce57b2785d00a046da4962bd8416735ab8804685699891c5d891",
+    "grid": "26abea8f6b9c0906e4edd4cf18b4d4018a1946102bf74b24932486a4f16b0514",
+    "populations": "246ba4c994c241d7d023847c906ce7d7703277a3755f26e799ae78a50b03f75a",
+    "excluded_arms": "151c892e8b4c28da3a749685049e63376d60487eb0cd1cbe5e83cf420c79b2cd",
+    "positivity": "a5ecd2dbe0532499473e60c22b9cdbb92dc66aec894784b44f309bee49d5e6ac",
+    "search_integrity": "9f2fa089e1b3581f12d62a8fbf965ceda9b51f1a9430d3ea6bcf94b24da465bd"
+  }
 }

@@ -178,3 +178,57 @@ def test_counts_are_consistent_in_every_population(result):
     res, _ = result
     d = res["decisions"]
     np.testing.assert_allclose(d["n_alerts"], (d["n_high_risk"] - d["missed_high_risk"]) + d["unnecessary_maneuvers"])
+
+
+# --- from-tables re-render (E18 Part A.1) -------------------------------------------
+
+
+def _write_computed(res, tmp_path):
+    from kelvins_conformal.reporting import write_table_atomic
+
+    for name in TR.COMPUTED_TABLES:
+        write_table_atomic(res[name], tmp_path / f"e15c_{name}.csv")
+
+
+def test_load_reproduces_every_computed_table_exactly(result, monkeypatch, tmp_path):
+    """A from-tables re-render must hand the report exactly what the computing run held.
+
+    Read with float_precision="round_trip": pandas' default parser can move a
+    17-digit float by one ULP, the artifact that caused two false findings this project.
+    """
+    res, cfg = result
+    _write_computed(res, tmp_path)
+    monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
+    loaded = TR.load_threshold_analysis(cfg)
+    for name in TR.COMPUTED_TABLES:
+        a = res[name].reset_index(drop=True)
+        b = loaded[name].reset_index(drop=True)
+        assert list(a.columns) == list(b.columns), name
+        for c in a.columns:
+            if pd.api.types.is_float_dtype(a[c]):
+                np.testing.assert_array_equal(a[c].to_numpy(), b[c].to_numpy(), err_msg=f"{name}.{c}")
+    assert loaded["meta"]["recomputed"] is False
+    assert "point-prediction space" not in loaded["meta"]["caveat"]      # the E18 fix
+    assert set(loaded["meta"]["source_table_sha256"]) == set(TR.COMPUTED_TABLES)
+
+
+def test_load_refuses_the_original_pre_extension_grid(result, monkeypatch, tmp_path):
+    """The 2026-09-19 grid topped out at the operational threshold; its tables must not load."""
+    res, cfg = result
+    _write_computed(res, tmp_path)
+    g = res["grid"].copy()
+    op = float(cfg.threshold_analysis.operational_thresholds[0])
+    g = g[g["threshold"] <= op]                         # cap every horizon at -6, as the original grid was
+    g.to_csv(tmp_path / "e15c_grid.csv")
+    monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
+    with pytest.raises(ValueError, match="original pre-extension grid"):
+        TR.load_threshold_analysis(cfg)
+
+
+def test_load_fails_loud_when_a_computed_table_is_missing(result, monkeypatch, tmp_path):
+    res, cfg = result
+    _write_computed(res, tmp_path)
+    (tmp_path / "e15c_p1_checks.csv").unlink()
+    monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
+    with pytest.raises(FileNotFoundError, match="p1_checks"):
+        TR.load_threshold_analysis(cfg)
