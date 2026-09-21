@@ -2253,6 +2253,59 @@ unstarted and unscoped.
 **Decided by:** Sidh (2026-09-21), recorded by Claude Code.
 
 
+### 2026-09-21 — E17 H1 scoped to persistence / GBM / GRU; MC-dropout (E8) excluded, disclosed
+
+**Status:** RESOLVED by Sidh (2026-09-21), recorded by Claude Code **before E17 is re-launched and
+before any E17 number exists**. Surfaced by the §13 loop when the first E17 launch blocked.
+
+**1. What surfaced.** E17's first launch stalled for ~30 minutes on "seed 42: fitting base
+learners". Process evidence (PID alive, 0.99 cores busy) showed it was computing, not hung: the
+base configuration's MC-dropout search cache
+(`e8_mcdropout_00d1cb2ddd3bf10c_seed42.json`) **does not exist**, so `base_predictions` had begun
+a full 24-trial hyperparameter search (~3.5 h). The run was stopped rather than allowed to
+complete. The pre-launch check that should have caught this verified the two **horizon-derived**
+configs E15 used (`02b75edb…`, `347d68f9…`), not the **base** config (`00d1cb2d…`) E17 runs on.
+That was a checking error, recorded here rather than quietly fixed.
+
+**2. Why the missing cache is not merely a cost problem.** E8's published results were produced
+under an **older config hash**; the configuration has since gained the `decision_cost` and
+`threshold_analysis` blocks, which changes the hash. Re-searching under the current hash would
+select MC-dropout hyperparameters **that E8 never used**, so E17's "E8 Bayesian" arm would be a
+different fitted model from the one E8 reported. Every cross-reference between E17's robustness
+result and E8's own findings would then be comparing two different models while appearing to
+compare one. The 3.5 hours is the visible cost; the silent loss of like-for-like comparison is
+the real one.
+
+**3. Decision.** H1's robustness checks — the mission-level cluster bootstrap (Q-STAT-03c), the
+clipping-cap confirmation (Q-SEL-03) and the multiple-comparison policy check (Q-STAT-04) — are
+scoped to **persistence, GBM and GRU only**. **MC-dropout / E8 is excluded from E17's H1.**
+
+**4. This is a disclosed scope boundary, not a silent gap.** The exclusion and this reason must be
+stated explicitly in the E17 report itself, not only here. A reader of the robustness supplement
+must be able to see that the Bayesian arm was not checked, and why, without consulting this log.
+
+**5. What is unaffected.**
+- **H2** (one-sided CQR coverage backfill) needs the GBM quantile heads only — no E8 dependency.
+- **H3** (five-manifestation shared-mechanism test) uses the GBM point residual — no E8 dependency.
+- **Nothing already published changes.** E8's own results stand exactly as reported; this decision
+  governs only which arms E17's robustness checks cover.
+- The Gate-2 headline contrast, the project's only formally tested result, is **persistence**,
+  which has no hyperparameters and requires no search at all. It is inside the retained scope.
+
+**6. Verification required before re-launch.** The cached hyperparameters for every **included**
+learner must be verified against the current config hash explicitly — the check that was skipped
+for E8 — and the verification reported in the E17 checkpoint. "Included learner" means GBM
+(`e6_gbm`) and GRU (`e7_sequence`); persistence has no search to verify, which is itself to be
+stated rather than glossed.
+
+**7. Implementation consequence.** Reporting only three learners is not sufficient: the shared
+`base_predictions` fits all four regardless of what is reported, so it would still trigger the E8
+search. The included-learner set must be pushed down into the fitting call so the E8 search is
+never reached. Anything less would re-run the search and merely hide it from the output.
+
+**Decided by:** Sidh (2026-09-21), recorded by Claude Code before execution.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
