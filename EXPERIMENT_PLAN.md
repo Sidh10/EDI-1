@@ -28,7 +28,7 @@
 | E15 | Decision-cost evaluation (expanded: matched-budget + rank-invariance proof + threshold-based analysis across 2-day/3-day horizons + cost-ratio optimization) — **COMPLETE** | 5 | — |
 | E16 | Lead-time / horizon tradeoff analysis — **MERGED INTO E15**, do not re-run separately; see the E16 entry below and DECISIONS.md 2026-09-19 | 5 | — |
 | E17 | Robustness, consistency & gap-closure consolidation (expanded: H1 robustness, H2 one-sided CQR coverage backfill, H3 cross-experiment synthesis) | 5 | — |
-| E18 | Final manuscript figure/table consolidation + reviewer-checklist dry run (expanded) | 5 | — |
+| E18 | Final manuscript consolidation (revised: deferred fixes with verification, full figure/table rebuild, substantive REVIEWER_CHECKLIST.md revision, final consistency audit) | 5 | — |
 
 ---
 
@@ -431,20 +431,56 @@ Determines target venue tier based on the combined strength of Contributions 1 a
 
 ---
 
-## E18 — Final Manuscript Figure/Table Consolidation + Reviewer-Checklist Dry Run (EXPANDED)
+## E18 — Final Manuscript Consolidation (REVISED)
 
-- **Objective:** produce the final, publication-ready set of figures and tables from the full, now much larger, experiment suite, with consistent styling, self-contained captions, and provenance stamps — and, new to this revision, perform an explicit walkthrough of `REVIEWER_CHECKLIST.md` against the assembled artifact set as a structured final gate before manuscript drafting begins.
-- **Hypothesis:** N/A (production/verification step).
-- **Inputs:** all figures/tables from E1–E17 (updated from the original E1–E17 scope, which predates E15's expansion and E17's revision above).
-- **Outputs:** `reports/manuscript_figures/`, `reports/manuscript_tables/`, each traceable to its generating experiment and commit hash; an updated `REVIEWER_CHECKLIST.md` walkthrough record (see below).
-- **Figures produced (revised full list):** selection-bias evidence (E1); Bayesian-baseline coverage failure (E8); naive-vs-weighted two-sided coverage restoration — the Gate 2 headline (E11); E9/E11 one-sided coverage validation and the one-sided non-restoration finding; CQR adaptivity and its coverage caveat (E12); label-noise sensitivity curve with the width-driven-flatness caveat stated in the caption itself (E14); high-risk-conditional coverage with CIs (E14 addendum); the rank-invariance proof's empirical confirmation (E15); the threshold-sweep operating curves, both original and extended grid, with the ceiling-artifact episode noted (E15); the completed coverage-restoration matrix (E17); the cross-experiment synthesis figure (E17). (E13's group-conditional forest plot is removed — skipped per the Gate 1 PIVOT; E16's lead-time figure is subsumed into E15's threshold-sweep figures, not separately listed.)
-- **Tables produced:** final versions of all tables listed above, formatted for manuscript submission, each with sample sizes and CIs shown per `REVIEWER_CHECKLIST.md`'s T1/T2 requirements.
-- **Failure criteria:** any figure/table cannot be traced to a specific experiment run and commit hash (unchanged from original scope — regenerate, never manually adjust); the reviewer-checklist walkthrough (below) surfaces a top-tier risk with no completed supporting evidence.
-- **Success criteria:** every manuscript figure/table is regenerable by one command from a tagged release; the reviewer-checklist walkthrough is complete and every item in its "Pre-Submission Triage: Five Most Likely Rejection Reasons" section has a stated, evidenced disposition (not necessarily resolved in the paper's favor — an honestly reported limitation counts as a disposition).
-- **New sub-step — reviewer-checklist dry run:** walk every criticism in `REVIEWER_CHECKLIST.md` (all nine categories) against the now-final artifact set. For each, confirm the cited "supporting experiment" actually produced what the checklist claims it would, and update the checklist itself where new findings from Phases 3–5 (the one-sided/CQR pattern, the five-manifestation imbalance narrative, persistence's dominance under decision-cost analysis) supply a stronger or different defense than what was drafted before those results existed. This is a document-maintenance task, not new experimentation — but it is binding: the manuscript should not go to drafting with a checklist that's stale relative to the actual evidence base.
-- **Expected runtime:** 3–5 hours (styling/formatting pass, revised from the original 2–4 hour estimate given the larger figure/table set, plus the reviewer-checklist walkthrough itself).
-- **Compute requirements:** CPU only.
-- **Dependencies:** E1–E17 (all, including the revised E17 above).
+- **Objective:** produce the final, publication-ready figures and tables; resolve the two deferred display-only fixes with proper verification; and perform a substantive `REVIEWER_CHECKLIST.md` update against the full, now-much-larger evidence base — not a formality, a real revision of a document written before most of the evidence it's supposed to defend existed.
+
+### A — Deferred display fixes (both confirmed to affect zero values, per E15/E17's own verification)
+
+1. **E15's stale caveat string** ("compared on ONE grid defined in point-prediction space") — fix on re-render.
+2. **E12's stale header wording** (`03b_cqr.ipynb`) — fix on re-render, but this one requires a genuine recompute (~20–35 min, under the current config hash rather than E12's original) since there's no from-tables path. **Before trusting the regenerated artifact, snapshot-verify**: confirm the re-run reproduces E12's originally published values bit-for-bit (the GBM hyperparameters are already confirmed identical across the two config hashes, and E15 already established this pipeline reproduces exactly — but per standing project practice, "likely" is verified, not assumed, especially for a published result). If it does not reproduce exactly, stop and report before treating any of E12's numbers as final — do not silently accept a drifted value under the guise of "fixing a header."
+
+### B — Final figure/table set (revised full list, replacing the earlier draft)
+
+**Figures:**
+- E1: selection-bias evidence (risk histogram, time-to-TCA histogram) — manuscript Figure 1 candidate, unchanged.
+- E8: Bayesian baseline coverage failure (reliability diagram, PIT histogram) — unchanged.
+- E9: self-split machinery validation, both sidednesses — include explicitly; this is what makes E10/E11's findings interpretable rather than assumed.
+- E11: naive-vs-weighted two-sided coverage restoration — the Gate 2 headline figure, **using the corrected coverage ≥ nominal criterion**, with both bootstrap schemes (iid, cluster) shown to demonstrate the robustness confirmed in E17.
+- E11: one-sided non-restoration finding — a real, validated boundary-condition result, not a footnote.
+- E12: CQR adaptivity figure, with the **corrected** weighting-effect characterization (both arms hurt; one-sided hurt more; one-sided uniquely creates a new 80% deficit) — the earlier "near-redundant"/"no effect" framings are both superseded and must not appear.
+- E14: label-noise sensitivity curve, with the width-driven-flatness caveat stated directly in the caption (not just the body text).
+- E14: high-risk-conditional coverage with CIs — this is now strong, specific ammunition for the reviewer criticism about marginal-vs-subgroup coverage (see Part C).
+- E15: rank-invariance proof's empirical confirmation (Proposition 1 + the 20-method classification).
+- E15: threshold-sweep operating curves, extended grid, both lead times.
+- E17: **the completed 2×2 coverage-restoration matrix** — split/CQR × two-sided/one-sided, under the final corrected criterion. This is likely the single clearest, most citable figure in the paper for stating exactly where the selection-bias correction works and doesn't.
+- E17: a small explanatory figure/box for the **validity-vs-exactness distinction** — this is a genuine piece of methodological clarity the project produced (not just a bug fix) and is worth presenting to readers directly, since it likely preempts a reviewer question before it's asked.
+- E17: the five-manifestation narrative, presented as a **qualitative summary table** (each manifestation with its own independent evidence and source experiment) — explicitly NOT as a quantitative shared-mechanism figure, since H3 was closed as an honest null and any correlation number there was shown to be circular. Do not resurrect the circular statistic in a different form.
+
+(E13's figure is removed — skipped per Gate 1. E16 has no separate figure — merged into E15's.)
+
+**Tables:** final versions of every table above, each with sample sizes and CIs shown, matching `REVIEWER_CHECKLIST.md`'s T1/T2 requirements, all traceable to a specific experiment and commit hash.
+
+### C — `REVIEWER_CHECKLIST.md` substantive update (not a dry-run pass — a real revision)
+
+Walk all nine categories, but give focused, real attention to the items most affected by what Phases 3–5 actually found:
+
+- **M5** ("models barely beat the baseline") — the original defense was written speculatively. It's now supported by much stronger evidence: models don't just barely lose, they catastrophically lose (Phase 2), and this is now understood as the first of five independently-confirmed manifestations of one root cause. Rewrite the defense around the actual evidence, not the anticipated one.
+- **EV2** ("coverage without efficiency is trivially gameable") — directly touches the validity-vs-exactness distinction E17 produced. This defense should now explicitly reference that distinction as evidence of methodological care, not just assert efficiency was reported.
+- **EV3** ("marginal coverage can hide subgroup failure") — this was a hypothetical risk in the original checklist. E14 turned it into a real, quantified, CI-bounded finding (high-risk-conditional coverage collapsing to 20–47% for the tightest methods). The defense should be rewritten to present this as a disclosed, characterized finding — turning an anticipated weakness into evidence of thoroughness.
+- **M1** (weight specification robustness) — confirm the γ̂/Pareto k̂ diagnostic story is presented consistent with its final form.
+- **M4** (why conformal vs. alternatives) — E15's rank-invariance proof and persistence's decision-cost dominance are new, relevant evidence for this defense that didn't exist when the checklist was drafted.
+- **X4** ("does calibrated uncertainty change any decision?") — this now has a far richer answer than originally available: a proven negative result for one decision policy (matched-budget), a confirmed positive result for another (threshold-based), and a clear theoretical explanation for why they differ. Rewrite this defense to lead with the proof, not just the empirical finding.
+- **Update the "Five Most Likely Rejection Reasons" triage list** at the checklist's end to reflect the current, much stronger evidence base — some original top-5 risks may now be well-defended enough to drop from the top tier; new candidates (e.g., "why does weighting sometimes make things worse?", referring to the CQR one-sided finding) may belong there instead.
+
+### D — Final numbers/consistency audit (new)
+
+Given the project's own history this phase (the E15 "1 ULP" misdiagnosis later corrected, the H1 criterion bug, the item-2 mischaracterization — three separate instances of an earlier claim needing correction after further checking), perform one dedicated pass: search `DECISIONS.md`, `EXPERIMENT_PLAN.md`, and the manuscript-bound figure/table set for any number or characterization that predates the final corrected criterion or the item-2 correction, and confirm none survive uncorrected into the final artifact set. This is a read-only consistency check unless it finds something, in which case stop and report before fixing, per standing practice.
+
+- **Failure criteria:** any figure/table not traceable to a specific experiment and commit hash; the E12 re-render fails its snapshot-verification; the consistency audit finds a stale pre-correction number that made it into a manuscript-bound artifact undetected.
+- **Success criteria:** every manuscript figure/table regenerable by one command from a tagged release; `REVIEWER_CHECKLIST.md` substantively reflects the actual, final evidence base rather than the anticipated one it was drafted against; the consistency audit is clean or its findings are resolved before E18 closes.
+- **Expected runtime:** A (fixes): E15's is near-free (from-tables), E12's is ~20–35 min plus snapshot verification. B (figure/table production): 3–4 hours. C (checklist revision): 2–3 hours of substantive writing, not a quick pass. D (audit): 1–2 hours, read-only unless issues found.
+- **Dependencies:** all of E1–E17, including the final corrected criteria from E17.
 
 ---
 
