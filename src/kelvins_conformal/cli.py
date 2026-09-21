@@ -300,5 +300,38 @@ def decision(
     typer.echo("[phase5] E15 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")
 
 
+@app.command()
+def robustness(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E17: robustness, consistency and gap-closure consolidation (Phase 5).
+
+    Renders ``reports/06_robustness.html``. Three parts, per the revised E17 spec:
+    H1 re-examines the headline results under a mission-level cluster bootstrap
+    (Q-STAT-03c), a stricter weight-clipping trigger (Q-SEL-03) and the declared
+    multiple-comparison policy (Q-STAT-04); H2 fills the one-sided CQR cell of the
+    {split, CQR} x {two-sided, one-sided} coverage-restoration matrix — the only new
+    scientific quantity here; H3 searches for a shared per-event mechanism behind the
+    five manifestations of the train/test high-risk imbalance, and reports an honest
+    null if there is none. The base learners and quantile heads are refit for three
+    seeds from CACHED hyperparameters (no search). Progress is written to
+    ``artifacts/e17_robustness_progress.log``.
+    """
+    import time as _time
+
+    from .reporting import OutputLockError, output_lock
+
+    cfg = load_config(config)
+    _ensure_kernel()
+    run_id = f"e17-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            _run_notebook(REPO_ROOT / "notebooks" / "06_robustness.ipynb",
+                          cfg.path("reports_dir") / "06_robustness.html")
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
+    typer.echo("[phase5] E17 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")
+
+
 if __name__ == "__main__":
     app()
