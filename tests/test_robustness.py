@@ -161,3 +161,78 @@ def test_h1_learner_set_excludes_mc_dropout_and_says_why():
     assert RR.H1_LEARNERS == ("persistence", "gbm", "gru")
     assert RR.H1_EXCLUDED_LEARNERS == ("mc_dropout",)
     assert "E8" in RR.H1_EXCLUSION_REASON and "config hash" in RR.H1_EXCLUSION_REASON
+
+
+# --- restoration_verdict: the corrected one-sided criterion (Sidh, 2026-09-21) --------
+
+from kelvins_conformal.robustness import (  # noqa: E402
+    NO_DEFICIT,
+    NOT_RESTORED,
+    RESTORED,
+    restoration_verdict,
+)
+
+
+def test_over_covering_weighted_arm_is_restored_not_failed():
+    """The exact case the containment bug got wrong: the Gate-2 headline's shape.
+
+    Naive under-covers (CI wholly below 0.90); weighted over-covers (CI wholly ABOVE).
+    The guarantee is coverage >= nominal, so this is RESTORED. Containment called it a
+    failure because 0.90 is not inside [0.9151, 0.9372].
+    """
+    v = restoration_verdict(0.8426, 0.8736, 0.9151, 0.9372, 0.90)
+    assert v["verdict"] == RESTORED
+    assert v["verdict_containment"] == NOT_RESTORED        # the bug, preserved as secondary
+    assert not v["criteria_agree"]
+    assert v["weighted_ci_wholly_above_nominal"]
+
+
+def test_weighted_ci_containing_nominal_is_restored_under_both():
+    v = restoration_verdict(0.820, 0.852, 0.882, 0.908, 0.90)   # split two-sided, H2 matrix
+    assert v["verdict"] == RESTORED and v["verdict_containment"] == RESTORED
+    assert v["criteria_agree"]
+
+
+def test_weighted_still_under_covering_is_not_restored_under_both():
+    v = restoration_verdict(0.848, 0.877, 0.833, 0.863, 0.90)   # CQR one-sided, the H2 cell
+    assert v["verdict"] == NOT_RESTORED and v["verdict_containment"] == NOT_RESTORED
+    assert v["weighted_ci_wholly_below_nominal"]
+
+
+def test_naive_not_under_covering_means_no_deficit_to_restore():
+    """If under-coverage was never established there is nothing to restore — and that
+    must never be reported as a restoration success."""
+    v = restoration_verdict(0.88, 0.93, 0.89, 0.94, 0.90)
+    assert v["verdict"] == NO_DEFICIT
+    assert v["verdict"] != RESTORED
+
+
+def test_gbm_80_fragility_flips_on_interval_width_alone():
+    """GBM @ 80%: same point estimate (0.7828), different interval widths.
+
+    The weighted upper bound is 0.7997 under iid and 0.8092 under the wider cluster
+    bootstrap. The verdict flips on width alone — the documented fragility.
+    """
+    iid = restoration_verdict(0.7017, 0.7387, 0.7657, 0.7997, 0.80)
+    clu = restoration_verdict(0.6827, 0.7556, 0.7520, 0.8092, 0.80)
+    assert iid["verdict"] == NOT_RESTORED and clu["verdict"] == RESTORED
+    # Neither interval lies wholly above nominal: this is weak restoration at best.
+    assert not clu["weighted_ci_wholly_above_nominal"]
+
+
+def test_upper_bound_exactly_at_nominal_counts_as_not_establishing_undercoverage():
+    """Boundary convention, fixed here so it cannot drift: CI upper == nominal means
+    under-coverage is NOT established (>=), for both arms."""
+    assert restoration_verdict(0.85, 0.90, 0.88, 0.95, 0.90)["verdict"] == NO_DEFICIT
+    assert restoration_verdict(0.80, 0.85, 0.85, 0.90, 0.90)["verdict"] == RESTORED
+
+
+@pytest.mark.parametrize("args", [
+    (0.9, 0.8, 0.85, 0.95, 0.9),        # naive lo > hi
+    (0.8, 0.85, 0.95, 0.9, 0.9),        # weighted lo > hi
+    (0.8, 0.85, 0.85, 0.95, 1.0),       # nominal out of range
+    (0.8, np.nan, 0.85, 0.95, 0.9),     # non-finite
+])
+def test_restoration_verdict_rejects_malformed_input(args):
+    with pytest.raises(ValueError):
+        restoration_verdict(*args)

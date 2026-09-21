@@ -179,3 +179,98 @@ def test_h3_overlap_table_covers_every_event_level_pair(assembled):
     assert set(ov["pair"]) == {"M1&M2", "M1&M3", "M2&M3"}
     assert (ov["n_overlap"] <= ov[["n_a", "n_b"]].min(axis=1)).all()
     assert ov["jaccard"].between(0.0, 1.0).all()
+
+
+# --- criterion correction + re-render path (Sidh, 2026-09-21) -------------------------
+
+
+def test_gate2_verdict_table_carries_both_criteria_and_its_ci_bounds(assembled, monkeypatch, tmp_path):
+    cfg, data, weights, events, fitted, seeds, levels = assembled
+    pd.DataFrame({"p_value": [1e-40]}).to_csv(tmp_path / "e11_primary_mcnemar.csv", index=False)
+    monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
+    v = RR.run_h1(cfg, seeds=seeds, n_boot=100, data=data, weights=weights,
+                  fitted=fitted, events=events)["gate2_verdict"]
+    assert len(v) == len(RR.H1_LEARNERS) * len(levels) * 2          # x {iid, cluster}
+    for col in ("verdict", "verdict_containment", "criteria_agree", "naive_lo", "naive_hi",
+                "weighted_lo", "weighted_hi", "weighted_over_covers"):
+        assert col in v.columns
+    # Every verdict must be reproducible from its own row's bounds.
+    from kelvins_conformal.robustness import restoration_verdict
+    for r in v.itertuples():
+        assert restoration_verdict(r.naive_lo, r.naive_hi, r.weighted_lo, r.weighted_hi,
+                                   r.nominal)["verdict"] == r.verdict
+
+
+def _write_e17_tables(cfg, data, weights, events, fitted, seeds, tmp_path):
+    """Run H1/H2/H3 on synthetic data and write what a real E17 run would write."""
+    from kelvins_conformal.reporting import write_table_atomic
+
+    pd.DataFrame({"mcnemar_p": [5.6e-45]}).to_csv(tmp_path / "e11_primary_mcnemar.csv", index=False)
+    h1 = RR.run_h1(cfg, seeds=seeds, n_boot=100, data=data, weights=weights, fitted=fitted, events=events)
+    h2 = RR.run_h2(cfg, seeds=seeds, n_boot=100, data=data, weights=weights, fitted=fitted)
+    h3 = RR.run_h3(cfg, data=data, weights=weights, fitted=fitted, seeds=seeds)
+    computed = {"h1_cluster_bootstrap": h1["cluster_bootstrap"], "h1_clipping": h1["clipping"],
+                "h1_multiple_comparison": h1["multiple_comparison"], "h2_coverage": h2["coverage"],
+                "h2_per_seed": h2["per_seed"], "h3_association": h3["association"],
+                "h3_overlap": h3["overlap"]}
+    for name, df in computed.items():
+        write_table_atomic(df, tmp_path / f"e17_{name}.csv")
+    # The three reloaded matrix cells come from E9/E11 and E12's own tables.
+    prim = cfg.power.nominal_coverage_primary
+    split = pd.DataFrame([{"learner": "gbm", "method": m, "sided": s, "nominal": prim, "coverage_mean": c,
+                           "gap_pp": 100 * (c - prim), "n": 500, "cp_lo_mean": c - 0.015, "cp_hi_mean": c + 0.015}
+                          for m, s, c in (("E10_naive_official", "two", 0.836), ("E11_weighted_rule", "two", 0.8957),
+                                          ("E10_naive_official", "upper", 0.850), ("E11_weighted_rule", "upper", 0.854))])
+    cqr = pd.DataFrame([{"learner": "gbm", "method": m, "sided": "two", "nominal": prim, "coverage_mean": c,
+                         "gap_pp": 100 * (c - prim), "n": 500, "cp_lo_mean": c - 0.015, "cp_hi_mean": c + 0.015}
+                        for m, c in (("E12_cqr_naive", 0.865), ("E12_cqr_weighted_rule", 0.859))])
+    split.to_csv(tmp_path / "e9e11_coverage.csv")
+    cqr.to_csv(tmp_path / "e12_coverage_all.csv")
+    return h1, h2
+
+
+def test_load_e17_rederives_exactly_what_the_computing_run_holds(assembled, monkeypatch, tmp_path):
+    """Regression test for the round_trip read (2026-09-21).
+
+    Re-rendering must reproduce the in-memory derivation EXACTLY. pandas' default float
+    parser can read a 17-digit value back one ULP off, which is precisely the drift that
+    was chased down on the real E17 tables; the exact parser must be used.
+    """
+    cfg, data, weights, events, fitted, seeds, _ = assembled
+    monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
+    h1, h2 = _write_e17_tables(cfg, data, weights, events, fitted, seeds, tmp_path)
+
+    loaded = RR.load_e17(cfg)
+    assert loaded["meta"]["recomputed"] is False
+    assert set(loaded["meta"]["source_table_sha256"]) == set(RR.COMPUTED_TABLES)
+    # H2 numbers re-read from CSV must equal the in-memory run bit for bit.
+    np.testing.assert_array_equal(loaded["h2_coverage"]["coverage_mean"].to_numpy(),
+                                  h2["coverage"]["coverage_mean"].to_numpy())
+    np.testing.assert_array_equal(loaded["h1_cluster_bootstrap"]["cluster_hi"].to_numpy(),
+                                  h1["cluster_bootstrap"]["cluster_hi"].to_numpy())
+    # The re-derived verdict table matches the in-memory derivation.
+    live = RR.gate2_verdict_table(h1["cluster_bootstrap"])
+    pd.testing.assert_frame_equal(loaded["h1_gate2_verdict"].reset_index(drop=True),
+                                  live.reset_index(drop=True))
+    assert list(loaded["h1_excluded_learners"]["learner"]) == ["mc_dropout"]
+
+
+def test_load_e17_refuses_tables_from_the_wrong_run(assembled, monkeypatch, tmp_path):
+    """A re-render must never present another run's numbers as this one's."""
+    cfg, data, weights, events, fitted, seeds, _ = assembled
+    monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
+    _write_e17_tables(cfg, data, weights, events, fitted, seeds, tmp_path)
+    cb = pd.read_csv(tmp_path / "e17_h1_cluster_bootstrap.csv", index_col=0)
+    extra = cb[cb["learner"] == "gbm"].assign(learner="mc_dropout")      # the aborted first launch
+    pd.concat([cb, extra]).to_csv(tmp_path / "e17_h1_cluster_bootstrap.csv")
+    with pytest.raises(ValueError, match="not the scope-restricted run"):
+        RR.load_e17(cfg)
+
+
+def test_load_e17_fails_loud_when_a_computed_table_is_missing(assembled, monkeypatch, tmp_path):
+    cfg, data, weights, events, fitted, seeds, _ = assembled
+    monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
+    _write_e17_tables(cfg, data, weights, events, fitted, seeds, tmp_path)
+    (tmp_path / "e17_h3_overlap.csv").unlink()
+    with pytest.raises(FileNotFoundError, match="h3_overlap"):
+        RR.load_e17(cfg)

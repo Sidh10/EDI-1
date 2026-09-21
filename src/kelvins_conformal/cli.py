@@ -303,6 +303,11 @@ def decision(
 @app.command()
 def robustness(
     config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+    from_tables: bool = typer.Option(
+        False, "--from-tables",
+        help="Re-render from the tables a completed E17 run already wrote, re-deriving only "
+             "the verdicts. Recomputes nothing and leaves the computed tables untouched.",
+    ),
 ) -> None:
     """E17: robustness, consistency and gap-closure consolidation (Phase 5).
 
@@ -327,7 +332,8 @@ def robustness(
     try:
         with output_lock(cfg.path("tables_dir"), run_id):
             _run_notebook(REPO_ROOT / "notebooks" / "06_robustness.ipynb",
-                          cfg.path("reports_dir") / "06_robustness.html")
+                          cfg.path("reports_dir") / "06_robustness.html",
+                          parameters={"RECOMPUTE": not from_tables})
     except OutputLockError as exc:
         raise typer.Exit(code=1) from exc
     typer.echo("[phase5] E17 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")

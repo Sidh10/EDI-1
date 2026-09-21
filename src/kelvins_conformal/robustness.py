@@ -162,3 +162,62 @@ def holm_bonferroni(p_values, alpha: float = 0.05) -> dict:
         "n_rejected": int(rejected.sum()),
         "alpha": alpha,
     }
+
+
+RESTORED = "RESTORED"
+NOT_RESTORED = "not restored"
+NO_DEFICIT = "no deficit to restore"
+
+
+def restoration_verdict(naive_lo: float, naive_hi: float, weighted_lo: float, weighted_hi: float,
+                        nominal: float) -> dict:
+    """Does rule-weighting restore coverage? Both criteria, the corrected one primary.
+
+    **Primary — the one-sided conformal guarantee** (Sidh, 2026-09-21). Split and weighted
+    conformal guarantee coverage >= 1 - alpha (Vovk et al. 2005; Tibshirani et al. 2019,
+    Thm 2); the bound is one-sided, so over-coverage satisfies it and only under-coverage
+    violates it. Tested on each arm's CI UPPER bound:
+
+      * naive_hi >= nominal                  -> "no deficit to restore"
+        (under-coverage was never established, so there is nothing to restore);
+      * naive_hi <  nominal, weighted_hi >= nominal -> "RESTORED"
+        (under-coverage established for naive, no longer establishable for weighted);
+      * naive_hi <  nominal, weighted_hi <  nominal -> "not restored".
+
+    The upper bound, not the point estimate, is used deliberately: every resampling
+    scheme shares one point estimate, so a point-estimate rule would make any
+    iid-versus-cluster comparison agree by construction.
+
+    **Secondary — CI-containment**, the original E17 implementation, retained only as a
+    labelled comparison. It requires nominal to lie INSIDE the weighted CI, which marks
+    a conservative (over-covering) arm as a failure. That was a specification bug
+    (DECISIONS.md 2026-09-21 correction), not an alternative reading of the guarantee.
+    """
+    vals = (naive_lo, naive_hi, weighted_lo, weighted_hi, nominal)
+    if not all(np.isfinite(v) for v in vals):
+        raise ValueError("CI bounds and nominal must all be finite")
+    if naive_lo > naive_hi or weighted_lo > weighted_hi:
+        raise ValueError("each CI must have lo <= hi")
+    if not (0.0 < nominal < 1.0):
+        raise ValueError(f"nominal must be in (0, 1), got {nominal}")
+
+    if naive_hi >= nominal:
+        primary = NO_DEFICIT
+    elif weighted_hi >= nominal:
+        primary = RESTORED
+    else:
+        primary = NOT_RESTORED
+
+    naive_in = naive_lo <= nominal <= naive_hi
+    weighted_in = weighted_lo <= nominal <= weighted_hi
+    if naive_in and weighted_in:
+        containment = NO_DEFICIT
+    elif weighted_in and not naive_in:
+        containment = RESTORED
+    else:
+        containment = NOT_RESTORED
+
+    return {"verdict": primary, "verdict_containment": containment,
+            "criteria_agree": primary == containment,
+            "weighted_ci_wholly_above_nominal": bool(weighted_lo > nominal),
+            "weighted_ci_wholly_below_nominal": bool(weighted_hi < nominal)}

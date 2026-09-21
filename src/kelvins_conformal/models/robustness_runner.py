@@ -124,6 +124,46 @@ def _headline_covered_indicators(cfg: Config, data, weights, preds: dict, level:
     return out, sup
 
 
+def gate2_verdict_table(cluster_tab: pd.DataFrame) -> pd.DataFrame:
+    """Does rule-weighting restore two-sided coverage, per learner x level x scheme?
+
+    A pure function of H1's cluster-bootstrap table. Every verdict comes from
+    ``robustness.restoration_verdict``: the one-sided guarantee (coverage >= nominal) is
+    primary, CI-containment is the labelled secondary comparison (Sidh, 2026-09-21: the
+    containment rule was a specification bug that marked over-covering arms as failures).
+    The CI bounds are carried alongside so every verdict is auditable from its row.
+    """
+    from ..robustness import restoration_verdict
+
+    two = cluster_tab[cluster_tab["sided"] == "two"]
+    rows = []
+    for (lrn, level), g in two.groupby(["learner", "nominal"], sort=True):
+        n = g[g["method"] == "E10_naive_official"]
+        w = g[g["method"] == "E11_weighted_rule"]
+        if n.empty or w.empty:
+            raise ValueError(f"missing naive or weighted arm for {lrn} @ {level}")
+        n, w = n.iloc[0], w.iloc[0]
+        for scheme in ("iid", "cluster"):
+            lo, hi = f"{scheme}_lo", f"{scheme}_hi"
+            v = restoration_verdict(float(n[lo]), float(n[hi]), float(w[lo]), float(w[hi]), float(level))
+            rows.append({
+                "scheme": scheme, "learner": lrn, "nominal": level,
+                "naive_coverage": float(n["coverage"]), "weighted_coverage": float(w["coverage"]),
+                "naive_lo": float(n[lo]), "naive_hi": float(n[hi]),
+                "weighted_lo": float(w[lo]), "weighted_hi": float(w[hi]),
+                "weighted_over_covers": bool(w["coverage"] > level), **v,
+            })
+    return pd.DataFrame(rows)
+
+
+def scheme_agreement(verdict_tab: pd.DataFrame, column: str = "verdict") -> pd.DataFrame:
+    """iid vs cluster verdict per learner x level, for one criterion column."""
+    p = verdict_tab.pivot_table(index=["learner", "nominal"], columns="scheme",
+                                values=column, aggfunc="first")
+    p["agree"] = p["iid"] == p["cluster"]
+    return p.reset_index()
+
+
 def run_h1(cfg: Config, *, seeds=None, n_boot: int | None = None, data=None, weights=None,
            fitted: dict | None = None, events=None, progress: Path | None = None) -> dict:
     """H1 — robustness of the headline results to three analysis choices."""
@@ -166,26 +206,10 @@ def run_h1(cfg: Config, *, seeds=None, n_boot: int | None = None, data=None, wei
             })
     cluster_tab = pd.DataFrame(rows)
 
-    # Does the Gate-2 conclusion survive? The claim is that rule-weighting RESTORES
-    # two-sided coverage: nominal must lie inside the weighted arm's interval and
-    # outside (below) the naive arm's. Checked under BOTH resampling schemes.
-    verdict = []
-    for level in levels:
-        for lrn in H1_LEARNERS:
-            sub = cluster_tab[(cluster_tab.nominal == level) & (cluster_tab.learner == lrn)
-                              & (cluster_tab.sided == "two")]
-            if sub.empty:
-                continue
-            w = sub[sub.method == "E11_weighted_rule"].iloc[0]
-            n = sub[sub.method == "E10_naive_official"].iloc[0]
-            for scheme, lo, hi in (("iid", "iid_lo", "iid_hi"), ("cluster", "cluster_lo", "cluster_hi")):
-                verdict.append({
-                    "scheme": scheme, "learner": lrn, "nominal": level,
-                    "weighted_covers_nominal": bool(w[lo] <= level <= w[hi]),
-                    "naive_covers_nominal": bool(n[lo] <= level <= n[hi]),
-                    "weighted_coverage": w["coverage"], "naive_coverage": n["coverage"],
-                })
-    verdict_tab = pd.DataFrame(verdict)
+    # Does the Gate-2 conclusion survive the clustering assumption? Derived as a pure
+    # function of cluster_tab, so the same rule applies whether E17 is computed or
+    # re-rendered from its tables (Sidh, 2026-09-21 criterion correction).
+    verdict_tab = gate2_verdict_table(cluster_tab)
 
     # --- (ii) clipping cap ------------------------------------------------------
     clip_rows = []
@@ -374,6 +398,8 @@ def _restoration_verdict(cfg: Config, matrix: pd.DataFrame, split_tab: pd.DataFr
            ("split conformal", "upper"): (split_tab, "E10_naive_official", "E11_weighted_rule"),
            ("CQR", "two"): (cqr_tab, "E12_cqr_naive", "E12_cqr_weighted_rule"),
            ("CQR", "upper"): (h2, "E17_cqr_upper_naive", "E17_cqr_upper_weighted_rule")}
+    from ..robustness import restoration_verdict
+
     out = []
     for _, row in matrix.iterrows():
         df, nm, wm = src[(row.family, row.sided)]
@@ -385,15 +411,11 @@ def _restoration_verdict(cfg: Config, matrix: pd.DataFrame, split_tab: pd.DataFr
 
         n_lo, n_hi = ci(nm)
         w_lo, w_hi = ci(wm)
-        naive_ok = n_lo <= primary <= n_hi
-        wtd_ok = w_lo <= primary <= w_hi
-        verdict = ("no deficit to restore" if naive_ok and wtd_ok
-                   else "RESTORED" if wtd_ok and not naive_ok
-                   else "not restored")
+        v = restoration_verdict(n_lo, n_hi, w_lo, w_hi, float(primary))
         out.append({**row.to_dict(), "naive_ci": f"[{n_lo:.3f}, {n_hi:.3f}]",
                     "weighted_ci": f"[{w_lo:.3f}, {w_hi:.3f}]",
-                    "naive_contains_nominal": naive_ok, "weighted_contains_nominal": wtd_ok,
-                    "verdict": verdict})
+                    "naive_lo": n_lo, "naive_hi": n_hi, "weighted_lo": w_lo, "weighted_hi": w_hi,
+                    **v})
     return pd.DataFrame(out)
 
 
@@ -563,8 +585,128 @@ def run_e17(cfg: Config, *, seeds=None, n_boot: int | None = None) -> dict:
         "coverage_restoration_matrix": matrix,
         "h3_association": h3["association"],
         "h3_overlap": h3["overlap"],
-        "meta": {"seeds": seeds, "n_boot": n_boot, "levels": levels,
+        "meta": {"recomputed": True, "seeds": seeds, "n_boot": n_boot, "levels": levels,
                  "primary_level": cfg.power.nominal_coverage_primary,
                  "config_hash": cfg.config_hash, "timings": timings,
                  "h1": h1["meta"], "h3": h3["meta"]},
+    }
+
+
+# --- re-render from already-computed tables (no recomputation) ----------------------
+
+# Tables E17 COMPUTES. Everything else it reports is DERIVED from these by pure functions,
+# so a derivation fix (e.g. the 2026-09-21 criterion correction) can be applied without
+# re-running the 2,873 s analysis.
+COMPUTED_TABLES: tuple[str, ...] = (
+    "h1_cluster_bootstrap", "h1_clipping", "h1_multiple_comparison",
+    "h2_coverage", "h2_per_seed", "h3_association", "h3_overlap",
+)
+DERIVED_TABLES: tuple[str, ...] = ("h1_gate2_verdict", "coverage_restoration_matrix",
+                                   "h1_excluded_learners")
+
+
+def _parse_progress_timings(log_path: Path) -> dict:
+    """Stage timings as recorded by the run that computed the tables."""
+    import re
+
+    timings: dict = {}
+    if not log_path.exists():
+        return timings
+    text = log_path.read_text(encoding="utf-8")
+    for pat, key in ((r"assembled conformal data and weights in ([\d.]+) s", "assemble_s"),
+                     (r"H1 done in ([\d.]+) s", "h1_s"), (r"H2 done in ([\d.]+) s", "h2_s"),
+                     (r"H3 done in ([\d.]+) s", "h3_s"), (r"E17 total ([\d.]+) s", "total_s")):
+        m = re.search(pat, text)
+        if m:
+            timings[key] = float(m.group(1))
+    for seed, secs in re.findall(r"seed (\d+): fitted in ([\d.]+) s", text):
+        timings[f"seed_{seed}_fit_s"] = float(secs)
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    timings["computation_log_first_line"] = lines[0] if lines else ""
+    timings["computation_log_last_line"] = lines[-1] if lines else ""
+    return timings
+
+
+def load_e17(cfg: Config) -> dict:
+    """Rebuild E17's result dict from the tables a completed run already wrote.
+
+    Recomputes NOTHING. Loads the computed tables, re-derives the verdict tables through
+    the same pure functions ``run_e17`` uses, and reconstructs the metadata. Fails loud
+    if a table is missing or inconsistent with the current configuration — a re-render
+    must never quietly present another run's numbers as this one's.
+    """
+    import hashlib
+
+    from ..robustness import restoration_verdict  # noqa: F401  (documents the derivation path)
+
+    tabs = Path(cfg.path("tables_dir"))
+    missing = [t for t in COMPUTED_TABLES if not (tabs / f"e17_{t}.csv").exists()]
+    if missing:
+        raise FileNotFoundError(f"cannot re-render E17: computed tables missing: {missing}")
+
+    def _load(name: str) -> pd.DataFrame:
+        # float_precision="round_trip": pandas' default fast parser can read a 17-digit
+        # float back one ULP away from the double that was written. The re-render must
+        # reproduce exactly what the computing run held in memory, so the exact parser
+        # is used for the tables E17 computed.
+        df = pd.read_csv(tabs / f"e17_{name}.csv", index_col=0, float_precision="round_trip")
+        return df.drop(columns=[c for c in df.columns if str(c).startswith("Unnamed")])
+
+    res = {f"{t}": _load(t) for t in COMPUTED_TABLES}
+    sha = {t: hashlib.sha256((tabs / f"e17_{t}.csv").read_bytes()).hexdigest() for t in COMPUTED_TABLES}
+
+    levels = [cfg.power.nominal_coverage_primary, *cfg.power.nominal_coverage_secondary]
+    cb = res["h1_cluster_bootstrap"]
+    # Consistency: these must be the tables of the scope-restricted run (Sidh, 2026-09-21),
+    # at this configuration's levels — not the aborted first launch, not another config.
+    if set(cb["learner"]) != set(H1_LEARNERS):
+        raise ValueError(f"h1_cluster_bootstrap covers {sorted(set(cb['learner']))}, expected "
+                         f"{sorted(H1_LEARNERS)}; these are not the scope-restricted run's tables")
+    if set(np.round(cb["nominal"], 6)) != set(np.round(levels, 6)):
+        raise ValueError(f"table levels {sorted(set(cb['nominal']))} != config levels {sorted(levels)}")
+    if set(np.round(res["h2_coverage"]["nominal"], 6)) != set(np.round(levels, 6)):
+        raise ValueError("h2_coverage levels do not match the configuration")
+
+    verdict = gate2_verdict_table(cb)
+    matrix = coverage_restoration_matrix(cfg, res["h2_coverage"])
+    matrix = _restoration_verdict(cfg, matrix, pd.read_csv(tabs / "e9e11_coverage.csv"),
+                                  pd.read_csv(tabs / "e12_coverage_all.csv"), res["h2_coverage"])
+
+    mc = res["h1_multiple_comparison"]
+    pcol = next((c for c in mc.columns
+                 if c.lower() in ("p_value", "p", "pvalue", "mcnemar_p") or c.lower().endswith("_p")), None)
+    if pcol is None:
+        raise ValueError(f"no p-value column in the multiple-comparison table: {list(mc.columns)}")
+
+    assoc = res["h3_association"]
+    n_events = int(cb["n_events"].iloc[0])
+    timings = _parse_progress_timings(robustness_progress_path(cfg))
+    return {
+        "h1_cluster_bootstrap": cb,
+        "h1_gate2_verdict": verdict,
+        "h1_clipping": res["h1_clipping"],
+        "h1_multiple_comparison": mc,
+        "h1_excluded_learners": pd.DataFrame([{"learner": lrn, "scope": "H1 robustness checks",
+                                               "included": False, "reason": H1_EXCLUSION_REASON}
+                                              for lrn in H1_EXCLUDED_LEARNERS]),
+        "h2_coverage": res["h2_coverage"],
+        "h2_per_seed": res["h2_per_seed"],
+        "coverage_restoration_matrix": matrix,
+        "h3_association": assoc,
+        "h3_overlap": res["h3_overlap"],
+        "meta": {
+            "recomputed": False,
+            "source_table_sha256": sha,
+            "seeds": sorted({int(s) for s in res["h2_per_seed"]["seed"]}),
+            "levels": levels, "primary_level": cfg.power.nominal_coverage_primary,
+            "config_hash": cfg.config_hash, "timings": timings,
+            "h1": {"primary_level": cfg.power.nominal_coverage_primary,
+                   "n_clusters": int(cb["n_clusters"].iloc[0]), "n_supported_events": n_events,
+                   "cluster_variable": "mission_id", "h1_learners": list(H1_LEARNERS),
+                   "h1_excluded_learners": list(H1_EXCLUDED_LEARNERS),
+                   "h1_exclusion_reason": H1_EXCLUSION_REASON, "p_value_column": pcol},
+            "h3": {"n_events": n_events, "diagnostic": "signed GBM point residual y - yhat",
+                   "event_level_manifestations": int((assoc["level_declared"] == "event").sum()),
+                   "instrument_level_manifestations": int((assoc["level_declared"] == "instrument").sum())},
+        },
     }
