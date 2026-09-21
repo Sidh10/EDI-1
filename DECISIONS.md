@@ -2663,6 +2663,124 @@ under-coverage.**
 as corrected against the data, and awaits Sidh's confirmation.
 
 
+### 2026-09-21 — E17 item 2 confirmed; METHODOLOGICAL NOTE: validity under shift vs exactness on exchangeable data
+
+**Status:** RESOLVED by Sidh (2026-09-21), recorded by Claude Code.
+- **Part A** confirms the corrected wording of E17 item 2.
+- **Part B** is a **standing methodological note**, written for future work to consult before
+  writing any check that turns a coverage estimate into a verdict. It records the pre-E18 audit in
+  full.
+
+---
+
+**Part A — E17 item 2: the corrected wording is CONFIRMED as the manuscript-bound framing.**
+
+1. **Weighting lowers CQR coverage in both arms, at every level.**
+   - Two-sided: −1.62 / −0.60 / −1.37 pp at 80 / 90 / 95%.
+   - One-sided: −5.55 / −1.43 / −2.06 pp.
+2. **One-sided CQR is hurt more, at every level.**
+3. **Only one-sided CQR gains a deficit it did not have.** At 80% its naive CI [0.7989, 0.8320]
+   shows no deficit, and its weighted CI [0.7418, 0.7782] lies wholly below nominal. Two-sided
+   naive already under-covers there, so weighting deepens an existing deficit.
+4. **The shared-quantile-head implication is stated; no untested cause is asserted.** Both arms
+   share one quantile head and differ only in the calibration quantile Q, and coverage is monotone
+   in Q. So lower coverage in a cell implies a lower weighted quantile in that cell. The effect
+   holds in 9/9 (level, seed) cells. Why the rule weights lower Q is not claimed.
+
+---
+
+**Part B — METHODOLOGICAL NOTE: which form a coverage check must take.**
+
+**B1. The distinction.** A check that turns a coverage estimate into a verdict answers one of two
+different questions. They need different mathematical forms.
+
+| question | where it arises | what theory guarantees | correct form of the check |
+|---|---|---|---|
+| **Validity under shift** — does the method meet its guarantee? | official (selection-biased) test set | coverage **≥ 1 − α** — a **one-sided** bound | CI **upper bound ≥ nominal**: under-coverage not established. Over-coverage passes. |
+| **Exactness on exchangeable data** — is the implementation right? | exchangeable self-split, unweighted | coverage ∈ **[1 − α, 1 − α + 1/(n+1)]** — a **two-sided** band | CI **contains nominal**. A deviation *either* way indicates a defect. |
+
+**Sources for the two guarantees.**
+- **The one-sided bound** (a lower bound on coverage) is the finite-sample guarantee of split
+  conformal (Vovk, Gammerman & Shafer 2005; Lei et al. 2018). It carries over to weighted conformal
+  under covariate shift (Tibshirani, Barber, Candès & Ramdas 2019).
+- **The upper edge of the band** requires exchangeability and almost-surely distinct (continuous)
+  scores. It is stated for split conformal in Lei et al. 2018 and for CQR in Romano, Patterson &
+  Candès 2019.
+- **Citation precision.** The papers are cited without theorem numbers, matching the project's own
+  code; numbers that could not be verified are not stated.
+
+**The upper edge is negligible here.** With n = 2,391 calibration events it is 1/(n+1) = 0.042 pp,
+below the resolution of any CI in this project. "CI contains nominal" is therefore the exact band
+test up to that slack.
+
+**Three consequences that are easy to get wrong:**
+1. **An interval's sidedness is not its guarantee's sidedness.** A *two-sided* interval
+   [ŷ − Q, ŷ + Q] still carries a *one-sided* coverage guarantee, coverage ≥ 1 − α. Validity
+   checks are one-sided **for two-sided intervals too.**
+2. **Containment is the right tool for exactness, not for validity.** Applied to a validity
+   question, it marks a conservative, over-covering method as a failure. The guarantee never does.
+3. **The two forms can disagree only on the lower side.** Both compare the CI's upper bound with
+   nominal in the same way, so they differ only when the CI lies wholly *above* nominal. A knife-edge
+   at the upper bound can never separate them.
+
+**B2. The case that exposed the confusion (E17 H1, 2026-09-21).**
+- **The error.** H1 defined "restored" by CI containment. That is the exactness form applied to a
+  validity question.
+- **Its effect.** It reported the Gate-2 headline as failing. Persistence, two-sided, 90% is
+  0.8579 → 0.9262; the weighted CI [0.9151, 0.9372] lies wholly above nominal, so the containment
+  form rejected it purely because the method is conservative.
+- **The correction.** The one-sided form restores the headline under both bootstrap schemes. It
+  changed 6 of 18 verdicts, all of them over-covering arms, and no under-covering arm.
+
+**B3. The pre-E18 audit (read-only, 2026-09-21).** Every verdict-producing comparison in `src/` and
+in the notebooks was inventoried and classified.
+
+| check | location | question asked | form used | correct? | why |
+|---|---|---|---|---|---|
+| E17 H1 `restoration_verdict` | `robustness.py` | validity under shift | one-sided (since the correction) | ✓ | the case in B2, now fixed |
+| E17 H2 matrix verdicts | `robustness_runner.py` | validity under shift | one-sided, same function | ✓ | shares H1's definition |
+| E9 self-split "largest \|gap\|" | `03_conformal.ipynb` cell 8 | exactness | two-sided (abs) | ✓ | exchangeable, unweighted: the band applies |
+| E12 self-test `ok`, `self_valid` | `03b_cqr.ipynb` cells 5, 13 | exactness | containment | ✓ | exchangeable, unweighted CQR: the band holds for CQR (Romano et al. 2019) |
+| E15 `CQR_VALIDATED` | `05_decision_cost.ipynb` cell 7 | exactness | containment | ✓ | exchangeable, unweighted one-sided CQR; continuous scores, so the band applies |
+| **E12 official-test `valid=`** | **`03b_cqr.ipynb` cells 7, 13** | **validity under shift** | **containment** | **✗ wrong form** | **the latent finding — see B4** |
+| E9 / E10 / E11 / Gate 2 | `03_conformal.ipynb` cell 17 | — | no programmatic verdict | ✓ | signed gaps keep direction; the GO was a human reading |
+| Gate 2 McNemar | `03_conformal.ipynb` cell 15 | change in coverage | two-sided exact binomial | ✓ | conservative for a directional claim; direction (148 vs 0) recorded separately |
+| E8 `well_calibrated` | `02_baselines.ipynb` cell 23 | calibration of a Bayesian predictive | two-sided (±2 pp, PIT KS) | ✓ | MC-dropout carries no conformal guarantee; calibration is symmetric. All gaps are negative, so the verdict is the same under either form. |
+| E14 representativeness | `labelnoise_runner.py` | does the M7 subset resemble the full set? | two-sided (\|Δprevalence\|, KS) | ✓ | representativeness is symmetric |
+| E14 coverage | `labelnoise_runner.py`, `04_labelnoise.ipynb` | — | no coverage verdict | ✓ | signed gaps and trend slopes only |
+| E3 Pc agreement | `00b_pc_spike.ipynb` cell 11 | reproduction | two-sided (±0.5 log10) | ✓ | reproduction error in either direction is error |
+| E5 baseline match | `01b_baseline_validation.ipynb` cell 10 | reproduction | two-sided tolerance | ✓ | as above |
+| E4 `meets(bar_pp)` | `power.py` | precision | CI half-width ≤ bar | ✓ | a magnitude; no direction |
+| E15 P1a/b/c, rank classes | `threshold_runner.py`, `05b_rank_invariance.ipynb` | structural identity | equality / tolerance | ✓ | identities are symmetric |
+| E1 recency rules | `00_data_audit.ipynb` cell 8 | data facts | equality / inequality | ✓ | no coverage guarantee involved |
+
+**B4. The one latent finding.** `03b_cqr.ipynb` cells 7 and 13 label the E12 **official-test**
+arms `valid=` by CI containment. That is the B2 error class. The arms concerned are naive CQR,
+weighted CQR and the E11 split-conformal reference.
+- **It is inert.** **0 of 9** official-test E12 verdicts differ under the correct one-sided form,
+  at 80, 90 and 95%.
+- **Why.** No official-test E12 arm has a CI wholly above nominal, and that is the only case
+  (B1, consequence 3) in which the forms can disagree.
+- **The rendered E12 report is correct in value.** Every printed `valid=` label is right. Only its
+  code has the wrong form.
+- **One apparent anomaly is not a discrepancy.** The E11 reference at 80% displays as
+  [0.7648, 0.8000] yet reads "containment False". Its exact upper bound is 0.79999968 < 0.80, so
+  both forms agree.
+- **Fix:** 2026-09-21, recorded below.
+
+**B5. Rule for future checks.** Before turning a coverage estimate into a verdict, name the
+question.
+- **Validity under shift** → **one-sided**: CI upper bound ≥ nominal.
+- **Exactness on exchangeable, unweighted data** → **two-sided**: CI contains nominal.
+- **Calibration of a non-conformal predictive** → **two-sided**.
+- **Reproduction or agreement** → **two-sided tolerance**.
+
+Name the question in the code, not only in the prose. A check whose question is implicit is how
+the B2 error went unnoticed until a result looked wrong.
+
+**Decided by:** Sidh (2026-09-21), recorded by Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
