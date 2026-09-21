@@ -240,7 +240,8 @@ def run_h1(cfg: Config, *, seeds=None, n_boot: int | None = None, data=None, wei
                      "n_supported_events": int(sup.sum()), "cluster_variable": "mission_id",
                      "h1_learners": list(H1_LEARNERS),
                      "h1_excluded_learners": list(H1_EXCLUDED_LEARNERS),
-                     "h1_exclusion_reason": H1_EXCLUSION_REASON}}
+                     "h1_exclusion_reason": H1_EXCLUSION_REASON,
+                     "p_value_column": pcol}}
 
 
 class _IndicatorInterval:
