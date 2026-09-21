@@ -2766,7 +2766,7 @@ weighted CQR and the E11 split-conformal reference.
 - **One apparent anomaly is not a discrepancy.** The E11 reference at 80% displays as
   [0.7648, 0.8000] yet reads "containment False". Its exact upper bound is 0.79999968 < 0.80, so
   both forms agree.
-- **Fix:** 2026-09-21, recorded below.
+- **Fix:** 2026-09-21, commit `2355f8e`; see the entry directly below.
 
 **B5. Rule for future checks.** Before turning a coverage estimate into a verdict, name the
 question.
@@ -2779,6 +2779,69 @@ Name the question in the code, not only in the prose. A check whose question is 
 the B2 error went unnoticed until a result looked wrong.
 
 **Decided by:** Sidh (2026-09-21), recorded by Claude Code.
+
+
+### 2026-09-21 — E12 latent validity-form bug FIXED (`2355f8e`); E17 CLOSED
+
+**Status:** DONE by Claude Code per Sidh's 2026-09-21 instruction. Closes the latent finding in
+the methodological note above (B4). **No reported number or verdict changed.**
+
+**1. The fix.** `03b_cqr.ipynb` cells 7 and 13 labelled E12's **official-test** arms `valid=` by
+CI containment. That is the wrong form for a validity question.
+- **Official-test arms** now answer **validity under shift**, one-sided:
+  `robustness.meets_coverage_guarantee`, which checks CI upper bound ≥ nominal.
+- **The self-test arm** keeps **exactness on exchangeable data**, two-sided:
+  `robustness.consistent_with_exact_coverage`, which checks that the CI contains nominal. This was
+  already correct and is unchanged in form.
+- Both come from `conformal_runner.e12_coverage_checks`, which tags every label with its question
+  and its form — B5's rule, applied in code. No inline containment test remains in the notebook.
+
+**2. Reuse.** `restoration_verdict` answers a *two-arm* question (naive versus weighted); E12's
+label is a *single-arm* one. Reusing it directly would have been misuse. Instead:
+- the single-arm primitives it rests on were extracted;
+- `restoration_verdict` and E12 now both call them.
+
+So "valid" and "exact" each have exactly one definition in the project. The refactor preserves
+behaviour: every E17 verdict re-derives identically from the committed tables.
+
+**3. Verified against the committed E12 table** (read-only, at 80, 90 and 95%):
+- **0 of 9** official-test labels changed;
+- **0 of 3** self-test labels changed;
+- the published 90% labels are reproduced exactly: naive invalid, weighted invalid, split valid,
+  self-test exact.
+
+This matches the audit.
+
+**4. Regression test.** The test is built on the one case where the two forms differ, a CI lying
+wholly above nominal. **It fails with the bug reintroduced and passes with the fix.** Under the
+bug, only that test fails; the published-labels test still passes. That is the inertness made
+concrete: the real data never over-covers, so only the synthetic case can catch this bug. A
+companion test pins that the self-test arm stays two-sided.
+
+**5. Re-render: NOT done — it is not cheap, and is left to Sidh.**
+- `03b_cqr.ipynb` **recomputes E12** (`run_e12`, 3 seeds, GBM quantile heads and point model);
+  it has no from-tables path. Its cells also need per-event width and adaptivity data that are not
+  all persisted.
+- **Estimated cost: ~20–35 min**, from the quantile-head fits measured this week and allowing for
+  the established ~2× machine-speed variance. No search would run: the `e6_gbm` cache exists
+  under the current hash.
+- **It would re-run a published experiment under a newer config hash.** E12 ran under `eb89df79…`
+  on 2026-09-11; a re-render would run under `00d1cb2d…`, overwriting the E12 tables that E17's H2
+  matrix reads.
+- **Reproduction is likely but unverified.** The GBM best parameters and objective are identical
+  across the two hashes, and E15 showed the fits reproduce bit-for-bit. A re-run should still be
+  checked against a pre-run snapshot, not assumed.
+- **What it would change in the artifact: no value.** Only the wording of two printed headers
+  would change, to name the one-sided and two-sided forms. Every `valid=` value in the current
+  `03b_cqr.html` is already correct.
+
+**6. E17 is closed.** H1, H2 and H3 are recorded; the four decisions and item 2's wording are
+confirmed; the audit is logged as a standing note; the latent finding is fixed. Two stale rendered
+artifacts remain, **both correct in every value**, and both are candidates for E18's regeneration:
+- the E15 `05c` caveat sentence;
+- the E12 `03b_cqr` header wording.
+
+**Recorded by:** Claude Code.
 
 
 ## Gate Outcomes
