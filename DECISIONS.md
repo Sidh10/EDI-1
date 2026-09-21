@@ -2579,6 +2579,90 @@ Execution stops at the E17 batch boundary.
 **Reported by:** Claude Code.
 
 
+### 2026-09-21 — E17 CLOSED: H3 honest null, one-sided CQR adverse effect confirmed, GBM@80% framing fixed, H1 criterion final
+
+**Status:** RESOLVED by Sidh (2026-09-21), recorded by Claude Code. Closes the four items left open
+by the 2026-09-21 E17 findings entry. No run, no new number.
+
+**1. H3 is CLOSED as the honest null. No redesign.**
+- The manuscript states the five-manifestation pattern (Phases 2–5) as a **qualitative,
+  independently evidenced narrative**. Each manifestation was measured by a different experiment
+  with its own method. The pattern is **explicitly not reduced to one shared quantitative per-event
+  mechanism.**
+- **Why the attempt failed: it was circular by construction.** The candidate diagnostic, the GBM
+  residual d = y − ŷ, was definitionally bound to the memberships it was meant to predict:
+  - **M1** is a threshold on d itself. Its association (r = 0.699) is tautological.
+  - **Every M3 member has d > 0 by construction.** The high-risk condition gives y ≥ −6 and the
+    membership condition gives ŷ < −6. So its association (r = 0.529) is a sign constraint, not a
+    finding.
+  - **M2** is defined by the per-seed magnitude |y − ŷ| exceeding Q. Its weak association with
+    signed d (r = 0.102) is uninformative, not contrary evidence.
+
+  So two of the three associations are definitional artifacts, and the third measures the wrong
+  functional of the same residual.
+- **Precision on "determined".** Signed d fully determines only M1. It constrains M3's sign
+  without determining M3 membership, which also needs y and ŷ separately. The 2026-09-21 findings
+  entry's "every event-level membership is defined from d itself" is tightened accordingly.
+- **Disclosure rule.** The circularity is disclosed. The correlation and lift figures are **never**
+  reported at face value as evidence of shared mechanism.
+
+**2. Weighting's adverse effect on one-sided CQR coverage is CONFIRMED as a manuscript-bound
+finding.**
+
+The finding, stated specifically:
+- Rule-derived weighting **does not merely fail to restore** one-sided CQR coverage. It **actively
+  lowers** it at every nominal level:
+  - 80%: 0.8159 → 0.7603 (−5.55 pp);
+  - 90%: 0.8629 → 0.8486 (−1.43 pp);
+  - 95%: 0.9085 → 0.8879 (−2.06 pp).
+- **It creates a new deficit at 80%.** The naive arm had none there (CI [0.7989, 0.8320], upper
+  bound at or above nominal). The weighted arm's CI [0.7418, 0.7782] lies wholly below nominal.
+- **Robust to seed.** Weighting lowers coverage in **9 of 9** (level, seed) cells.
+- **Structural, not sampling noise.** Both arms share one quantile head and differ only in the
+  calibration quantile Q, and coverage is monotone in Q. Lower coverage in every cell therefore
+  implies a lower weighted quantile in every cell. This is a logical consequence of the
+  construction; *why* the rule weights pull Q down is not claimed.
+
+**Correction to the framing as given.** The decision as dictated contrasted this with a "no
+effect" characterisation of two-sided CQR. **The record does not support that contrast.**
+- Weighting lowers **two-sided** CQR coverage at every level as well:
+  - 80%: 0.7736 → 0.7574 (−1.62 pp);
+  - 90%: 0.8653 → 0.8593 (−0.60 pp);
+  - 95%: 0.9220 → 0.9083 (−1.37 pp).
+- E12's own entry already recorded "weighted <= naive at every level".
+
+The distinction that does hold, and is recorded in its place:
+- **the one-sided decreases are larger at every level;** and
+- **only in one-sided CQR does weighting create a deficit where the naive arm had none.** At 80%,
+  two-sided naive already under-covers (CI upper bound 0.7910 < 0.80), so there weighting deepens
+  an existing deficit rather than creating one.
+
+The one-sided finding is therefore sharper in degree and in kind than the two-sided one — but not
+"adverse versus no effect". **This contrast is recorded as the data show, pending Sidh's
+confirmation of the corrected wording.**
+
+**3. GBM @ 80%: the cluster-bootstrap flip is framed as a wider interval failing to reject
+under-coverage.**
+- **Not "coverage improved".** The weighted point estimate, **0.7828, is below nominal under both
+  bootstrap schemes.**
+- The cluster verdict reads RESTORED only because the cluster interval is wider:
+  - cluster: weighted CI upper bound 0.8092;
+  - iid: weighted CI upper bound 0.7997.
+- The manuscript **preserves this distinction.** It must not collapse the cell to a pass/fail
+  verdict.
+
+**4. The corrected H1 restoration criterion is FINAL.**
+- The criterion is coverage ≥ nominal, tested on the CI upper bound. It stands.
+- **Gate 2's headline is confirmed robust to the clustering assumption:** persistence, two-sided,
+  90% is RESTORED under both the iid and the mission-level cluster bootstrap, with the weighted CI
+  wholly above nominal under both.
+
+**E17 is closed.**
+
+**Decided by:** Sidh (2026-09-21), recorded by Claude Code. Item 2's two-sided contrast is recorded
+as corrected against the data, and awaits Sidh's confirmation.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
