@@ -2306,6 +2306,111 @@ never reached. Anything less would re-run the search and merely hide it from the
 **Decided by:** Sidh (2026-09-21), recorded by Claude Code before execution.
 
 
+### 2026-09-21 — CORRECTION: E17's coverage-restoration criterion is the one-sided guarantee (coverage ≥ nominal), not CI-containment
+
+**Status:** RESOLVED by Sidh (2026-09-21), recorded by Claude Code **before the E17 report is
+rendered**. A specification correction, made after the E17 computation had run.
+
+**1. The bug.** E17's implementation labelled a cell "restored" when the rule-weighted arm's
+confidence interval **contained** the nominal level and the naive arm's did not. That was a
+**specification bug, not a legitimate alternative reading.** Conformal prediction's guarantee is
+**coverage ≥ 1 − α — a one-sided bound.** An arm that over-covers is conservative and *satisfies*
+the guarantee; only under-coverage violates it. CI-containment treats an interval lying entirely
+above nominal as a failure, which the guarantee never does. A conservative result must never be
+marked a restoration failure.
+
+**2. The corrected criterion, stated operationally.** A cell is **RESTORED** when:
+- the **naive** arm's CI upper bound lies **below** nominal — under-coverage is statistically
+  established; **and**
+- the **rule-weighted** arm's CI upper bound lies **at or above** nominal — under-coverage can no
+  longer be established.
+
+If the naive arm's CI upper bound is already at or above nominal, the cell is **"no deficit to
+restore"**, which is a different statement and is never reported as a success.
+
+The test is made on the CI's upper bound, not the point estimate, deliberately. Both bootstrap
+schemes share one point estimate, so a point-estimate criterion would make H1's
+iid-versus-cluster comparison vacuous: it would agree 9/9 by construction and test nothing.
+
+**3. What changed and what did not.** **No result computation changed.** The coverage estimates
+and CI bounds were computed once, by the 2026-09-21 E17 run (2,873.2 s), and are reused unchanged.
+Only the rule for which pre-existing quantity defines "restored" changed. The E17 report is
+rendered from those already-computed tables; the analysis is not re-run.
+
+**4. The Gate-2 headline under each criterion.** Persistence, two-sided, nominal 90%:
+naive 0.8579; rule-weighted **0.9262**.
+
+| scheme | naive CI | weighted CI | CI-containment (original) | coverage ≥ nominal (corrected) |
+|---|---|---|---|---|
+| iid | [0.8426, 0.8736] | [0.9151, 0.9372] | not restored | **RESTORED** |
+| cluster | [0.8332, 0.8776] | [0.9087, 0.9397] | not restored | **RESTORED** |
+
+- The original implementation reported the headline as **failing**, under both schemes, purely
+  because the weighted arm over-covers.
+- Under the corrected criterion, H1's cluster-bootstrap robustness check for the Gate-2 headline
+  **PASSES**. The verdict is the same under both resampling schemes.
+- This is **strong restoration, not a width artifact.** The weighted CI lies entirely above
+  nominal under both schemes (lower bounds 0.9151 and 0.9087), and the naive CI entirely below it.
+
+**5. Scheme agreement across all nine learner × level cells** (persistence, GBM and GRU at 80, 90
+and 95%, two-sided). Both criteria are applied and compared:
+- **Corrected criterion: 8/9 agree.** The only disagreement is GBM at 80%.
+- **Original CI-containment criterion: 6/9 agree.** It disagrees at GBM 80%, GRU 95% and
+  persistence 80%.
+
+**6. The remaining disagreement is a genuine fragility, reported as-is.** At **GBM, two-sided,
+80%**, the verdict depends on the bootstrap scheme:
+
+| scheme | naive CI upper | weighted coverage | weighted CI | verdict |
+|---|---|---|---|---|
+| iid | 0.7387 | 0.7828 | [0.7657, **0.7997**] | not restored |
+| cluster | 0.7556 | 0.7828 | [0.7520, **0.8092**] | RESTORED |
+
+**It is not rounded into either column.** Its mechanism needs stating, because it bears on how the
+8/9 figure should be read:
+- The weighted **point estimate, 0.7828, is below nominal under both schemes**.
+- The cluster verdict flips to RESTORED only because its **wider** interval can no longer reject
+  under-coverage — not because coverage improved.
+- Under a criterion of the form "under-coverage cannot be established", a less precise interval
+  makes RESTORED easier to reach. The cluster bootstrap is wider in 34 of 36 arms, so it leans
+  toward RESTORED under this criterion.
+
+The 8/9 agreement is therefore evidence that the conclusions do not *reverse* under clustering. It
+is not evidence that every cell is strongly restored. The headline (item 4) is strong; GBM at 80%
+is not.
+
+**7. Reporting.** Both criteria appear in the manuscript-facing E17 output, side by side:
+- the **corrected criterion is primary**;
+- the **original CI-containment criterion is a labelled secondary comparison**, kept because it
+  shows concretely why the distinction matters — the headline passes or fails depending on it.
+
+**8. The H2 coverage-restoration matrix is unaffected.** Its four verdicts are identical under both
+criteria, because every weighted arm there that fails still under-covers:
+- split conformal two-sided: RESTORED (weighted CI upper 0.908 ≥ 0.90);
+- split one-sided: not restored (0.869);
+- CQR two-sided: not restored (0.874);
+- CQR one-sided: not restored (0.863).
+
+**H3 does not use the criterion at all.**
+
+**9. Post-hoc discipline.** Two facts are recorded so a reader can weigh them.
+- **Timing — disclosed, not hidden.** The correction was made **only after seeing** that the two
+  criteria disagreed on the headline result. Before that, the containment criterion had been
+  implemented without anyone noticing it contradicted the guarantee.
+- **Justification — independent of the answer.** The criterion is fixed by the mathematical
+  definition of the conformal guarantee, coverage ≥ 1 − α. That definition dictates this criterion
+  whichever answer it produces, so the choice cannot have been reverse-engineered from the result.
+  CLAUDE.md §3's prohibition on adjusting a procedure after seeing its result is upheld: this
+  corrects a procedure that did not compute the quantity it was specified to compute.
+- **Supporting check, from the data.** The correction changed **6 verdicts**. **All 6 are arms
+  whose weighted coverage exceeds nominal** — exactly the class the containment bug mishandles:
+  GRU 95% cluster; persistence 80% iid; persistence 90% iid and cluster; persistence 95% iid and
+  cluster. **No under-covering arm's verdict changed.** A correction chosen for its answer would
+  have no reason to respect that boundary; a correction of this specific bug must.
+
+**Decided by:** Sidh (2026-09-21), recorded by Claude Code before rendering.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
