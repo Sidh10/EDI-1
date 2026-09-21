@@ -66,7 +66,12 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
       threshold selections; the grid is now the union of point-prediction and validated-bound percentiles on `val_inner` plus −6,
       pre-registered before the re-run. Everything read at −6 is unchanged and P1a/P1b/P1c stay exactly 0; pinning on the primary
       deployable read-out fell to 26.9%, while the rule-weighted variant remains censored at 69.4% — disclosed, not corrected post hoc.
-  - **E17–E18:** not started.
+  - **E17 robustness & gap closure: run, awaiting Sidh's review** (`kc robustness`; `--from-tables` re-renders without recomputing).
+    - H1 scoped to persistence/GBM/GRU. MC-dropout/E8 is excluded because it has no hyperparameter cache under the current config hash; the exclusion is disclosed in the report.
+    - The coverage-restoration criterion was corrected to the one-sided guarantee (coverage ≥ nominal). Under it, the Gate-2 headline passes the mission-level cluster-bootstrap check.
+    - Rule-weighting restores 1 of the 4 {split, CQR} × {two-, one-sided} cells.
+    - H3's shared-mechanism test is circular by construction, so it falls back to the honest null.
+  - **E18:** not started.
 
 ## Reproducibility
 

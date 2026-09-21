@@ -852,6 +852,36 @@ Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
 
+### 2026-09-21 — pandas' default CSV float parser is not round-trip exact; it caused two false "not bit-identical" findings
+
+**The observation.** `write_table_atomic` writes every float with the full 17 significant digits
+needed to round-trip. `pd.read_csv` with its default `float_precision=None` uses a fast parser
+that can read such a value back as a double **one ULP away** from the one written. The loss
+happens on **reading**, not writing. Every notebook in this project reads tables with the default
+parser.
+
+**Where it bit.**
+- **E15 grid (2026-09-20).** The verification reported component (a) as reproducing "within
+  1 ULP, not bit-for-bit" and attributed that to multithreaded reductions. Both parts were wrong:
+  it reproduced exactly (corrected in place, 2026-09-21).
+- **E17 re-render (2026-09-21).** A matrix cell appeared 1 ULP off the computing run. The same
+  cause, traced this time. `load_e17` now reads with `float_precision="round_trip"`, and a
+  regression test fails without it.
+
+**Impact.** No reported number is affected: results are reported to at most 4 decimal places,
+far above 1e-16. What it corrupts is any **bit-level** comparison of values that went through a
+CSV, which is exactly the kind of determinism check CLAUDE.md §4 asks for. A check that reads
+through the default parser can report non-determinism that is not there. This makes it a
+reproducibility-verification hazard, not a results hazard.
+
+**Status: logged, acted on only inside E17.** The project-wide fix is to use
+`float_precision="round_trip"` wherever a table is read for an exactness check. It would touch
+every notebook's reads, which is outside E17's scope; noted as a candidate for E18's
+consolidation pass. Separately: the E15 error was a cause **stated without being tested**, and the
+discipline point is to trace a discrepancy before naming its cause.
+
+**Noticed by:** Claude Code, while tracing a 1-ULP matrix discrepancy in E17. **Flagged for:** Sidh.
+
 ### 2026-09-20 — SYNTHESIS: the Phase-2 train/test high-risk imbalance surfaces five times over, most recently in the instrument itself
 *(updated 2026-09-21 with the fifth manifestation, per Sidh's decision of that date.)*
 
@@ -1755,6 +1785,14 @@ move.
   use multithreaded reductions whose summation order is not bitwise reproducible. CLAUDE.md §4's
   standard is "byte-identical **or** numerically-identical-within-tolerance"; this meets the
   latter. Recorded as a deviation in the findings entry of the same date, not waved through.)*
+  *(CORRECTION 2026-09-21: the annotation above is WRONG, and so was its stated cause. Component
+  (a) reproduced **bit-for-bit**. The apparent 1-ULP gap was produced by the verification script,
+  which read the grid table back with pandas' default fast float parser; that parser can return a
+  double one ULP away from the 17-digit value written. Re-read with `float_precision="round_trip"`,
+  both horizons' component (a) is exactly equal to the original grid. The "multithreaded
+  reductions" explanation was never tested — an unverified guess recorded as fact. The
+  pre-registration's "bit-identical" wording was correct and was met. Found during E17, when the
+  same parser artifact reappeared and was traced. See the Observations Log, 2026-09-21.)*
 - **Implementation consequence:** the GBM quantile heads must also predict on `val_inner` (they
   previously predicted calibration / self-test / official-test only), so that component (b) can be
   computed on the same split as (a). Adding a split changes no existing split's values.
@@ -2092,6 +2130,14 @@ Report `reports/05c_threshold_analysis.html`; tables `reports/tables/e15c_*.csv`
   numerically-identical-within-tolerance") but not the wording of the pre-registration, and is
   recorded as a deviation rather than passed over. Every original threshold is present in the
   extended grid at that tolerance, and −6.0 is present exactly.
+  *(CORRECTION 2026-09-21: this bullet is WRONG, and so was its stated cause. Component
+  (a) reproduced **bit-for-bit**. The apparent 1-ULP gap was produced by the verification script,
+  which read the grid table back with pandas' default fast float parser; that parser can return a
+  double one ULP away from the 17-digit value written. Re-read with `float_precision="round_trip"`,
+  both horizons' component (a) is exactly equal to the original grid. The "multithreaded
+  reductions" explanation was never tested — an unverified guess recorded as fact. The
+  pre-registration's "bit-identical" wording was correct and was met. Found during E17, when the
+  same parser artifact reappeared and was traced. See the Observations Log, 2026-09-21.)*
 - **Everything read at the fixed threshold −6 is unchanged** — matching the 2026-09-19 entry
   digit for digit: 2-day GBM point 137.3 missed of 138 with 1.3 alerts; 2-day GBM two-sided CQR
   45.7 [33.0, 59.0] missed with 44.3 unnecessary; 3-day the same arm 109.7; persistence point
@@ -2409,6 +2455,128 @@ criteria, because every weighted arm there that fails still under-covers:
   have no reason to respect that boundary; a correction of this specific bug must.
 
 **Decided by:** Sidh (2026-09-21), recorded by Claude Code before rendering.
+
+
+### 2026-09-21 — E17 robustness, consistency & gap-closure: the Gate-2 headline is robust; weighting restores 1 of 4 cells; H3 is circular and falls back to the honest null
+
+**Status:** REPORTED by Claude Code. Measurement only, under the revised E17 specification, the
+2026-09-21 H1 scope decision and the 2026-09-21 criterion correction.
+- **Computation:** one run, launched 13:04 at `f53d27a`, 2,873.2 s total, 3 seeds (42/43/44),
+  2,000 event-level resamples. Seed fits took 966.2 / 876.3 / 941.1 s. H1 took 28.0 s, H2 2.4 s,
+  H3 1.3 s.
+- **Report:** `reports/06_robustness.html` rendered with `kc robustness --from-tables` at
+  `33440cd` plus the H3 disclosure. It **recomputes nothing**: it re-derives verdicts from the
+  computed tables.
+- **Tables:** `reports/tables/e17_*.csv`.
+
+**0. Integrity.**
+- **No search ran.** The GBM and GRU caches were verified against the **full** config hash, not
+  the filename prefix — both match `00d1cb2d…`, cutoff 2.0, seed 42, 24 trials, selected on
+  `val_inner`. Persistence has no search. Seed 42's learners fitted in 5 min 10 s, with no `.tmp`
+  cache write at any point.
+- **The re-render changed no computed table.** All 7 computed tables are byte-identical (SHA-256)
+  to the computing run's output.
+- **The H2 matrix is bit-identical** to the computing run in every cell.
+- **The render is clean:** zero error outputs.
+
+**1. H1 scope.** H1 covers persistence, GBM and GRU. **MC-dropout / E8 is excluded** (2026-09-21
+decision), and the report states the exclusion and its reason in its own §2a.
+
+**2. H1 (i) — clustering assumption.** A mission-level cluster bootstrap over **18 missions** and
+2,167 supported events; the largest mission holds 16.1% of events.
+- The cluster CI is wider than the iid CI in **34 of 36 arms**; median width ratio **1.49**,
+  range [0.77, 2.71].
+- **Gate-2 headline (persistence, two-sided, 90%): RESTORED under both schemes.** Naive 0.8579,
+  weighted 0.9262.
+  - iid: naive [0.8426, 0.8736], weighted [0.9151, 0.9372].
+  - cluster: naive [0.8332, 0.8776], weighted [0.9087, 0.9397].
+  - **The weighted CI lies wholly above nominal under both schemes**, and the naive CI wholly below
+    it. **H1's failure criterion — a headline conclusion reversing — is not met.**
+- **Scheme agreement:** primary criterion **8/9** learner × level cells; secondary
+  (CI-containment) criterion 6/9.
+- **Fragility, reported as-is — GBM, two-sided, 80%:**
+  - iid: weighted CI [0.7657, 0.7997] → not restored;
+  - cluster: weighted CI [0.7520, 0.8092] → RESTORED.
+  - The weighted point estimate, **0.7828, is below nominal under both schemes.** The verdict
+    changes only because the cluster interval is wider and can no longer reject under-coverage.
+- **What 8/9 means.** Because the cluster bootstrap is the wider scheme, it leans toward RESTORED
+  under this criterion. So 8/9 shows conclusions do not *reverse* under clustering. It does not
+  show every cell is strongly restored: the headline is strong, GBM at 80% is not.
+- **The criterion correction changed 6 of 18 verdicts.** All 6 are over-covering arms, and all
+  moved toward RESTORED. No under-covering arm changed.
+
+**3. H1 (ii) — clipping cap.** Clipping **never triggers**, at k̂ triggers 0.7, 0.5 or 0.3. The
+induced bias is zero. This confirms, rather than sweeps: k̂ never approached any trigger.
+
+**4. H1 (iii) — multiple comparison.** Every committed table was swept for p-values: the family
+has **exactly one member**, E11's McNemar p = 5.61e-45. **Holm is therefore the identity** and the
+contrast is still rejected. The check confirms Q-STAT-04's policy was *adhered to*.
+
+**5. H2 — the completed matrix** (GBM, nominal 90%; both criteria agree in all four cells):
+
+| | two-sided | one-sided |
+|---|---|---|
+| **split conformal** | 0.836 → 0.896 **RESTORED** | 0.850 → 0.854 not restored |
+| **CQR** | 0.865 → 0.859 not restored | **0.863 → 0.849 not restored** (new) |
+
+- **Rule-weighting restores coverage in 1 of 4 cells:** two-sided split conformal only. **H2's
+  hypothesis is confirmed.** The new cell is unambiguous: its weighted CI [0.833, 0.863] lies
+  wholly below 0.90.
+- **The machinery is valid; the failure is the shift.** On the exchangeable self-test split,
+  one-sided CQR covers at every level, and each CI contains nominal:
+  - 80%: 0.7881 [0.7712, 0.8043];
+  - 90%: 0.8925 [0.8794, 0.9047];
+  - 95%: 0.9433 [0.9333, 0.9523].
+  So the official-test shortfall is attributable to selection bias, not to a miscalibrated
+  quantile head.
+- **Weighting moves one-sided CQR coverage *down* at every level:** 0.8159 → 0.7603 at 80%,
+  0.8629 → 0.8486 at 90%, 0.9085 → 0.8879 at 95%. At 80% the naive arm had **no deficit** (CI
+  [0.7989, 0.8320]); weighting **creates** one (CI [0.7418, 0.7782], wholly below). This matches
+  the two-sided CQR cell, where weighting also lowers coverage.
+
+**6. H3 — CIRCULAR by construction; the honest-null fallback applies.**
+- **What was measured.** The candidate diagnostic is the per-event GBM residual d = y − ŷ.
+  |point-biserial r| across M1–M3 runs 0.102 to 0.699, and pairwise overlap lifts 5.04× to 7.77×.
+- **Why those numbers are not evidence.** Every event-level membership is **defined from d
+  itself**:
+  - **M1** is `d ≥ 90th percentile of d`, a threshold on d;
+  - **M3** is `high-risk and ŷ < −6`, so every member has d > 0 by definition (its high-risk share
+    is exactly 1.000);
+  - **M2** is "uncovered by ŷ ± Q", i.e. |d| > Q.
+- **The consequence.** The associations are consequences of these definitions, not evidence of a
+  shared mechanism. As built, the test **cannot distinguish a shared mechanism from a shared
+  definition**. M4 and M5 are instrument-level and have no per-event membership at all.
+- **The outcome.** Per E17's failure criterion, this is reported as **"related in effect, not
+  shown to reduce to one per-event mechanism"** — not as a unification. The report's §6 states
+  the construction caveat before the numbers and repeats it in the summary.
+- **Where the flaw originates.** The specification's own example diagnostic ("per-event prediction
+  residual") is the one that produces the circularity, so the flaw is in H3's framing as much as
+  in its implementation. It was caught at write-up, not by a test.
+
+**7. Incidents in this batch, in order.**
+1. The first launch began an unplanned E8 search, stopped at 30 min: the pre-launch check verified
+   the wrong config hashes.
+2. The notebook aborted with `StopIteration`: a duplicated p-value-column lookup.
+3. The restoration criterion was mis-specified as CI-containment; corrected 2026-09-21.
+4. H3's circularity was found at write-up.
+
+Each is recorded where it happened. Items 3 and 4 were caught by reading results with suspicion,
+not by tests.
+
+**8. The deferred caveat-string fix is not propagated by E17.** E17 renders only
+`06_robustness.html`, not `05c_threshold_analysis`, so this phase performs no natural re-render of
+the stale artifacts. The code fix (`cd01ffe`) stands; propagation falls to E18's regeneration.
+
+**Explicitly NOT decided here (Sidh's):**
+- whether H3 should be redesigned around a diagnostic not used to define membership, or closed as
+  the honest null;
+- whether the completed matrix, and weighting's *adverse* effect on CQR, change any manuscript
+  claim;
+- how GBM at 80% is presented;
+- anything in E18.
+
+Execution stops at the E17 batch boundary.
+**Reported by:** Claude Code.
 
 
 ## Gate Outcomes
