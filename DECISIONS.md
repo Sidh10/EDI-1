@@ -151,11 +151,34 @@ All five items flagged by the CLAUDE.md §13 loop as blocking Phase 3 (Q-CONF-01
 - Primary formal test (McNemar, persistence, 90%, two-sided, pre-registered per Q-STAT-04): E10 0.858 → E11 0.926, p = 5.6e-45, 148 events flipped uncovered→covered, 0 the reverse.
 - Weight diagnostics clean throughout: rule weights k̂ = −2.34 (stable), n̂ = 1530 of n = 2391 (no calibration-precision collapse — the Gate 1 concern did not materialize), zero clipping triggered, zero unsupported (positivity-violating) test events. Classifier (secondary) weights independently confirmed stable (k̂ = 0.17); γ̂ ≈ 1.04e6 reflects genuine substantive disagreement between the two weight specifications, not numerical instability in either, corroborating that the exact finite-sample claim rests on the rule-derived weights alone (per the Q-SEL-01 resolution).
 
+> **[ANNOTATION 2026-10-01 — exact E9 figures]** "|gap| ≤ 1.1pp" above: the exact largest two-sided
+> |gap| on the E9 self-split is **1.18 pp** (GBM at 80%, gap −1.1753 pp; `e9_machinery_validation`,
+> F03). "≤ 1.1pp" understates it by 0.08 pp. No verdict changes: E9 is an exactness check and the
+> 95% CP interval still contains nominal in that cell. (Found while annotating, recorded but not
+> annotated in place: the one-sided "gaps ≤0.8pp" in the next paragraph is **0.82 pp** (GBM at 90%)
+> per F03.) See the 2026-10-01 record-annotation entry, item 5.
+
 **Manuscript scoping (binding):** the paper's exact-coverage claim for Contribution 1 is stated for TWO-SIDED intervals only. This was always the design of the pre-registered primary contrast; this entry makes it explicit given the one-sided finding below, so the two are never conflated in writing.
 
 **Second, honest finding — not a blocker, a secondary result:** the weighted correction does NOT restore one-sided (upper-bound) coverage for GBM, GRU, or MC-dropout, despite the one-sided conformal code path being independently validated as correct under exchangeability (E9 one-sided: PASS for all three, gaps ≤0.8pp). This is therefore a real, shift-driven phenomenon, not an implementation bug, and is reported in the manuscript as a secondary finding: selection-bias-corrected weighted conformal prediction restores two-sided marginal validity but not one-sided upper-bound validity under this dataset's selection mechanism. Persistence's one-sided numbers are excluded from this finding and carry a separate, distinct caveat (below) — the two must not be reported together as if they share a cause.
 
 **Persistence one-sided caveat (distinct issue, diagnosed, not a shift effect):** persistence's one-sided coverage is degenerate under exchangeability itself (E9 one-sided: FAILS at 80%/90%, identical coverage 0.9376 at both). Root cause verified directly: 65.9% of persistence's signed nonconformity scores equal exactly zero (final risk equals the last pre-cutoff risk, typically both at the risk floor), producing a point mass that makes the 80th and 90th score percentiles coincide. This is a property of the persistence predictor's residual distribution, not of the conformal machinery or the selection-bias correction. No fix was applied (out of scope for Phase 3); a randomized/smoothed conformal quantile is the standard remedy if persistence one-sided intervals are needed later. Persistence's one-sided results are excluded from any coverage claim in the manuscript pending that fix, if pursued.
+
+> **[ANNOTATION 2026-10-01 — one-sided finding, per level, under the final criterion]** The
+> "second, honest finding" above states that weighting does NOT restore one-sided coverage for GBM,
+> GRU and MC-dropout, without a per-level breakdown. Under the final H1 criterion (coverage ≥
+> nominal, tested on the CI upper bound; 2026-09-21), applied per level to the committed
+> `e15_bound_coverage_table` (all-supported population, n = 2,167, 3 seeds):
+> - at **90% and 95%**, 6 of 6 cells are **not restored** — the statement above is correct there;
+> - at **80%** the naive arm has **no deficit to restore**, and the rule-weighted arm's CI lies
+>   **wholly below nominal**: GBM 0.8210 → 0.7590 (−6.20 pp; weighted 95% CP [0.7404, 0.7768]),
+>   GRU 0.8210 → 0.7631 (−5.78 pp; [0.7446, 0.7809]), MC-dropout 0.8091 → 0.7623 (−4.68 pp;
+>   [0.7438, 0.7801]). Weighting **creates** a one-sided deficit there. The verdicts are the same
+>   under the table's bootstrap intervals.
+>
+> This is the same pattern as one-sided CQR (E17 close-out, item 2). The unified framing is recorded
+> in the 2026-10-01 record-annotation entry, item 1. The Gate 2 decision itself is unaffected: its
+> exact-coverage claim was always two-sided.
 
 **Consequence flagged forward to Phase 5 (not resolved here):** E15's decision-cost evaluation was designed to consume the one-sided upper bound specifically, since underestimating risk is the operationally dangerous direction. Given the one-sided finding above, E15 must either (a) use the two-sided interval's upper edge in place of a dedicated one-sided bound, or (b) explicitly incorporate the one-sided under-coverage as a stated caveat on any decision-cost result that relies on it. This decision is deferred to the Phase 4/5 design review, not made now — logged here so it is not rediscovered late.
 
@@ -206,6 +229,16 @@ reviewer than an over-broad claim.
 > never computed or validated at E12. The supported claim is therefore for two-sided CQR. One-sided
 > CQR is first built and validated in E15 (E15 pre-registration §5), and whatever it shows is
 > recorded there, not back-filled here. No number changes.
+
+> **[ANNOTATION 2026-10-01 — superseded wording]** Claim 2's "a small, directionally consistent …
+> negative effect" is **superseded** by the E17 item-2 wording, confirmed by Sidh on 2026-09-21
+> ("E17 item 2 confirmed", Part A): weighting lowers CQR coverage in **both** sidedness arms at
+> **every** level (two-sided −1.62 / −0.60 / −1.37 pp; one-sided −5.55 / −1.43 / −2.06 pp at
+> 80 / 90 / 95%); the one-sided decreases are larger at every level; and only one-sided CQR gains a
+> deficit it did not have (at 80%). "Small" does not describe −5.55 pp. Synthesis item (i) above
+> ("one-sided split-conformal upper bounds … NOT restore") is likewise refined by the per-level
+> annotation on the Gate 2 entry: at 80% weighting creates a one-sided deficit. See the 2026-10-01
+> record-annotation entry, items 1 and 3.
 
 ### 2026-09-16 — Q-LBL-02: covariance-rescaling grid semantics (label-noise, E14)
 **Decision:** The **primary** covariance-rescaling grid uses a **single scalar factor applied to the
@@ -1079,6 +1112,10 @@ assumptions hold, so any official-test deviation is attributable to the shift, n
 The self-split-vs-official gap is the selection-bias problem, quantified (figure
 `e10_problem_selfsplit_vs_official`).
 
+> **[ANNOTATION 2026-10-01 — exact E9 figure]** "largest |gap| ~1.1 pp" in the E9 paragraph above
+> is **1.18 pp** exactly (GBM, two-sided, 80%: gap −1.1753 pp; `e9_machinery_validation`, F03), as
+> the E9 report itself prints. See the 2026-10-01 record-annotation entry, item 5.
+
 **E11 (weighted conformal, rule-derived primary) — restores coverage.** At nominal 90%: persistence
 0.926 (+2.6 pp), GBM 0.896 (−0.4), GRU 0.903 (+0.3), MC-dropout 0.896 (−0.4). Gap closed vs E10:
 4.4–6.8 pp. Headline figure `e11_headline_naive_vs_weighted` (naive below the diagonal, weighted on
@@ -1747,6 +1784,15 @@ number produced under the extended grid exists**, and before the code that build
   ceiling rather than Q. The direct point-vs-bound P1c contrast is unaffected: it optimises over
   every distinct score value, not over the grid.
 
+> **[ANNOTATION 2026-10-01 — historical, not regenerable]** The 62.3% / 54.2% ceiling fractions
+> above were computed by the original-grid E15 run at `c9f423f` (2026-09-19). The extended-grid run
+> (`6e8debd`) overwrote `e15c_selection`, so **they cannot be regenerated from the current tables**;
+> reproducing them requires re-running E15 at `c9f423f`. `05c_threshold_analysis.ipynb` §7b (added
+> at `6e8debd`) prints them as hardcoded literals ("was 62.3% … was 54.2%"), so the rendered
+> `05c_threshold_analysis.html` carries two historical numbers that no current table supports. The
+> notebook and report are **not** changed by this annotation. See the 2026-10-01 record-annotation
+> entry, item 6.
+
 **2. The fix.** The threshold grid T, per horizon, becomes the sorted, deduplicated union of:
 - **(a)** percentiles of the pooled **point-prediction** distribution — the original design,
   unchanged: four learners × all seeds, on `val_inner`;
@@ -2321,6 +2367,18 @@ different fitted model from the one E8 reported. Every cross-reference between E
 result and E8's own findings would then be comparing two different models while appearing to
 compare one. The 3.5 hours is the visible cost; the silent loss of like-for-like comparison is
 the real one.
+
+> **[ANNOTATION 2026-10-01 — item 2's rationale was unsupported]** Item 2's claim that a search
+> under the current hash "would select MC-dropout hyperparameters that E8 never used" was asserted
+> by Claude Code without evidence, and the project's own record contradicts it for this very arm:
+> the 2026-09-18 E15 findings entry records that a config-hash change re-ran the GBM, GRU **and
+> MC-dropout** searches and "all three reproduced every earlier cache bit-for-bit, `best_params`
+> and objective alike". The defensible fact is only that **no MC-dropout cache exists under the base
+> hash `00d1cb2d…`**, so including the arm would have required a fresh ~3.5 h search, which was not
+> run. The exclusion decision (item 3) is Sidh's and is not changed by this annotation; the same
+> unsupported sentence remains in `robustness_runner.H1_EXCLUSION_REASON`,
+> `e17_h1_excluded_learners.csv` and the E17 report §2a. See the 2026-10-01 record-annotation entry,
+> item 2.
 
 **3. Decision.** H1's robustness checks — the mission-level cluster bootstrap (Q-STAT-03c), the
 clipping-cap confirmation (Q-SEL-03) and the multiple-comparison policy check (Q-STAT-04) — are
@@ -3020,6 +3078,87 @@ clean-machine reproduction, build the related-work comparison table, or cross-va
 anything about manuscript drafting, which has not begun. Execution stops at the E18 boundary.
 
 **Reported by:** Claude Code.
+
+
+### 2026-10-01 — Record annotations for E18 Part D items 1–7; unified one-sided framing; two vulnerabilities recorded OPEN
+
+**Status:** RESOLVED by Sidh (2026-10-01 instruction), recorded by Claude Code. **Append-only:** no
+historical text was edited or deleted. Each item below is also annotated in place, beside the text
+it qualifies, as a dated `[ANNOTATION 2026-10-01]` block. **No code, table, figure or report changed.**
+Every number below is read from a committed table, named in place.
+
+**1. One-sided split conformal at 80% — the same pattern as one-sided CQR; unified framing.**
+Under the final criterion (coverage ≥ nominal, tested on the CI upper bound), at 80%, the naive
+one-sided arm has **no deficit to restore**, and the rule-weighted arm's CI lies **wholly below
+nominal** for every learned model (`e15_bound_coverage_table`, all-supported, n = 2,167, 3 seeds,
+95% CP):
+
+| learner | naive | weighted | change | verdict |
+|---|---|---|---|---|
+| GBM | 0.8210 [0.8041, 0.8369] | 0.7590 [0.7404, 0.7768] | −6.20 pp | no deficit to restore; weighted wholly below |
+| GRU | 0.8210 [0.8041, 0.8369] | 0.7631 [0.7446, 0.7809] | −5.78 pp | no deficit to restore; weighted wholly below |
+| MC-dropout | 0.8091 [0.7919, 0.8255] | 0.7623 [0.7438, 0.7801] | −4.68 pp | no deficit to restore; weighted wholly below |
+
+The verdicts were re-derived with `robustness.restoration_verdict` and are identical under the
+table's bootstrap intervals. This is the **same pattern** as one-sided CQR (E17 close-out, item 2;
+`e17_h2_coverage`: naive 0.8159 [0.7989, 0.8320] → weighted 0.7603 [0.7418, 0.7782]).
+
+**Unified manuscript framing (Sidh):** *for one-sided bounds, rule-weighting never restores
+coverage, and at 80% it creates a deficit.* The record supports both halves. Across all 12 one-sided
+cells on the official test set (split conformal: GBM, GRU and MC-dropout × 80/90/95%; CQR: GBM ×
+80/90/95%), **0 are restored**. At 80%, **all 4** learner × method cells move from no deficit to a
+weighted CI wholly below nominal. At 90% and 95% the naive arm already under-covers and the weighted
+arm still does (8 of 8 cells). The framing describes non-restoration, not uniform harm: at 90–95%
+the weighted point estimate is sometimes higher than the naive one (e.g. GBM 95%, +2.12 pp), but
+never high enough for under-coverage to stop being established. Persistence stays excluded from
+one-sided claims (degenerate zero-atom, Gate 2). Contribution 1's exact-coverage claim stays
+two-sided and is unaffected.
+
+**2. MC-dropout exclusion rationale: the stated reason was unsupported.** The claim that "a fresh
+search would select hyperparameters E8 never used" (2026-09-21 H1 scope entry, item 2;
+`robustness_runner.H1_EXCLUSION_REASON`; `e17_h1_excluded_learners.csv`; E17 report §2a) is
+contradicted by the 2026-09-18 E15 findings entry. That entry records that a config-hash change
+re-ran the GBM, GRU **and** MC-dropout searches, and all three reproduced their caches bit-for-bit,
+`best_params` and objective alike. **The defensible fact is only that no MC-dropout cache exists
+under the base hash `00d1cb2d…`.** The exclusion decision is unchanged by this entry; whether it
+stands is the subject of the E8 inclusion check pre-registered below.
+
+**3. Superseded CQR wording.** The 2026-09-16 E12 disposition's "a small, directionally consistent
+… negative effect" is **superseded** by the E17 item-2 wording confirmed on 2026-09-21: weighting
+lowers CQR coverage in both arms at every level, the one-sided decreases are larger at every level,
+and only one-sided CQR gains a deficit it did not have.
+
+**4. Containment-style criterion wording in the governing documents.** `EXPERIMENT_PLAN.md` E11
+(hypothesis "statistically indistinguishable-from-nominal"; success criterion "statistically
+restored to nominal") and `PROJECT_KNOWLEDGE.md` S1 ("within ±[margin] of nominal") carry a dated
+amendment, appended beside the original text, pointing to the final criteria:
+- **validity under shift** — coverage ≥ nominal, tested on the CI upper bound;
+- **exactness on exchangeable data** — the two-sided band, tested by CI containment of nominal
+  (2026-09-21 methodological note, Part B).
+The original wording is retained. E9's hypothesis is not amended; it is an exactness check, where
+the two-sided form is correct.
+
+**5. E9 exact figure.** The largest two-sided |gap| on the E9 self-split is **1.18 pp** (GBM at
+80%, −1.1753 pp; `e9_machinery_validation`, F03), not "~1.1 pp" (2026-09-11 batch entry) or "≤ 1.1pp"
+(Gate 2 entry). Found while annotating, not separately instructed: the Gate 2 entry's one-sided "gaps
+≤0.8pp" is **0.82 pp** (GBM at 90%) per F03. It is recorded here; its in-place annotation is
+combined with the 1.18 pp one.
+
+**6. Hardcoded historical percentages in the 05c report.** `05c_threshold_analysis.ipynb` §7b prints
+"was 62.3% … was 54.2%" as literals (introduced at `6e8debd`). They are **historical values from
+the original-grid run at `c9f423f`**. They are **not regenerable from the current tables**, because
+the extended-grid run overwrote `e15c_selection`. The notebook and rendered report are not changed;
+correcting them requires a notebook edit and re-render, which is not instructed.
+
+**7. Two vulnerabilities recorded OPEN, with no code changes.**
+- **OPEN — `kc reproduce-all` is documented but not implemented.** `CLAUDE.md` §12 and
+  `SOFTWARE_ARCHITECTURE.md` §2 name it; `README.md` already states it is absent.
+- **OPEN — the Pc engine has never been cross-validated against an independent implementation.** Its
+  validation is against analytic geometries and the challenge's own reported risk values (E3, the
+  ±0.5 log10 tolerance) only.
+Both are listed [OPEN] in `REVIEWER_CHECKLIST.md`. Neither is acted on here.
+
+**Decided by:** Sidh (2026-10-01), recorded by Claude Code.
 
 
 ## Gate Outcomes

@@ -216,6 +216,7 @@ Grouped by module (module = unit of research function, not architecture).
 
 **Scientific (primary):**
 - S1. Empirical coverage of nominal 90% intervals within ±[power-analysis-determined margin] of nominal on held-out events — marginal, and per group where powered.
+  - *[AMENDMENT 2026-10-01: "within ±[margin] of nominal" is containment-style (two-sided) wording. Read literally, it would count a valid, conservative method as a failure. The final criteria name the question first. **Validity under shift** (the official, selection-biased test set) uses the one-sided conformal guarantee: **coverage ≥ nominal, tested on the CI upper bound**; over-coverage satisfies it. **Exactness on exchangeable data** (the unweighted self-split) uses the **two-sided band**, tested by CI containment of nominal. The power-analysis margin (±5.13 pp, Gate 1) remains the reported precision of the coverage estimate, not a two-sided pass/fail band. See DECISIONS.md, 2026-09-21 (methodological note, Part B) and 2026-10-01, item 4. The original wording above is retained.]*
 - S2. Demonstrated, quantified coverage gap between naive and selection-bias-weighted conformal on the official test set (the headline number).
 - S3. A monotone, interpretable sensitivity curve of coverage vs. covariance-scaling factor (Contribution 2's deliverable), or a well-characterized null.
 - S4. Decision-cost results at ≥2 lead times and ≥2 cost ratios, with calibrated methods dominating or matching uncalibrated baselines at equal alert budgets.
