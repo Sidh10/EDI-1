@@ -3161,6 +3161,68 @@ Both are listed [OPEN] in `REVIEWER_CHECKLIST.md`. Neither is acted on here.
 **Decided by:** Sidh (2026-10-01), recorded by Claude Code.
 
 
+### 2026-10-01 — PRE-REGISTRATION: E8 inclusion check (MC-dropout search under the base hash), written BEFORE the search runs
+
+**Status:** PRE-REGISTERED per Sidh's 2026-10-01 instruction, committed **before** any search runs.
+No MC-dropout cache exists under the base hash at the time of writing
+(`artifacts/search_cache/e8_mcdropout_00d1cb2ddd3bf10c_seed42.json` is absent).
+
+**(i) E8's original cached search (read-only record).**
+- **Path:** `artifacts/search_cache/e8_mcdropout_eb89df79f00cd6e5_seed42.json` (git-ignored;
+  SHA-256 `031bde6c8373acbe13514e5f18bfc3b4682bba67ed0d41f38cd48c14320d24f2`).
+- **Config hash:** `eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2`. This is the hash in
+  `reports/02_baselines_provenance.json`, E8's published run (commit `83df997`, 2026-08-31).
+- **Search:** 24 trials, 24 configs evaluated, selection split `val_inner`, seed 42; objective
+  "mean |empirical − nominal| coverage error (ITS OWN metric)"; 875.8 s wall-clock.
+- **best_params:** `{"hidden_size": 128, "num_layers": 1, "dropout": 0.2, "learning_rate": 0.01,
+  "batch_size": 128, "cell": "gru"}`.
+- **best_objective_value:** `0.02038586703858669`.
+- **Context, also read-only.** Three later MC-dropout caches at the same 2-day cutoff — `7d6ccea5…`,
+  `ce0f4e21…` and the E15 2-day horizon config `02b75edb…` — hold the identical `best_params` and
+  `best_objective_value`. The 3-day cache (`347d68f9…`) differs, but it ran at a different cutoff
+  and is not a comparison target. Recorded wall-clocks across all five caches are 310–1,051 s.
+  That is well under the "~3.5 h" figure in the 2026-09-21 H1 scope entry; the discrepancy is noted,
+  not resolved, and the run is monitored either way.
+
+**(ii) Prediction.** A search under the base hash
+`00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5` will reproduce (i) **exactly**:
+`best_params` dict-equal and `best_objective_value` float-equal after JSON parsing. This is what the
+three E15 re-searches (GBM, GRU, MC-dropout) did across a config-hash change.
+
+**How it is run and compared — no new machinery.** The search is triggered through the same call
+`base_predictions` makes:
+`cached_search(cfg, "e8_mcdropout", cfg.seed, lambda: search_mc_dropout(cfg, _seq_view(data), seed=cfg.seed))`,
+on `prepare_conformal_data(cfg, load_events(cfg))` under the base config. The driver is a thin
+script in the session scratchpad that only calls these library functions and writes nothing but the
+cache file. The comparison is the project's existing `decision_runner.search_integrity(cfg)`, which
+compares the new cache with every earlier cache at the same cutoff. **"Identical"** means
+`best_params_equal` and `objective_equal` are both True against the `eb89df79…` reference.
+
+**(iii) Decision rule — fixed now, applied mechanically.**
+- **Identical →** E8 joins H1, and the exclusion note is retired, replaced by a statement of
+  inclusion with this entry as its evidence. Then:
+  1. SHA-256 snapshot of every current `e17_*` table.
+  2. Extend `H1_LEARNERS` to persistence, gbm, gru and mc_dropout, and re-run E17 (`kc robustness`).
+  3. Before any new row is trusted, verify that every persistence/gbm/gru row in every H1 table is
+     identical to the snapshot under round-trip parsing (`float_precision="round_trip"`, 0 differing
+     cells). **Expected and pre-registered:** adding a learner cannot change those rows. The Holm
+     family is the single committed E11 McNemar p-value, the clipping check depends only on the
+     weights, and each cluster-bootstrap row is reseeded independently. The H2 and H3 tables do not
+     use MC-dropout and are expected **byte-identical**. Any difference stops the procedure and is
+     reported, not explained away.
+  4. Re-render, re-run `kc manuscript`, and list every artifact that changed and why. Expected: none
+     beyond exclusion notes. Update any caption or note that mentions the exclusion.
+- **Different →** report both parameter sets and objectives side by side. Keep the exclusion, with
+  its **true** rationale: no cache existed under the base hash, and a search under it selected
+  hyperparameters different from E8's. **No tuning, no second search, no E17 re-run.**
+
+**Failure handling.** A crash or an unexplained stall is reported as observed. Process state (PID,
+CPU) is inspected before anything is concluded stuck, and the run is not retried with different
+settings.
+
+**Pre-registered by:** Claude Code, per Sidh's 2026-10-01 instruction.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
