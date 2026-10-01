@@ -348,5 +348,35 @@ def robustness(
     typer.echo("[phase5] E17 report rendered. The checkpoint review is Sidh's (CLAUDE.md §13).")
 
 
+@app.command()
+def manuscript(
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+) -> None:
+    """E18: build every manuscript figure and table from the experiments' committed tables.
+
+    Writes ``reports/manuscript_figures/`` (PNG + PDF), ``reports/manuscript_tables/``
+    (CSV + Markdown), ``reports/manuscript_captions.md`` and
+    ``reports/manuscript_manifest.json`` (per-artifact source-table SHA-256 and the commit
+    that computed each experiment). Recomputes no experiment; fails loud on any
+    untraceable artifact. Holds the tables-directory lock so no run can rewrite a source
+    table mid-build.
+    """
+    import time as _time
+
+    from .manuscript import build_all
+    from .reporting import OutputLockError, output_lock
+
+    cfg = load_config(config)
+    run_id = f"e18-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            artifacts = build_all(cfg)
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
+    n_fig = sum(a.kind == "figure" for a in artifacts)
+    typer.echo(f"[E18] {n_fig} figures and {len(artifacts) - n_fig} tables built; captions in "
+               "reports/manuscript_captions.md, provenance in reports/manuscript_manifest.json.")
+
+
 if __name__ == "__main__":
     app()
