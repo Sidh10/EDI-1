@@ -1,7 +1,7 @@
 {
   "experiment": "E18 Part B — manuscript figures and tables",
   "command": "kc manuscript",
-  "builder_git_commit": "e9ffc4ebbce9df7e21261ceadbb0d44d13c17c57",
+  "builder_git_commit": "c69896fef023a7e400539a9c1b4955c8de60b3cd",
   "builder_tree_clean": true,
   "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
   "experiments": {
@@ -78,11 +78,11 @@
     },
     "E17": {
       "sidecar": "reports/06_robustness_provenance.json",
-      "git_commit_sha": "f53d27a7207896ee61c1419087a6aaeaa6230c28",
+      "git_commit_sha": "b1a2580e9e62eff5cf0ca078c4ea46d0e7fee887",
       "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
-      "executed_utc": null,
-      "established_by": "computing commit from DECISIONS.md 2026-09-21, E17 findings entry (the from-tables render sidecar names only the render); every table's SHA-256 checked against the render sidecar",
-      "rendered_git_sha": "33440cde43bfd63bfc844527430c20d42c9de81d"
+      "executed_utc": "2026-10-01T18:44:05.222884+00:00",
+      "established_by": "provenance sidecar of a recomputing run (its render commit is its computing commit)",
+      "note": "Re-run at b1a2580 with MC-dropout added to H1 (pre-registered E8 inclusion check, DECISIONS.md 2026-10-01). Every persistence/GBM/GRU row of every H1 table, and every H2/H3 table, is identical to the original run (f53d27a) under exact round-trip parsing, verified against a pre-run snapshot."
     },
     "E15b": {
       "sidecar": "reports/05b_rank_invariance_provenance.json",
@@ -166,7 +166,7 @@
         "figures/e8_calibration_audit.pdf": "88d1e8ddff7bcb771689fd46d1718fdb4717dec1c7a0fc986f10eb18b50131a1"
       },
       "notes": [
-        "NOT regenerable from tables: E8's per-event predictive distributions were never persisted. Rebuilding needs an MC-dropout refit, which under the current config hash requires a fresh 24-trial search (no cache). Traceable to the E8 run through its provenance sidecar."
+        "NOT regenerable from tables: E8's per-event predictive distributions were never persisted. Rebuilding needs an MC-dropout refit and a regenerated audit, which has not been done. Under the current config hash the refit would use cached hyperparameters: the 2026-10-01 search reproduced E8's exactly. Traceable to the E8 run through its provenance sidecar."
       ]
     },
     {
@@ -210,8 +210,8 @@
       ],
       "source_sha256": {
         "e9e11_coverage": "84fcddce2281891cad63b8ac607c69df8c65fbddb96a87fd16af48273b4e49a3",
-        "e17_h1_cluster_bootstrap": "7c0c0f9ffdc6bb22a75c02d8b9142356042a3b77fab8808cc93e6f9f101cc696",
-        "e17_h1_gate2_verdict": "c368a1663419d88cb2fd1a4abffdfe50d7f9b1ed447780aa49d5f31beafae317",
+        "e17_h1_cluster_bootstrap": "86399995c072d0eac3357e391cfae5c486e6f64584f53e52f649c9922ac7ca00",
+        "e17_h1_gate2_verdict": "c675f11656c1d6e3f5ee2f4014f677a0b6a93baee349468f2fe63fc81867c788",
         "e11_primary_mcnemar": "344ac700211760e4108a1a4e18d28a10abe0acec63ecd572d83421370c5fcbf7"
       },
       "notes": [

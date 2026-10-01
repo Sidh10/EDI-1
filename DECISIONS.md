@@ -3223,6 +3223,95 @@ settings.
 **Pre-registered by:** Claude Code, per Sidh's 2026-10-01 instruction.
 
 
+### 2026-10-01 — E8 inclusion check RESULT: identical → MC-dropout joins E17 H1; existing rows verified unchanged
+
+**Status:** REPORTED by Claude Code. The pre-registered decision rule (entry above, `145b10c`) was
+applied mechanically. Nothing was tuned, and no second search ran.
+
+**1. The search — prediction confirmed exactly.** It ran under base hash `00d1cb2d…` and took 941.6 s
+(989.8 s with data assembly), with no failures. It wrote
+`artifacts/search_cache/e8_mcdropout_00d1cb2ddd3bf10c_seed42.json` (SHA-256 `83c0a894…`):
+- `best_params`: `{"hidden_size": 128, "num_layers": 1, "dropout": 0.2, "learning_rate": 0.01,
+  "batch_size": 128, "cell": "gru"}`, identical to E8's;
+- `best_objective_value`: `0.02038586703858669`, identical to E8's;
+- `decision_runner.search_integrity`: `best_params_equal` and `objective_equal` both **True**
+  against all four same-cutoff caches (`eb89df79…` — E8's original — `7d6ccea5…`, `ce0f4e21…`,
+  `02b75edb…`).
+
+**The "~3.5 h" estimate in the 2026-09-21 H1 scope entry is not supported.** The search took about
+16 minutes, consistent with the 310–1,051 s recorded in every earlier MC-dropout cache.
+
+**2. Decision applied: E8 joins H1** (`b1a2580`). `H1_LEARNERS` adds `mc_dropout`, and the
+exclusion reason is retired (the constant is removed). `H1_SCOPE_NOTE` records both the
+2026-09-21 exclusion and this inclusion. The derived `e17_h1_excluded_learners` table keeps its
+name and now records MC-dropout with `included=True`. Tests that pinned the three-learner scope now
+pin the four-learner scope equally strictly. The wrong-run guard now refuses the superseded
+three-learner tables. The full suite passes.
+
+**3. Snapshot, re-run, verification — in that order.**
+- **Snapshot:** a SHA-256 snapshot of all 10 `e17_*` tables, the E17 figures, the 06 report and
+  sidecar, and all 72 manuscript artifact files was taken before the re-run.
+- **Re-run:** `kc robustness` at `b1a2580`, config `00d1cb2d…`, 2,290.0 s. No search ran (the
+  cache existed). The previous three-learner run took 2,873.2 s; the shorter time despite an added
+  learner is machine-speed variance.
+- **Verification (pre-registered), PASSED before any new row was read:**
+  - `e17_h1_clipping`, `e17_h1_multiple_comparison`, `e17_h2_coverage`, `e17_h2_per_seed`,
+    `e17_h3_association`, `e17_h3_overlap` and `e17_coverage_restoration_matrix` are
+    **byte-identical** (SHA-256), with 0 differing cells;
+  - `e17_h1_cluster_bootstrap` (36 → 48 rows) and `e17_h1_gate2_verdict` (18 → 24 rows): every
+    persistence/GBM/GRU row is identical, with **0 differing cells** under `float_precision="round_trip"`;
+  - the verifier was negative-controlled first: it detects a single 1-ULP float change and a single
+    string change.
+- **Like-for-like check (not pre-registered, added as a guard).** All 12 MC-dropout E17 coverages
+  (E10/E11 × one/two-sided × 3 levels) equal the published `e9e11_coverage` values to ≤ 1.11e-16.
+  That residual is seed-averaging summation order, the same 1-ULP class already documented for the
+  other learners. **This is the model E8 reported.**
+
+**4. New rows — MC-dropout, two-sided, final criterion.** RESTORED at every level, under both
+schemes:
+
+| nominal | naive → weighted | iid: naive CI upper; weighted CI | cluster: naive CI upper; weighted CI |
+|---|---|---|---|
+| 80% | 0.7603 → 0.7979 | 0.7774; [0.7826, 0.8133] | 0.7849; [0.7722, 0.8191] |
+| 90% | 0.8528 → 0.8963 | 0.8663; [0.8845, 0.9080] | 0.8705; [0.8819, 0.9092] |
+| 95% | 0.9166 → 0.9479 | 0.9272; [0.9395, 0.9562] | 0.9253; [0.9412, 0.9537] |
+
+- **Read precisely:** the weighted **point estimate is below nominal at all three levels** (−0.21,
+  −0.37 and −0.21 pp). "RESTORED" here means under-coverage is no longer established, not that
+  coverage reaches nominal. This is consistent with Gate 2's "within ~0.5pp of nominal".
+- **Scheme agreement:** primary criterion 8/9 → **11/12** (GBM at 80% remains the only fragile
+  cell); containment criterion 6/9 → 9/12.
+- **Cluster vs iid width:** the cluster interval is wider in 34/36 → **44/48** arms. For MC-dropout's
+  two-sided 95% arms it is narrower (width ratios 0.889 naive, 0.752 weighted).
+- **The Gate-2 headline (persistence) is untouched.**
+
+**5. Manuscript (`kc manuscript`, final build at `c69896f`, tree clean).** Of 72 files, **8
+changed**, all because of this inclusion:
+- **F04 PNG and PDF:** panel (b) gains MC-dropout.
+- **`F04_gate2_headline_robustness.csv`/`.md`:** six MC-dropout rows added.
+- **`F04_gate2_headline.md` and `F04_gate2_headline_primary_contrast.md`:** they embed the caption
+  (their CSVs are byte-identical). The caption now reads "12 learner × level cells … agree in 11",
+  and "MC-dropout was not refit … absent from (b)" is removed.
+- **`manuscript_captions.md` and `manuscript_manifest.json`:** the above; F06/F11/F04 "Computed by:
+  E17" changes from `f53d27a` to `b1a2580` (their F06/F11 figures and tables are byte-identical);
+  and the F02b note no longer claims a fresh search would be needed (it is still NOT regenerable
+  from tables).
+
+This is more than "exclusion notes only", as expected: F04(b) now carries a fourth learner.
+
+The first build **failed loud**: "E17: computing commit not established". The E18 builder handled
+E17's sidecar only as a from-tables render. A recomputing run names its commit as
+`rendered_git_sha`, which the builder now accepts explicitly, still failing if it is absent
+(`4dfa7d3`). `README.md` and the `REVIEWER_CHECKLIST.md` clustering item were updated to the
+new scope and counts.
+
+**Explicitly NOT decided here (Sidh's):** whether the manuscript's text or the reviewer-checklist
+triage should say more about MC-dropout's restoration than F04 now shows; whether F02b should be
+rebuilt now that the refit no longer needs a search; anything about manuscript drafting.
+
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
