@@ -1,0 +1,436 @@
+{
+  "experiment": "E18 Part B — manuscript figures and tables",
+  "command": "kc manuscript",
+  "builder_git_commit": "e9ffc4ebbce9df7e21261ceadbb0d44d13c17c57",
+  "builder_tree_clean": true,
+  "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
+  "experiments": {
+    "E1": {
+      "sidecar": "reports/00_data_audit_provenance.json",
+      "git_commit_sha": "5a309acaaaa17a604c7377d6b37e7266f027d7b1",
+      "config_hash": "9c732558d84be1f963bbfdcefa17f6c43d4a623a24d2bc250c1549e243ea2d5a",
+      "executed_utc": "2026-08-01T05:41:56.526442+00:00",
+      "established_by": "run predates the repository; traced to the initial commit, whose config/default.yaml hashes to the sidecar's config hash (checked at build time)"
+    },
+    "E6": {
+      "sidecar": "reports/02_baselines_provenance.json",
+      "git_commit_sha": "83df99748c7cddb5f1bda4192333bee35da5a378",
+      "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+      "executed_utc": "2026-08-31T13:32:07.195302+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E7": {
+      "sidecar": "reports/02_baselines_provenance.json",
+      "git_commit_sha": "83df99748c7cddb5f1bda4192333bee35da5a378",
+      "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+      "executed_utc": "2026-08-31T13:32:07.195302+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E8": {
+      "sidecar": "reports/02_baselines_provenance.json",
+      "git_commit_sha": "83df99748c7cddb5f1bda4192333bee35da5a378",
+      "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+      "executed_utc": "2026-08-31T13:32:07.195302+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E9": {
+      "sidecar": "reports/03_conformal_provenance.json",
+      "git_commit_sha": "a652396222d522b7ed3f786a48f783c18be899c1",
+      "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+      "executed_utc": "2026-09-11T04:42:26.840155+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E10": {
+      "sidecar": "reports/03_conformal_provenance.json",
+      "git_commit_sha": "a652396222d522b7ed3f786a48f783c18be899c1",
+      "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+      "executed_utc": "2026-09-11T04:42:26.840155+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E11": {
+      "sidecar": "reports/03_conformal_provenance.json",
+      "git_commit_sha": "a652396222d522b7ed3f786a48f783c18be899c1",
+      "config_hash": "eb89df79f00cd6e557691d084469b7be37056e7869690b0f83f8b91985e24be2",
+      "executed_utc": "2026-09-11T04:42:26.840155+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E12": {
+      "sidecar": "reports/03b_cqr_provenance.json",
+      "git_commit_sha": "dfb48a9aa1394e65a7d590c291f6fd713de18255",
+      "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
+      "executed_utc": "2026-09-21T18:41:42.615720+00:00",
+      "established_by": "provenance sidecar",
+      "note": "Re-run at dfb48a9 under config 00d1cb2d in E18 Part A; its tables are byte-identical to the original run (5422ccd, config eb89df79), verified against a pre-run snapshot."
+    },
+    "E14": {
+      "sidecar": "reports/04_labelnoise_provenance.json",
+      "git_commit_sha": "dc89c9ebe5586f69b10e53bec55dcebe677b3e57",
+      "config_hash": "30b803eb42abf9b8e44b04a05dd6767dca21271d6d9a3236a2ffc50ab91d4b68",
+      "executed_utc": "2026-09-15T09:24:16.554709+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E15": {
+      "sidecar": "reports/05_decision_cost_provenance.json",
+      "git_commit_sha": "94ed1870fe79444c438b78007e931d74d254cf1b",
+      "config_hash": "7d6ccea5c4ec57951fa4106bb11a9b8c60b80e4d112acfb693d43e7d3dd384b1",
+      "executed_utc": "2026-09-15T10:38:36.576319+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E17": {
+      "sidecar": "reports/06_robustness_provenance.json",
+      "git_commit_sha": "f53d27a7207896ee61c1419087a6aaeaa6230c28",
+      "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
+      "executed_utc": null,
+      "established_by": "computing commit from DECISIONS.md 2026-09-21, E17 findings entry (the from-tables render sidecar names only the render); every table's SHA-256 checked against the render sidecar",
+      "rendered_git_sha": "33440cde43bfd63bfc844527430c20d42c9de81d"
+    },
+    "E15b": {
+      "sidecar": "reports/05b_rank_invariance_provenance.json",
+      "git_commit_sha": "ab4c5d11fdeee47a16546d008b0ec243d41f1cd8",
+      "config_hash": "7d6ccea5c4ec57951fa4106bb11a9b8c60b80e4d112acfb693d43e7d3dd384b1",
+      "executed_utc": "2026-09-15T19:52:36.643101+00:00",
+      "established_by": "provenance sidecar"
+    },
+    "E15c": {
+      "sidecar": "reports/05c_threshold_analysis_provenance.json",
+      "git_commit_sha": "6e8debd5b1bc8b5478e0445443dbe1426f806d42",
+      "config_hash": "00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5",
+      "executed_utc": "2026-09-20T06:55:49.309647+00:00",
+      "established_by": "provenance sidecar",
+      "note": "Computed at 6e8debd; re-rendered from its computed tables in E18 Part A (display caveat only)."
+    }
+  },
+  "artifacts": [
+    {
+      "id": "F01_selection_bias",
+      "kind": "figure",
+      "title": "Selection bias: training pool vs official test set",
+      "experiments": [
+        "E1"
+      ],
+      "files": [
+        "reports/manuscript_figures/F01_selection_bias.png",
+        "reports/manuscript_figures/F01_selection_bias.pdf",
+        "reports/manuscript_tables/F01_selection_bias.csv",
+        "reports/manuscript_tables/F01_selection_bias.md",
+        "reports/manuscript_tables/F01_selection_bias_two_sample_tests.csv",
+        "reports/manuscript_tables/F01_selection_bias_two_sample_tests.md"
+      ],
+      "source_sha256": {
+        "e1_high_risk_prevalence": "6566d3ce8e491a39f01173bd4612de68795967e5c696bc9e09a7a2b4e7491ee2",
+        "e1_two_sample_tests": "1cb8a422315f173a3341b1d2d20078f952c1957c69efc6d057e7cbd3858ec839",
+        "e1_cutoff_rule_verification": "cd3047f8cb0a2ee59d27b0699035bb748f95cee6418e108fe16d31f6297e44ba"
+      },
+      "notes": [
+        "The histograms and recency shares are drawn from data/processed (read-only), after checking that the events reproduce E1's recorded counts, high-risk counts and train recency share."
+      ]
+    },
+    {
+      "id": "F02_bayesian_coverage",
+      "kind": "figure",
+      "title": "Bayesian baseline (E8): reliability on the official test set",
+      "experiments": [
+        "E8"
+      ],
+      "files": [
+        "reports/manuscript_figures/F02_bayesian_coverage.png",
+        "reports/manuscript_figures/F02_bayesian_coverage.pdf",
+        "reports/manuscript_tables/F02_bayesian_coverage.csv",
+        "reports/manuscript_tables/F02_bayesian_coverage.md",
+        "reports/manuscript_tables/F02_bayesian_coverage_pit_ks.csv",
+        "reports/manuscript_tables/F02_bayesian_coverage_pit_ks.md"
+      ],
+      "source_sha256": {
+        "e8_coverage_all": "181dba012188fe7237c078c9c4e6dadaa0f38c691ec82f30dde97d1777b04476",
+        "e8_coverage_summary": "579d516cf87382709cf2082c56b5b85e0319b919bc9b1b0010473be7c55d3a62",
+        "e8_pit_ks": "517370f2cec6d56ad76564c0b94e2c2d36815bdba9c1a3fc99769c9198ca8fe4",
+        "e1_high_risk_prevalence": "6566d3ce8e491a39f01173bd4612de68795967e5c696bc9e09a7a2b4e7491ee2"
+      },
+      "notes": [
+        "E8 recorded coverage and n but no interval; the Clopper–Pearson intervals are computed here from the recorded k/n, each k verified integral."
+      ]
+    },
+    {
+      "id": "F02b_bayesian_calibration_audit_as_rendered",
+      "kind": "figure",
+      "title": "E8 calibration audit (reliability, PIT, widths) as rendered by the E8 run",
+      "experiments": [
+        "E8"
+      ],
+      "files": [
+        "reports/manuscript_figures/F02b_bayesian_calibration_audit_as_rendered.png",
+        "reports/manuscript_figures/F02b_bayesian_calibration_audit_as_rendered.pdf"
+      ],
+      "source_sha256": {
+        "figures/e8_calibration_audit.png": "f718c9c15d6a8ecf2d82eb4b30208631ebad3d19f8e6bef831f4076ca9a0df38",
+        "figures/e8_calibration_audit.pdf": "88d1e8ddff7bcb771689fd46d1718fdb4717dec1c7a0fc986f10eb18b50131a1"
+      },
+      "notes": [
+        "NOT regenerable from tables: E8's per-event predictive distributions were never persisted. Rebuilding needs an MC-dropout refit, which under the current config hash requires a fresh 24-trial search (no cache). Traceable to the E8 run through its provenance sidecar."
+      ]
+    },
+    {
+      "id": "F03_machinery_validation",
+      "kind": "figure",
+      "title": "Machinery validation on the exchangeable self-split (E9), both sidednesses",
+      "experiments": [
+        "E9"
+      ],
+      "files": [
+        "reports/manuscript_figures/F03_machinery_validation.png",
+        "reports/manuscript_figures/F03_machinery_validation.pdf",
+        "reports/manuscript_tables/F03_machinery_validation.csv",
+        "reports/manuscript_tables/F03_machinery_validation.md"
+      ],
+      "source_sha256": {
+        "e9e11_coverage": "84fcddce2281891cad63b8ac607c69df8c65fbddb96a87fd16af48273b4e49a3"
+      },
+      "notes": [
+        "E9's recorded pass criterion was coverage tracking nominal (largest |gap| 1.18 pp in its report). The CI-contains-nominal column applies the project's exactness definition (robustness.consistent_with_exact_coverage) to the same table."
+      ]
+    },
+    {
+      "id": "F04_gate2_headline",
+      "kind": "figure",
+      "title": "Gate 2 headline: naive vs rule-weighted two-sided coverage, and its robustness to clustering",
+      "experiments": [
+        "E10",
+        "E11",
+        "E17"
+      ],
+      "files": [
+        "reports/manuscript_figures/F04_gate2_headline.png",
+        "reports/manuscript_figures/F04_gate2_headline.pdf",
+        "reports/manuscript_tables/F04_gate2_headline.csv",
+        "reports/manuscript_tables/F04_gate2_headline.md",
+        "reports/manuscript_tables/F04_gate2_headline_robustness.csv",
+        "reports/manuscript_tables/F04_gate2_headline_robustness.md",
+        "reports/manuscript_tables/F04_gate2_headline_primary_contrast.csv",
+        "reports/manuscript_tables/F04_gate2_headline_primary_contrast.md"
+      ],
+      "source_sha256": {
+        "e9e11_coverage": "84fcddce2281891cad63b8ac607c69df8c65fbddb96a87fd16af48273b4e49a3",
+        "e17_h1_cluster_bootstrap": "7c0c0f9ffdc6bb22a75c02d8b9142356042a3b77fab8808cc93e6f9f101cc696",
+        "e17_h1_gate2_verdict": "c368a1663419d88cb2fd1a4abffdfe50d7f9b1ed447780aa49d5f31beafae317",
+        "e11_primary_mcnemar": "344ac700211760e4108a1a4e18d28a10abe0acec63ecd572d83421370c5fcbf7"
+      },
+      "notes": [
+        "Panel (a) and the main table use E11's Clopper–Pearson intervals; panel (b) and the robustness table use E17's bootstrap intervals. E17's covered-event counts are checked to equal E11's exactly first (the floats can differ by one ULP from seed-averaging order). The superseded CI-containment verdict is deliberately not reproduced in the manuscript table."
+      ]
+    },
+    {
+      "id": "F05_one_sided_non_restoration",
+      "kind": "figure",
+      "title": "One-sided upper bounds: naive vs rule-weighted split conformal (learned models)",
+      "experiments": [
+        "E10",
+        "E11",
+        "E9"
+      ],
+      "files": [
+        "reports/manuscript_figures/F05_one_sided_non_restoration.png",
+        "reports/manuscript_figures/F05_one_sided_non_restoration.pdf",
+        "reports/manuscript_tables/F05_one_sided_non_restoration.csv",
+        "reports/manuscript_tables/F05_one_sided_non_restoration.md"
+      ],
+      "source_sha256": {
+        "e9e11_coverage": "84fcddce2281891cad63b8ac607c69df8c65fbddb96a87fd16af48273b4e49a3"
+      },
+      "notes": [
+        "Verdicts from robustness.restoration_verdict (the final one-sided criterion) applied per level. The Gate 2 record describes the one-sided result as non-restoration without a per-level breakdown; at 80% the final criterion gives 'no deficit to restore' for the naive arm while the weighted arm fails — reported in the E18 checkpoint (Part D), not silently reconciled."
+      ]
+    },
+    {
+      "id": "F06_cqr_adaptivity_and_weighting",
+      "kind": "figure",
+      "title": "CQR: adaptive widths, and the effect of rule-weighting on two- and one-sided coverage",
+      "experiments": [
+        "E12",
+        "E17"
+      ],
+      "files": [
+        "reports/manuscript_figures/F06_cqr_adaptivity_and_weighting.png",
+        "reports/manuscript_figures/F06_cqr_adaptivity_and_weighting.pdf",
+        "reports/manuscript_tables/F06_cqr_adaptivity_and_weighting.csv",
+        "reports/manuscript_tables/F06_cqr_adaptivity_and_weighting.md",
+        "reports/manuscript_tables/F06_cqr_adaptivity_and_weighting_widths.csv",
+        "reports/manuscript_tables/F06_cqr_adaptivity_and_weighting_widths.md"
+      ],
+      "source_sha256": {
+        "e12_adaptivity": "60a1b699e33096bcbd2da6bcec2470e64c638750c0a7c4bc90449cecbe870cf1",
+        "e12_widths": "08d2a9d3d75cf8d9f07522fca192fa7eee21578136eecacaa006e1e7430fd509",
+        "e12_coverage": "3951917979b7d23d331eabdd270a1060fec76411553e4a5352c1955aea58251c",
+        "e17_h2_coverage": "9043460f96c83f1c3e823a46f7475f12c0819c2873664f370a2e6b34d1882709",
+        "e17_h2_per_seed": "3b4d645d322795927ad0938bb48740dc49f1edab96d96a54ddf857cbceb56f68"
+      },
+      "notes": [
+        "Two-sided CQR from E12 (re-rendered and snapshot-verified bit-for-bit in E18 Part A); one-sided CQR from E17 H2. Panel (a) is the E12 median seed at the primary level (e12_adaptivity)."
+      ]
+    },
+    {
+      "id": "F07_label_noise_sensitivity",
+      "kind": "figure",
+      "title": "Label-noise sensitivity (E14)",
+      "experiments": [
+        "E14"
+      ],
+      "files": [
+        "reports/manuscript_figures/F07_label_noise_sensitivity.png",
+        "reports/manuscript_figures/F07_label_noise_sensitivity.pdf",
+        "reports/manuscript_tables/F07_label_noise_sensitivity.csv",
+        "reports/manuscript_tables/F07_label_noise_sensitivity.md",
+        "reports/manuscript_tables/F07_label_noise_sensitivity_trends.csv",
+        "reports/manuscript_tables/F07_label_noise_sensitivity_trends.md"
+      ],
+      "source_sha256": {
+        "e14_coverage": "8282d5d9d5bf63fdb6a2e5bfdca526fd5a4b24d51892981c0c8bf4b5a3d9a10b",
+        "e14_trend": "0dc9ba0d20918b2d0ff5af11d838d3053daab41e8f73cdef171eb1c61fff48d3"
+      },
+      "notes": [
+        "The size of the label shift the rescaling induces in the high-risk stratum (median |Δ| ≤ 0.12, 95th percentile ≤ 1.9 log-units; DECISIONS.md, E14 finding 3) was printed by the E14 run but never persisted as a table, so the caption states the caveat through table-backed quantities (the interval width, and the narrower methods' degradation) instead of quoting it."
+      ]
+    },
+    {
+      "id": "F08_high_risk_conditional_coverage",
+      "kind": "figure",
+      "title": "Marginal vs high-risk-conditional coverage (E14, s = 1)",
+      "experiments": [
+        "E14"
+      ],
+      "files": [
+        "reports/manuscript_figures/F08_high_risk_conditional_coverage.png",
+        "reports/manuscript_figures/F08_high_risk_conditional_coverage.pdf",
+        "reports/manuscript_tables/F08_high_risk_conditional_coverage.csv",
+        "reports/manuscript_tables/F08_high_risk_conditional_coverage.md"
+      ],
+      "source_sha256": {
+        "e14_conditional_coverage_anomaly_ci": "bfd0473611bfb78ad6c54c796bc8b44e6a625732f7c51c6a3968620be97eac67",
+        "e14_coverage": "8282d5d9d5bf63fdb6a2e5bfdca526fd5a4b24d51892981c0c8bf4b5a3d9a10b"
+      },
+      "notes": []
+    },
+    {
+      "id": "F09_rank_invariance",
+      "kind": "figure",
+      "title": "Rank invariance at a matched alert budget (E15)",
+      "experiments": [
+        "E15",
+        "E15b"
+      ],
+      "files": [
+        "reports/manuscript_figures/F09_rank_invariance.png",
+        "reports/manuscript_figures/F09_rank_invariance.pdf",
+        "reports/manuscript_tables/F09_rank_invariance.csv",
+        "reports/manuscript_tables/F09_rank_invariance.md",
+        "reports/manuscript_tables/F09_rank_invariance_matched_budget.csv",
+        "reports/manuscript_tables/F09_rank_invariance_matched_budget.md"
+      ],
+      "source_sha256": {
+        "e15_decision_cost_summary": "ca387dc5d2eb579501fb3b6e4f14a7a85d46e9c2b403fea26dc29b429c72ba3e",
+        "e15b_classification_verdicts": "e14ee55d2d7b04bc1cdb5db04c3ca1d66eea8b6e7e1ed6a0fd8dbc8df3f58b88",
+        "e15b_alerts": "cb99aa443a75d7c967a1b09dff756467992351c96f95ea374644873f9de25269",
+        "e15b_budgets": "e15f103806401e13baaeca9968f9b5c3986a7371295705f5c167e3db36481f94"
+      },
+      "notes": []
+    },
+    {
+      "id": "F10_threshold_operating_curves",
+      "kind": "figure",
+      "title": "Threshold-rule operating curves on the extended grid, 2- and 3-day lead times",
+      "experiments": [
+        "E15c"
+      ],
+      "files": [
+        "reports/manuscript_figures/F10_threshold_operating_curves.png",
+        "reports/manuscript_figures/F10_threshold_operating_curves.pdf",
+        "reports/manuscript_tables/F10_threshold_operating_curves.csv",
+        "reports/manuscript_tables/F10_threshold_operating_curves.md",
+        "reports/manuscript_tables/F10_threshold_operating_curves_grid.csv",
+        "reports/manuscript_tables/F10_threshold_operating_curves_grid.md",
+        "reports/manuscript_tables/F10_threshold_operating_curves_ceiling.csv",
+        "reports/manuscript_tables/F10_threshold_operating_curves_ceiling.md"
+      ],
+      "source_sha256": {
+        "e15c_operating_curves": "b67fa5017710ce57b2785d00a046da4962bd8416735ab8804685699891c5d891",
+        "e15c_decisions": "a4ad7210ad4bd2906d998ea0313c9a3d3d0d422b3bfa238a8296cf2be7538054",
+        "e15c_selection": "17d9f04bb35e7f75feab96f930e38a254ced8e1b585919fa136fe9f99ebf0023",
+        "e15c_grid": "26abea8f6b9c0906e4edd4cf18b4d4018a1946102bf74b24932486a4f16b0514",
+        "e15c_populations": "246ba4c994c241d7d023847c906ce7d7703277a3755f26e799ae78a50b03f75a",
+        "e15c_p1_checks": "4f7365015d2edb47a9e0bdbad6173a70e3a725acca2b0bd071c772a024e63d22"
+      },
+      "notes": [
+        "Pinning fractions are recomputed here from e15c_selection + e15c_grid (bound arms; selected threshold equal to the horizon's grid maximum); they reproduce the recorded 26.9% / 69.4% / 10.2% / 0.0% exactly.",
+        "The ORIGINAL grid's pinning (62.3% pooled; 62.7% primary read-out) is not regenerable from current tables: the extended-grid run overwrote e15c_selection. It is regenerable only by re-running E15 at c9f423f."
+      ]
+    },
+    {
+      "id": "F11_restoration_matrix",
+      "kind": "figure",
+      "title": "Where the selection-bias correction works: {split, CQR} × {two-sided, one-sided}",
+      "experiments": [
+        "E17",
+        "E11",
+        "E12"
+      ],
+      "files": [
+        "reports/manuscript_figures/F11_restoration_matrix.png",
+        "reports/manuscript_figures/F11_restoration_matrix.pdf",
+        "reports/manuscript_tables/F11_restoration_matrix.csv",
+        "reports/manuscript_tables/F11_restoration_matrix.md"
+      ],
+      "source_sha256": {
+        "e17_coverage_restoration_matrix": "594d424016083639a7c0fefc706d01325883417fb98272d57a6c520f56aae42d"
+      },
+      "notes": []
+    },
+    {
+      "id": "F12_validity_vs_exactness",
+      "kind": "figure",
+      "title": "Two questions, two forms: validity under shift vs exactness on exchangeable data",
+      "experiments": [
+        "E9",
+        "E10",
+        "E11"
+      ],
+      "files": [
+        "reports/manuscript_figures/F12_validity_vs_exactness.png",
+        "reports/manuscript_figures/F12_validity_vs_exactness.pdf",
+        "reports/manuscript_tables/F12_validity_vs_exactness.csv",
+        "reports/manuscript_tables/F12_validity_vs_exactness.md"
+      ],
+      "source_sha256": {
+        "e9e11_coverage": "84fcddce2281891cad63b8ac607c69df8c65fbddb96a87fd16af48273b4e49a3",
+        "e9e11_diagnostics": "8041c1850210f3ec107ff7c85038fc55ccdafc6da0e6567e2399f46599e46d2a"
+      },
+      "notes": []
+    },
+    {
+      "id": "T13_five_manifestations",
+      "kind": "table",
+      "title": "One dataset property, five independently measured consequences (qualitative)",
+      "experiments": [
+        "E1",
+        "E6",
+        "E7",
+        "E14",
+        "E15",
+        "E15c"
+      ],
+      "files": [
+        "reports/manuscript_tables/T13_five_manifestations.csv",
+        "reports/manuscript_tables/T13_five_manifestations.md"
+      ],
+      "source_sha256": {
+        "e1_high_risk_prevalence": "6566d3ce8e491a39f01173bd4612de68795967e5c696bc9e09a7a2b4e7491ee2",
+        "e678_final_comparison": "46103d6938eadf88679447fa3b9ae79ca32abcc0afc9aea1e5e22ab8328357b9",
+        "e14_conditional_coverage_anomaly_ci": "bfd0473611bfb78ad6c54c796bc8b44e6a625732f7c51c6a3968620be97eac67",
+        "e15_decision_cost_summary": "ca387dc5d2eb579501fb3b6e4f14a7a85d46e9c2b403fea26dc29b429c72ba3e",
+        "e15c_grid": "26abea8f6b9c0906e4edd4cf18b4d4018a1946102bf74b24932486a4f16b0514",
+        "e15c_selection": "17d9f04bb35e7f75feab96f930e38a254ced8e1b585919fa136fe9f99ebf0023"
+      },
+      "notes": [
+        "Row 4's original pinning magnitude (62.3% of bound selections) is recorded in DECISIONS.md but not regenerable from current tables (the extended-grid run overwrote them), so it is not printed."
+      ]
+    }
+  ]
+}
