@@ -80,16 +80,16 @@ def test_h1_cluster_bootstrap_is_wider_or_equal_and_reports_its_clusters(assembl
     cb = res["cluster_bootstrap"]
     assert len(cb) == len(levels) * len(RR.H1_LEARNERS) * 2 * 2   # levels x learners x method x side
     assert set(cb["learner"]) == set(RR.H1_LEARNERS)
-    assert "mc_dropout" not in set(cb["learner"])          # the disclosed exclusion
+    assert "mc_dropout" in set(cb["learner"])              # included 2026-10-01 (E8 inclusion check)
     assert (cb["n_clusters"] == N_MISSIONS).all()
     assert (cb["n_events"] == N_TEST).all()
     # Both schemes estimate the SAME coverage point; only the interval differs.
     assert cb["coverage"].between(0.0, 1.0).all()
     assert (cb["cluster_half_width"] > 0).all() and (cb["iid_half_width"] > 0).all()
     assert res["meta"]["cluster_variable"] == "mission_id"
-    assert res["meta"]["h1_excluded_learners"] == ["mc_dropout"]
+    assert res["meta"]["h1_excluded_learners"] == []
     ex = res["excluded_learners"]
-    assert list(ex["learner"]) == ["mc_dropout"] and not ex["included"].any()
+    assert list(ex["learner"]) == ["mc_dropout"] and ex["included"].all()
     assert "E8" in ex["reason"].iloc[0]
 
 
@@ -253,6 +253,7 @@ def test_load_e17_rederives_exactly_what_the_computing_run_holds(assembled, monk
     pd.testing.assert_frame_equal(loaded["h1_gate2_verdict"].reset_index(drop=True),
                                   live.reset_index(drop=True))
     assert list(loaded["h1_excluded_learners"]["learner"]) == ["mc_dropout"]
+    assert loaded["h1_excluded_learners"]["included"].all()
 
 
 def test_load_e17_refuses_tables_from_the_wrong_run(assembled, monkeypatch, tmp_path):
@@ -261,9 +262,9 @@ def test_load_e17_refuses_tables_from_the_wrong_run(assembled, monkeypatch, tmp_
     monkeypatch.setattr(cfg.__class__, "path", lambda self, k: tmp_path, raising=False)
     _write_e17_tables(cfg, data, weights, events, fitted, seeds, tmp_path)
     cb = pd.read_csv(tmp_path / "e17_h1_cluster_bootstrap.csv", index_col=0)
-    extra = cb[cb["learner"] == "gbm"].assign(learner="mc_dropout")      # the aborted first launch
-    pd.concat([cb, extra]).to_csv(tmp_path / "e17_h1_cluster_bootstrap.csv")
-    with pytest.raises(ValueError, match="not the scope-restricted run"):
+    # The superseded three-learner run (2026-09-21) must not pass as the current one.
+    cb[cb["learner"] != "mc_dropout"].to_csv(tmp_path / "e17_h1_cluster_bootstrap.csv")
+    with pytest.raises(ValueError, match="not a run over the current H1 learner set"):
         RR.load_e17(cfg)
 
 

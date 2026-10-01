@@ -154,13 +154,20 @@ def test_base_predictions_rejects_unknown_or_empty_learner_sets():
         base_predictions(None, dummy, 42, learners=())
 
 
-def test_h1_learner_set_excludes_mc_dropout_and_says_why():
-    """The exclusion must be machine-readable, not just prose in a log."""
+def test_h1_learner_set_includes_mc_dropout_and_records_why():
+    """The scope, and its history, must be machine-readable, not just prose in a log.
+
+    MC-dropout was excluded on 2026-09-21 and included on 2026-10-01 by the pre-registered
+    E8 inclusion check (DECISIONS.md); the note must say both, and cite the evidence.
+    """
     from kelvins_conformal.models import robustness_runner as RR
 
-    assert RR.H1_LEARNERS == ("persistence", "gbm", "gru")
-    assert RR.H1_EXCLUDED_LEARNERS == ("mc_dropout",)
-    assert "E8" in RR.H1_EXCLUSION_REASON and "config hash" in RR.H1_EXCLUSION_REASON
+    assert RR.H1_LEARNERS == ("persistence", "gbm", "gru", "mc_dropout")
+    assert RR.H1_EXCLUDED_LEARNERS == ()
+    assert RR.H1_SCOPE_CHANGED_LEARNERS == ("mc_dropout",)
+    assert "E8" in RR.H1_SCOPE_NOTE and "config hash" in RR.H1_SCOPE_NOTE
+    assert "2026-10-01" in RR.H1_SCOPE_NOTE and "eb89df79" in RR.H1_SCOPE_NOTE
+    assert not hasattr(RR, "H1_EXCLUSION_REASON")      # the unsupported rationale is retired
 
 
 # --- restoration_verdict: the corrected one-sided criterion (Sidh, 2026-09-21) --------

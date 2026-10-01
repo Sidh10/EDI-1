@@ -54,19 +54,29 @@ from .decision_runner import _append, _fit_upper_heads
 
 # The five manifestations of the Phase-2 train/test high-risk imbalance, in the order
 # the Observations Log records them (DECISIONS.md 2026-09-20, updated 2026-09-21).
-# H1's robustness checks are scoped to these learners (Sidh, 2026-09-21). MC-dropout /
-# E8 is EXCLUDED: its hyperparameters were never cached under the current config hash, and
-# re-searching now would fit a different model from the one E8 published, breaking
-# like-for-like comparison with E8's own findings. The exclusion is reported in the E17
-# output itself, not only in DECISIONS.md.
-H1_LEARNERS: tuple[str, ...] = ("persistence", "gbm", "gru")
-H1_EXCLUDED_LEARNERS: tuple[str, ...] = ("mc_dropout",)
-H1_EXCLUSION_REASON = (
-    "MC-dropout (the E8 Bayesian arm) is excluded from E17's H1 robustness checks: no "
-    "e8_mcdropout hyperparameter cache exists under the current config hash, and running a "
-    "fresh search would select hyperparameters E8 never used, so the arm would no longer be "
-    "the model E8 reported (Sidh, 2026-09-21). H2 and H3 do not depend on this arm."
+# H1's robustness checks cover these learners. MC-dropout / E8 was excluded on 2026-09-21
+# (no search cache under the current config hash) and included on 2026-10-01, by the
+# pre-registered E8 inclusion check: the search under the current hash reproduced E8's
+# original best_params and objective exactly, so the arm is the model E8 published. The
+# scope history is reported in the E17 output itself, not only in DECISIONS.md.
+H1_LEARNERS: tuple[str, ...] = ("persistence", "gbm", "gru", "mc_dropout")
+H1_EXCLUDED_LEARNERS: tuple[str, ...] = ()
+# Learners whose H1 scope was ever changed, each recorded with its current status.
+H1_SCOPE_CHANGED_LEARNERS: tuple[str, ...] = ("mc_dropout",)
+H1_SCOPE_NOTE = (
+    "MC-dropout (the E8 Bayesian arm) is included in E17's H1 robustness checks. It was first "
+    "excluded (Sidh, 2026-09-21) because no e8_mcdropout hyperparameter cache existed under the "
+    "current config hash. The pre-registered E8 inclusion check (DECISIONS.md, 2026-10-01) ran "
+    "that search, and it reproduced E8's original best_params and objective exactly (reference "
+    "cache eb89df79), so the arm is the model E8 reported. H2 and H3 do not depend on this arm."
 )
+
+
+def _h1_scope_table() -> pd.DataFrame:
+    """One row per learner whose H1 scope changed, with its current inclusion and why."""
+    return pd.DataFrame([{"learner": lrn, "scope": "H1 robustness checks",
+                          "included": lrn in H1_LEARNERS, "reason": H1_SCOPE_NOTE}
+                         for lrn in H1_SCOPE_CHANGED_LEARNERS])
 
 MANIFESTATIONS = (
     ("M1", "point-prediction collapse (E6/E7)", "event"),
@@ -255,16 +265,14 @@ def run_h1(cfg: Config, *, seeds=None, n_boot: int | None = None, data=None, wei
                         n_tests_in_family=holm["n_tests"], check="multiple_comparison",
                         holm_is_identity=bool(holm["n_tests"] == 1))
 
-    excluded_tab = pd.DataFrame([{"learner": lrn, "scope": "H1 robustness checks",
-                                  "included": False, "reason": H1_EXCLUSION_REASON}
-                                 for lrn in H1_EXCLUDED_LEARNERS])
+    excluded_tab = _h1_scope_table()
     return {"cluster_bootstrap": cluster_tab, "gate2_verdict": verdict_tab,
             "clipping": clip_tab, "multiple_comparison": mc_tab, "excluded_learners": excluded_tab,
             "meta": {"primary_level": primary, "n_clusters": int(np.unique(clusters).size),
                      "n_supported_events": int(sup.sum()), "cluster_variable": "mission_id",
                      "h1_learners": list(H1_LEARNERS),
                      "h1_excluded_learners": list(H1_EXCLUDED_LEARNERS),
-                     "h1_exclusion_reason": H1_EXCLUSION_REASON,
+                     "h1_scope_note": H1_SCOPE_NOTE,
                      "p_value_column": pcol}}
 
 
@@ -657,11 +665,12 @@ def load_e17(cfg: Config) -> dict:
 
     levels = [cfg.power.nominal_coverage_primary, *cfg.power.nominal_coverage_secondary]
     cb = res["h1_cluster_bootstrap"]
-    # Consistency: these must be the tables of the scope-restricted run (Sidh, 2026-09-21),
-    # at this configuration's levels — not the aborted first launch, not another config.
+    # Consistency: these must be the tables of a run over exactly H1_LEARNERS, at this
+    # configuration's levels — not the superseded three-learner run (2026-09-21), not the
+    # aborted first launch, not another config.
     if set(cb["learner"]) != set(H1_LEARNERS):
         raise ValueError(f"h1_cluster_bootstrap covers {sorted(set(cb['learner']))}, expected "
-                         f"{sorted(H1_LEARNERS)}; these are not the scope-restricted run's tables")
+                         f"{sorted(H1_LEARNERS)}; these are not a run over the current H1 learner set")
     if set(np.round(cb["nominal"], 6)) != set(np.round(levels, 6)):
         raise ValueError(f"table levels {sorted(set(cb['nominal']))} != config levels {sorted(levels)}")
     if set(np.round(res["h2_coverage"]["nominal"], 6)) != set(np.round(levels, 6)):
@@ -686,9 +695,7 @@ def load_e17(cfg: Config) -> dict:
         "h1_gate2_verdict": verdict,
         "h1_clipping": res["h1_clipping"],
         "h1_multiple_comparison": mc,
-        "h1_excluded_learners": pd.DataFrame([{"learner": lrn, "scope": "H1 robustness checks",
-                                               "included": False, "reason": H1_EXCLUSION_REASON}
-                                              for lrn in H1_EXCLUDED_LEARNERS]),
+        "h1_excluded_learners": _h1_scope_table(),
         "h2_coverage": res["h2_coverage"],
         "h2_per_seed": res["h2_per_seed"],
         "coverage_restoration_matrix": matrix,
@@ -704,7 +711,7 @@ def load_e17(cfg: Config) -> dict:
                    "n_clusters": int(cb["n_clusters"].iloc[0]), "n_supported_events": n_events,
                    "cluster_variable": "mission_id", "h1_learners": list(H1_LEARNERS),
                    "h1_excluded_learners": list(H1_EXCLUDED_LEARNERS),
-                   "h1_exclusion_reason": H1_EXCLUSION_REASON, "p_value_column": pcol},
+                   "h1_scope_note": H1_SCOPE_NOTE, "p_value_column": pcol},
             "h3": {"n_events": n_events, "diagnostic": "signed GBM point residual y - yhat",
                    "event_level_manifestations": int((assoc["level_declared"] == "event").sum()),
                    "instrument_level_manifestations": int((assoc["level_declared"] == "instrument").sum())},
