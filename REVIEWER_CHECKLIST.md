@@ -48,7 +48,7 @@
 
 ### S2. "Events are not independent — the same objects recur. Your bootstrap is invalid." — *R-B*
 - **Why they ask:** Standard bootstrap CIs assume independence; conjunction events cluster by mission.
-- **Defense:** Event-level bootstrap is primary; a mission-level cluster bootstrap (18 missions, largest cluster 16.1% of events) was run as a pre-specified robustness check in E17. Clustering widens intervals, as expected — 34 of 36 arms are wider under the cluster scheme — and the Gate 2 headline survives: persistence's weighted interval lies wholly above nominal under *both* schemes. Verdicts agree in 8 of 9 learner × level cells; the one disagreement (GBM at 80%) is reported as a wider interval failing to establish under-coverage, not as improved coverage.
+- **Defense:** Event-level bootstrap is primary; a mission-level cluster bootstrap (18 missions, largest cluster 16.1% of events) was run as a pre-specified robustness check in E17. Clustering widens intervals, as expected — 44 of 48 arms are wider under the cluster scheme — and the Gate 2 headline survives: persistence's weighted interval lies wholly above nominal under *both* schemes. Verdicts agree in 11 of 12 learner × level cells (persistence, GBM, GRU and MC-dropout; MC-dropout added 2026-10-01 after a pre-registered check, with the other learners' rows verified unchanged); the one disagreement (GBM at 80%) is reported as a wider interval failing to establish under-coverage, not as improved coverage.
 - **Evidence:** F04(b) and its robustness table; E17 H1.
 
 ### S3. "With dozens of coverage comparisons, some will look significant by chance." — *R-B*

@@ -67,7 +67,7 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
       pre-registered before the re-run. Everything read at −6 is unchanged and P1a/P1b/P1c stay exactly 0; pinning on the primary
       deployable read-out fell to 26.9%, while the rule-weighted variant remains censored at 69.4% — disclosed, not corrected post hoc.
   - **E17 robustness & gap closure: CLOSED** (`kc robustness`; `--from-tables` re-renders without recomputing).
-    - H1 scoped to persistence/GBM/GRU. MC-dropout/E8 is excluded because it has no hyperparameter cache under the current config hash; the exclusion is disclosed in the report.
+    - H1 covers persistence/GBM/GRU/MC-dropout. MC-dropout/E8 was first excluded (no hyperparameter cache under the current config hash) and was included on 2026-10-01 after a pre-registered check showed the search reproduces E8's hyperparameters exactly. The original rows were verified unchanged, and the scope history is disclosed in the report.
     - The coverage-restoration criterion was corrected to the one-sided guarantee (coverage ≥ nominal). Under it, the Gate-2 headline passes the mission-level cluster-bootstrap check.
     - Rule-weighting restores 1 of the 4 {split, CQR} × {two-, one-sided} cells.
     - H3's shared-mechanism test is circular by construction, so it falls back to the honest null.

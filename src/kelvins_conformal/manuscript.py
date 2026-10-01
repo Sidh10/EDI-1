@@ -128,16 +128,22 @@ PROVENANCE_FILE = {
 # must hash to the value E1's sidecar recorded.
 PRE_GIT_COMMIT = {"E1": "5a309ac"}
 
-# E17's sidecar comes from a from-tables re-render (33440cd), which predates the
-# ``computed_by`` convention, so it names only the render. The computing run's commit is
-# the one DECISIONS.md records; it is checked to exist, and the sidecar's per-table
-# SHA-256 is checked against the tables read today.
+# E17's notebook sidecar predates the ``computed_by`` convention and names only its render
+# (``rendered_git_sha``). Two cases, each established explicitly:
+# - a from-tables re-render (``recomputed: false``, e.g. 33440cd): the computing commit is the
+#   one DECISIONS.md records; it is checked to exist, and the sidecar's per-table SHA-256 is
+#   checked against the tables read today;
+# - a recomputing run (``recomputed: true``, e.g. b1a2580, the 2026-10-01 E8 inclusion re-run):
+#   the render IS the computation, so the render commit is the computing commit.
 RECORDED_COMPUTING_COMMIT = {"E17": ("f53d27a", "DECISIONS.md 2026-09-21, E17 findings entry")}
 
 PROVENANCE_NOTES = {
     "E12": "Re-run at dfb48a9 under config 00d1cb2d in E18 Part A; its tables are byte-identical to the original "
            "run (5422ccd, config eb89df79), verified against a pre-run snapshot.",
     "E15c": "Computed at 6e8debd; re-rendered from its computed tables in E18 Part A (display caveat only).",
+    "E17": "Re-run at b1a2580 with MC-dropout added to H1 (pre-registered E8 inclusion check, DECISIONS.md "
+           "2026-10-01). Every persistence/GBM/GRU row of every H1 table, and every H2/H3 table, is identical to "
+           "the original run (f53d27a) under exact round-trip parsing, verified against a pre-run snapshot.",
 }
 
 
@@ -178,6 +184,12 @@ def _provenance(reports: Path, exp: str) -> dict:
                    rendered_git_sha=p.get("rendered_git_sha"), executed_utc=None,
                    established_by=(f"computing commit from {where} (the from-tables render sidecar names only the "
                                    f"render); every table's SHA-256 checked against the render sidecar"))
+    if exp in RECORDED_COMPUTING_COMMIT and not computed and p.get("recomputed") is True:
+        if not p.get("rendered_git_sha"):
+            raise ValueError(f"{exp}: a recomputing run's sidecar names no commit")
+        out.update(git_commit_sha=_git("rev-parse", p["rendered_git_sha"] + "^{commit}"),
+                   executed_utc=p.get("rendered_utc"),
+                   established_by="provenance sidecar of a recomputing run (its render commit is its computing commit)")
     if exp in PROVENANCE_NOTES:
         out["note"] = PROVENANCE_NOTES[exp]
     return out
@@ -468,8 +480,8 @@ def build_f02_bayesian(b: Builder) -> None:
     b.register(art)
 
     # 2b: the E8 run's own figure, carried verbatim. Its per-event predictive distributions were
-    # never persisted, so it cannot be rebuilt from tables; refitting MC-dropout under the
-    # current config hash would need a fresh 24-trial search. Disclosed, not hidden.
+    # never persisted, so it cannot be rebuilt from tables; rebuilding needs an MC-dropout refit
+    # and a regenerated audit, which has not been done. Disclosed, not hidden.
     art2 = Artifact("F02b_bayesian_calibration_audit_as_rendered", "figure",
                     "E8 calibration audit (reliability, PIT, widths) as rendered by the E8 run", ("E8",))
     b.fig_dir.mkdir(parents=True, exist_ok=True)
@@ -486,8 +498,9 @@ def build_f02_bayesian(b: Builder) -> None:
                     "histogram (non-uniform) and interval widths. Carried verbatim from the E8 run, not rebuilt, "
                     "and not restyled.")
     art2.notes.append("NOT regenerable from tables: E8's per-event predictive distributions were never persisted. "
-                      "Rebuilding needs an MC-dropout refit, which under the current config hash requires a fresh "
-                      "24-trial search (no cache). Traceable to the E8 run through its provenance sidecar.")
+                      "Rebuilding needs an MC-dropout refit and a regenerated audit, which has not been done. Under the "
+                      "current config hash the refit would use cached hyperparameters: the 2026-10-01 search reproduced "
+                      "E8's exactly. Traceable to the E8 run through its provenance sidecar.")
     b.register(art2)
 
 
@@ -651,8 +664,7 @@ def build_f04_gate2_headline(b: Builder) -> None:
              "and the cluster verdict passes only because its wider interval can no longer establish under-coverage"
            if fragile else "")
         + ". Verdict: RESTORED iff the naive interval's upper bound is below nominal and the weighted one's is not — "
-          "the one-sided guarantee, coverage ≥ 1 − α, so over-coverage satisfies it. MC-dropout was not refit for "
-          "E17's robustness check and is absent from (b).")
+          "the one-sided guarantee, coverage ≥ 1 − α, so over-coverage satisfies it.")
     b.save_figure(art, fig)
     b.save_table(art, pd.DataFrame(rows))
     rv = verdict.copy()
