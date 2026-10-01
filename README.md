@@ -72,7 +72,20 @@ _Updated at every gate. See `DECISIONS.md` for the authoritative log._
     - Rule-weighting restores 1 of the 4 {split, CQR} × {two-, one-sided} cells.
     - H3's shared-mechanism test is circular by construction, so it falls back to the honest null.
     - A pre-E18 audit of every coverage verdict is logged as a standing methodological note in `DECISIONS.md`: validity under shift is one-sided, while exactness on exchangeable data is two-sided. The audit's one latent finding (E12) is fixed, and no verdict changed.
-  - **E18:** not started.
+  - **E18 final consolidation: executed; the checkpoint is with Sidh.**
+    - The two deferred display fixes are done and verified: E15 re-rendered from its computed tables
+      (all 10 byte-identical; the 8 display tables differ only in the caveat), and E12 recomputed under the
+      current config hash after a snapshot check confirmed all five of its published tables reproduce
+      **byte-for-byte**. No value changed in either.
+    - `kc manuscript` builds all 13 manuscript figures and the qualitative five-manifestation table from the
+      experiments' committed tables, with captions generated from the data, one definition per coverage
+      criterion, and a provenance manifest (`reports/manuscript_manifest.json`) giving each artifact's source
+      tables and the commit that computed them. A test rebuilds the whole set twice and requires identical bytes.
+    - `REVIEWER_CHECKLIST.md` is substantively revised against the completed evidence, with a re-ranked triage
+      list and four open vulnerabilities named (no `kc reproduce-all`; no clean-machine reproduction; no
+      related-work table; no independent cross-validation of the Pc engine).
+    - The final consistency audit found **no stale number in any manuscript-bound artifact**; seven findings in
+      the record, the governing documents and the code are reported in `DECISIONS.md`, not fixed.
 
 ## Reproducibility
 

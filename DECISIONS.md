@@ -2844,6 +2844,184 @@ artifacts remain, **both correct in every value**, and both are candidates for E
 **Recorded by:** Claude Code.
 
 
+### 2026-09-22 — E18 (final manuscript consolidation): deferred fixes verified, artifact set built, checklist revised, audit findings reported
+
+**Status:** REPORTED by Claude Code, under the revised E18 specification (merged `bbbd8c7`). Parts A–D
+executed in full. **No decision is taken here.** Part D's findings are reported, not fixed.
+
+---
+
+**Part A — the two deferred display fixes, both verified before anything was reused.**
+
+**A.1 — E15's stale grid caveat (`e5501f2`).** No from-tables path existed, so one was built:
+`threshold_runner.load_threshold_analysis` loads the 10 computed `e15c_*` tables exactly
+(`float_precision="round_trip"`), checks them against the config (horizons, levels, populations,
+extended grid) and refuses the original pre-extension grid; `kc decision --only threshold
+--from-tables` re-renders displays only. Verified:
+- all **10 computed tables byte-identical** before and after (SHA-256);
+- the 8 derived display tables that changed differ **only** in the caveat — restoring the old caveat
+  text into the new files reproduces each pre-render SHA-256 **exactly**;
+- the stale sentence is absent from every non-smoke table and from the rendered report.
+Recompute cost: zero. The `e15c_smoke_*` tables still carry the old caveat; they are a smoke run whose
+numbers are explicitly not findings, and are not manuscript-bound.
+
+**A.2 — E12's stale header, with snapshot verification first (`993f44a`).** `03b_cqr.ipynb` recomputes
+E12, so it was re-run (~21 min) under config `00d1cb2d` where E12 originally ran under `eb89df79` at
+`5422ccd`. **Before any number from the re-run was reused**, it was checked against a pre-run snapshot:
+- `e12_coverage`, `e12_coverage_all`, `e12_cqr_selftest`, `e12_width_efficiency`, `e12_widths`:
+  **byte-identical** (SHA-256) and **0 differing cells** under exact round-trip parsing;
+- PNG figures byte-identical; PDFs identical apart from `/CreationDate`;
+- the report's text differs only in the provenance stamp, the committed code, the new
+  `e12_adaptivity` save (`dfb48a9`), and the two corrected header wordings.
+E12 therefore reproduces bit-for-bit across a config-hash change, which is also the strongest
+determinism evidence the project has (RP3).
+
+---
+
+**Part B — the manuscript artifact set (`e9ffc4e`, manifest `018465d`).**
+
+`kc manuscript` builds **13 figures and 1 table** from the experiments' committed tables (plus the
+frozen processed events, for E1's two histograms only), writing `reports/manuscript_figures/`,
+`reports/manuscript_tables/`, `reports/manuscript_captions.md` and `reports/manuscript_manifest.json`.
+Properties that are enforced in code rather than asserted:
+
+- **Captions are generated from the data, and checked before they are written.** Every directional
+  claim a caption makes passes a `_require` check against the source tables first, so a caption cannot
+  state what the data does not show. Seven caption claims were tightened during review after reading
+  them against the tables (e.g. "the rule-weighted version does not under-cover" → "its under-coverage
+  is not established"; the E14 width caveat restated through table-backed widths; the E8 marginal-vs-
+  conditional sentence corrected, because rule-weighted CQR fails the marginal guarantee too).
+- **One definition per criterion.** All verdicts come from `robustness.meets_coverage_guarantee`,
+  `consistent_with_exact_coverage` and `restoration_verdict`, so the manuscript cannot state a
+  criterion differently from the experiment that computed it. E17's matrix verdicts are re-derived at
+  build time and must match the committed table.
+- **Exact reads.** Every table is read with `float_precision="round_trip"`.
+- **The circular H3 statistics cannot be reached.** `Builder.table` refuses any `e17_h3_*` table; the
+  five-manifestation table (T13) is qualitative, and a test asserts the prefix appears exactly once in
+  the module (the guard itself).
+- **Traceability or failure.** The build fails loud on any artifact without an experiment, a source
+  table, an output file or a caption, and on any experiment whose computing commit cannot be
+  established. E1 predates the repository, so its commit is traced to the initial commit `5a309ac` by
+  checking at build time that that commit's `config/default.yaml` hashes to E1's recorded config hash;
+  E17's from-tables sidecar names only its render (`33440cd`), so the computing commit is taken from
+  this log (`f53d27a`) and every E17 table's SHA-256 is checked against that sidecar.
+- **Determinism.** A test builds the whole set twice and requires byte-identical output, figures
+  included; figure metadata carries no timestamps.
+- **Two derivations are disclosed**, in the manifest and in the captions: Clopper–Pearson intervals for
+  E8 (which recorded coverage and n but no interval; every implied k verified integral), and E1's
+  histograms, drawn from the processed events after checking they reproduce E1's recorded counts.
+- **One artifact is not regenerable and says so:** F02b carries the E8 run's calibration-audit figure
+  verbatim, because E8's per-event predictive distributions were never persisted; rebuilding it needs
+  an MC-dropout refit, which under the current hash requires a fresh 24-trial search.
+
+Per the E18 spec: the completed 2×2 restoration matrix under the final criterion (F11), the
+validity-vs-exactness explanatory figure (F12), and the five-manifestation narrative as a
+**qualitative** table (T13) are all built; **no statistic of any kind was computed across the five
+manifestations**, and no H3 table was read.
+
+---
+
+**Part C — `REVIEWER_CHECKLIST.md` substantively revised (`8870ae4`).**
+
+Revised after reading the Phase 2–5 entries of this log in full. M5, EV2, EV3, M4 and X4 were rewritten
+around the evidence that now exists; M1 was confirmed and **re-framed as a weaker position than
+drafted** (the two weight specifications disagree by γ̂ ≈ 1.04e6, so the planned "agreement proves
+completeness" defense is unavailable and is no longer made); a new item **M8** was added for the
+question the completed matrix invites ("your correction works in 1 of 4 cells, and sometimes makes
+coverage worse"). Stale references were corrected throughout: E13 removed from EV3/T2/X1 (dropped at
+Gate 1), X3 no longer cites E16 or claims coverage validity across lead times, M1 no longer attributes
+weight-specification robustness to E17, and figure items now name the built artifacts. Two drafted
+defenses were found to be rhetorical and are now marked **[OPEN]** rather than left standing: the
+`kc reproduce-all` one-command path (does not exist) and cross-validation of the Pc engine against an
+independent reference implementation (never performed).
+
+**Triage re-ranked:** M8 and EV3 enter the top five on new evidence; S1 and N1 leave it (the power
+analysis ran before modeling and is reported as ±5.13 pp, the only underpowered analysis was dropped
+rather than reported weakly, and the venue tier is locked at Q2 with a boundary condition now reported);
+M5 stays at #1 because the margin turned out far larger than "barely"; M1 rises on increased risk; M3
+falls to #5. The re-ranking is an analysis offered for review, not a decision.
+
+---
+
+**Part D — final consistency audit (read-only).**
+
+Swept this log, `EXPERIMENT_PLAN.md`, `README.md` and the Part B artifact set for any number or
+characterization predating the final H1 criterion correction (2026-09-21) or the item-2 CQR correction.
+
+**The manuscript-bound artifact set is clean.** No stale number reached it: every figure and table is
+re-derived from the current committed tables under the final criterion, containment appears only in F12
+where it is the subject, and no E13/E16 reference survives. The audit's stop condition was therefore not
+triggered. The findings below are in the record, the governing documents or the code — **none is fixed
+here.**
+
+1. **Pre-correction characterization of the CQR weighting effect (not annotated).** The 2026-09-16 E12
+   disposition entry describes "a small, directionally consistent … negative effect". The confirmed
+   2026-09-21 wording is sharper: weighting lowers coverage in **both** arms at **every** level
+   (two-sided −1.62/−0.60/−1.37 pp; one-sided −5.55/−1.43/−2.06 pp), the one-sided decreases are larger
+   at every level, and only one-sided CQR gains a deficit it did not have. "Small" does not describe
+   −5.55 pp.
+2. **The one-sided non-restoration statement has no per-level breakdown, and at 80% the final criterion
+   says something different.** The Gate 2 entry, the 2026-09-16 cross-experiment synthesis and
+   `README.md`'s Gate 2 line all state that weighting "does not restore" one-sided coverage for GBM,
+   GRU and MC-dropout. Under the final criterion, applied per level: at 90% and 95% that is right
+   (6 of 9 cells "not restored"); **at 80% the naive arm has no deficit to restore (its CI upper bound
+   is at or above nominal) and the weighted arm's CI lies wholly below nominal** — GBM 0.821 → 0.759,
+   GRU 0.821 → 0.763, MC-dropout 0.809 → 0.762. That is weighting *creating* a one-sided deficit, the
+   same pattern confirmed for one-sided CQR in item 2 of the E17 close-out, and it is not recorded
+   anywhere. Surfaced by building F05. The figure and its table state the per-level verdicts as the data
+   give them; the record was not edited.
+3. **Containment-form wording survives in the governing documents for a validity question.**
+   `EXPERIMENT_PLAN.md` E11 states the hypothesis as restoring coverage "to statistically
+   indistinguishable-from-nominal" and the success criterion as "statistically restored to nominal";
+   `PROJECT_KNOWLEDGE.md` S1 sets "within ±[margin] of nominal". These are the two-sided exactness form
+   applied to validity under shift — the exact bug class corrected on 2026-09-21. Read literally, the
+   project's own primary result (persistence, +2.6 pp over-coverage) would count as a failure. Gate 2's
+   GO already treated over-coverage as valid ("conservative but valid"), so the substance is consistent;
+   only the wording was never revisited. E9's hypothesis uses the same phrasing and is **correct** there,
+   because exactness on the exchangeable self-split is genuinely two-sided.
+4. **An unsupported rationale, stated by Claude Code and carried into the record and the code.** The
+   MC-dropout exclusion from E17 H1 is justified as: "running a fresh search would select hyperparameters
+   E8 never used" (`robustness_runner.H1_EXCLUSION_REASON`; the 2026-09-21 H1 scope entry, item 2; the
+   E17 report §2a). **This project's own evidence contradicts it for this very arm:** the 2026-09-18
+   E15 entry records that a config-hash change re-ran the GBM, GRU **and MC-dropout** searches and "all
+   three reproduced every earlier cache bit-for-bit", and E14 recorded the same for GBM
+   (`best_objective_value` 23.801101479171347). The defensible fact is narrower and is what the
+   manuscript artifact states: no MC-dropout cache exists under the current config hash, so including
+   the arm would have required a fresh ~3.5 h search, which was not run. The exclusion decision itself
+   is Sidh's and is unaffected; only its stated reason is wrong.
+5. **A rounding imprecision that predates all of the above.** E9's own report prints the largest
+   two-sided |gap| on the self-split as **1.18 pp**; this log records "~1.1 pp" and the Gate 2 entry
+   "≤1.1pp". F03 prints 1.18 pp, from the table.
+6. **Hardcoded historical numbers in a rendered report.** `05c_threshold_analysis.ipynb` §7b prints
+   "was 62.3% / 54.2%" as literals (CLAUDE.md §10 forbids hardcoding a computed number into a report).
+   They are no longer regenerable: the extended-grid run overwrote `e15c_selection`, so reproducing them
+   requires re-running E15 at `c9f423f`. The same figure is therefore deliberately **not** printed in
+   T13 row 4, which states only what the current tables support.
+7. **Documented CLI surface does not match the implemented one.** `CLAUDE.md` §12 and
+   `SOFTWARE_ARCHITECTURE.md` §2 name `kc train`, `kc evaluate` and `kc reproduce-all`; the implemented
+   commands are `ingest, audit, baselines, power, baselines-phase2, conformal, labelnoise, decision,
+   robustness, manuscript`. `README.md` already states that `kc reproduce-all` is not implemented; the
+   two governing documents do not.
+
+Also checked and **consistent, no action**: the 62.3% / 62.7% pair (pooled across the two deployable
+read-outs vs the primary read-out alone); Gate 2's "+2.6pp (conservative but valid)"; the E17 findings
+entry's 6/9 containment figure (explicitly labelled as the superseded criterion); the ceiling-pinning
+fractions, which recompute from `e15c_selection` + `e15c_grid` to 26.9% / 69.4% / 10.2% / 0.0% exactly as
+recorded.
+
+---
+
+**Explicitly NOT decided here (Sidh's):** whether and how to annotate the record for Part D items 1–7;
+whether the 80% one-sided finding (item 2) changes any manuscript framing, and whether it belongs with
+the CQR one-sided finding as one result or stays separate; whether the governing documents' coverage
+wording (item 3) is revised to the final criterion; whether to implement `kc reproduce-all`, perform the
+clean-machine reproduction, build the related-work comparison table, or cross-validate the Pc engine
+(the four open vulnerabilities now listed in `REVIEWER_CHECKLIST.md`); the revised triage ranking; and
+anything about manuscript drafting, which has not begun. Execution stops at the E18 boundary.
+
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
