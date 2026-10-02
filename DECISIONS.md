@@ -162,6 +162,13 @@ All five items flagged by the CLAUDE.md §13 loop as blocking Phase 3 (Q-CONF-01
 
 **Second, honest finding — not a blocker, a secondary result:** the weighted correction does NOT restore one-sided (upper-bound) coverage for GBM, GRU, or MC-dropout, despite the one-sided conformal code path being independently validated as correct under exchangeability (E9 one-sided: PASS for all three, gaps ≤0.8pp). This is therefore a real, shift-driven phenomenon, not an implementation bug, and is reported in the manuscript as a secondary finding: selection-bias-corrected weighted conformal prediction restores two-sided marginal validity but not one-sided upper-bound validity under this dataset's selection mechanism. Persistence's one-sided numbers are excluded from this finding and carry a separate, distinct caveat (below) — the two must not be reported together as if they share a cause.
 
+> **[ANNOTATION 2026-10-02 — exact E9 one-sided figure]** "gaps ≤0.8pp" above: the exact largest
+> one-sided |gap| on the E9 self-split (learned models) is **0.82 pp** (GBM at 90%: coverage
+> 0.8918, gap −0.8180 pp; `e9e11_coverage`, `E9_selftest`, upper; F03). "≤0.8pp" understates it by
+> 0.02 pp. No verdict changes: the 95% CP interval [0.8787, 0.9040] contains nominal, and all 9
+> one-sided cells pass. This closes the item the 2026-10-01 annotation above recorded but did not
+> annotate in place.
+
 **Persistence one-sided caveat (distinct issue, diagnosed, not a shift effect):** persistence's one-sided coverage is degenerate under exchangeability itself (E9 one-sided: FAILS at 80%/90%, identical coverage 0.9376 at both). Root cause verified directly: 65.9% of persistence's signed nonconformity scores equal exactly zero (final risk equals the last pre-cutoff risk, typically both at the risk floor), producing a point mass that makes the 80th and 90th score percentiles coincide. This is a property of the persistence predictor's residual distribution, not of the conformal machinery or the selection-bias correction. No fix was applied (out of scope for Phase 3); a randomized/smoothed conformal quantile is the standard remedy if persistence one-sided intervals are needed later. Persistence's one-sided results are excluded from any coverage claim in the manuscript pending that fix, if pursued.
 
 > **[ANNOTATION 2026-10-01 — one-sided finding, per level, under the final criterion]** The
@@ -3310,6 +3317,36 @@ triage should say more about MC-dropout's restoration than F04 now shows; whethe
 rebuilt now that the refit no longer needs a search; anything about manuscript drafting.
 
 **Reported by:** Claude Code.
+
+
+### 2026-10-02 — Housekeeping: retroactive gate tags; merged scratch plan files removed; E9 one-sided figure annotated
+
+**Status:** DONE by Claude Code per Sidh's 2026-10-02 instruction. No result, table or code changed.
+
+1. **Retroactive annotated tags** (CLAUDE.md §5 called for gate tags, and none existed). Each tag points
+   at the commit that **adds** its gate decision to this log, identified from `git log` and checked by
+   the commit's own diff:
+   - `gate1-power-analysis` → `1d364bc` ("docs: record Gate 1 outcome …"; adds the 2026-08-01 GATE 1 entry);
+   - `gate2-weighted-conformal` → `7ccf97f` ("docs: record Gate 2 decision …"; adds both 2026-09-16 Gate 2
+     entries);
+   - `gate3-label-noise` → `ff6b972` ("docs: record Gate 3 decision …"; adds both 2026-09-18 Gate 3 entries).
+
+   Tag message: "retroactive tag created 2026-10-02 at the commit recording the Gate N decision".
+   **Discrepancy noted, not resolved:** the Gate 2 and Gate 3 commits are timestamped 2026-09-11 and
+   2026-09-15 — earlier than their entries' headings (2026-09-16, 2026-09-18). The tags mark the commits
+   that record the decisions; they make no claim about the decision dates.
+2. **Untracked scratch files removed:** `EXPERIMENT_PLAN_E16_E17_E18_revision.md` and
+   `EXPERIMENT_PLAN_E18_revision.md` (drafts, never committed). Before deletion, their content was
+   checked against `EXPERIMENT_PLAN.md`:
+   - every item of the E18 revision is present verbatim, apart from its "DRAFT FOR REVIEW" preamble;
+   - the E16/E17 revision's E15–E17 content is merged, and its Execution Order rows are present in
+     their later-updated form;
+   - its own E18 section was superseded by the E18 revision, which is merged.
+
+   Copies are kept outside the repository (session scratchpad).
+3. **E9 one-sided "≤0.8pp" annotated in place** with the exact 0.82 pp (Gate 2 entry).
+
+**Recorded by:** Claude Code.
 
 
 ## Gate Outcomes
