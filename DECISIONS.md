@@ -3631,6 +3631,101 @@ its result commit.
 **Recorded by:** Claude Code.
 
 
+### 2026-10-14 — PENDING IMPLEMENTATION: the RESTORED wording, and the reproduce-all design decisions
+
+**Status:** DECISIONS by Sidh, recorded by Claude Code on 2026-10-14 as **pending implementation**. **No
+code is written by this entry.** Both items were decided in the brief that followed the 2026-10-02
+checkpoint.
+- Item (a) was implemented locally in commits `c9132b9` and `32ecbb2`, lost with the D: folder before
+  being pushed (see the 2026-10-14 incident entry in the Observations Log).
+- Item (b) was never recorded before the loss.
+
+Every code fact cited below was verified in the clone at `1e475e5`.
+
+---
+
+**(a) The RESTORED wording: to be re-applied after the result tables are regenerated.**
+
+*The decision (Sidh).*
+- Wherever "restores" or "restored" describes a learned-model cell whose rule-weighted point estimate is
+  below nominal, the text must say what the verdict means.
+- **RESTORED means under-coverage is no longer established; it does not mean coverage reaches nominal.**
+- Persistence is the only learner whose weighted interval lies wholly above nominal in the headline cells
+  (two-sided, 90%).
+
+*Where it applies.*
+- **F04 caption.**
+  - The first sentence says weighting removes naive split conformal's established two-sided
+    under-coverage, instead of saying it "restores" coverage.
+  - Panel (a) names persistence as the only learner wholly above nominal, and lists the learners whose
+    weighted point estimate stays below nominal.
+  - Panel (b) adds, per bootstrap scheme, the cells whose weighted interval is wholly at or above nominal
+    and the cells whose point estimate is below nominal.
+  - Every count and list is **computed from the verdict table at build time** and guarded by `_require`,
+    including "persistence is the only learner wholly above nominal at the primary level".
+- **F11 caption and figure label.**
+  - The caption says "meets the restoration criterion in N of 4 cells" and qualifies the RESTORED cell
+    when its weighted point estimate is below nominal.
+  - The figure adds a muted label "weighted point estimate below nominal" to any such cell.
+- **`REVIEWER_CHECKLIST.md`:** the N1 "strengthened since drafting" line (line 17) and the M8 "finding, stated
+  plainly" line (line 127).
+- **`README.md`:** the Gate 2 line and the E17 "restores 1 of the 4" line.
+- **`DECISIONS.md`:** append-only annotations on the RESOLVED Gate 2 entry, the Gate 2 outcome line, the
+  E17 findings entry and the E8-inclusion result entry.
+  - Their numbers must be **read from the regenerated tables**, not copied from the lost commit.
+- **F05 and F06 were checked and need no change:** F05 states non-restoration only, and F06 makes no
+  restore claim.
+
+*Allowed changes:* captions, figure label text, markdown tables that embed captions, and the manifest.
+
+*Required check:* every CSV, including both verdict tables, SHA-256-identical before and after. Then
+`kc manuscript` rebuilt on a clean tree, with the manifest committed.
+
+*Why it is not re-applied now.* The captions are generated from `reports/tables/`, which was lost, so
+they cannot be rebuilt or byte-checked. The wording is applied only once the tables exist again.
+
+---
+
+**(b) reproduce-all design decisions (Sidh).**
+1. **Output hashing.** The manifest records the SHA-256 of **every output file** at a tagged release: all
+   result tables and every manuscript figure and table, not only each artifact's source tables (which is
+   all `reports/manuscript_manifest.json` records today).
+2. **Canonical reference.** The reference is a **container run**. Windows results are compared with it
+   under a tolerance that is **measured first, then decided by Sidh**.
+3. **Measure before change.** Each of the following is run, diffed against the published outputs, and
+   reported **before** any change is adopted:
+   - torch thread pinning. `sequence.py:173` pins threads to 1 only around training;
+   - the torch `warn_only` setting. `sequence.py:39` calls
+     `torch.use_deterministic_algorithms(True, warn_only=True)`;
+   - the `read_csv` parser change. 10 `pd.read_csv` calls in `src/kelvins_conformal` don't pass
+     `float_precision="round_trip"`.
+4. **Hardcoded literals** are replaced by computed or saved quantities during the full run. Known cases,
+   verified in the clone:
+   - the persistence 65.9% zero-atom, a constant in `decision_runner.py:71` and `threshold_runner.py:74`;
+   - the original-grid 62.3% / 54.2% in `05c_threshold_analysis.ipynb` §7b, plus `decision.py:396` and
+     two `manuscript.py` notes;
+   - E3's 65.0% in `04_labelnoise.ipynb`;
+   - E14's label-shift size, which was printed by the E14 run but never saved (`manuscript.py:937`).
+
+   F02b also cannot be regenerated: E8's per-event predictive distributions were never saved
+   (`manuscript.py:500`).
+5. **HEAD-reproduction audit.** The first full run doubles as the reproduction audit for the stages whose
+   reproduction at HEAD has never been checked: **E1, E3–E11, E14, E15 and E15b**.
+6. **CI and Docker, as proposed.**
+   - Pin Python **3.13.11** in CI and the Dockerfile: the result sidecars record 3.13.11, but CI installs
+     3.11 (`ci.yaml:31`) and the Dockerfile uses `python:3.11-slim-bookworm` (`Dockerfile:5`).
+   - Add `--extra models` to the Docker sync.
+   - Remove the `|| uv sync` fallback from `Dockerfile:19`.
+   - Set `OMP_NUM_THREADS`, `MKL_NUM_THREADS` and `OPENBLAS_NUM_THREADS` to 1 in the container.
+
+**Consequence of the D: loss for item 3.** "The published outputs" no longer exist as files. Until the
+first full run regenerates them, a measure-before-change diff can be checked only against values quoted
+in this log, the committed captions and manifest, and `REVIEWER_CHECKLIST.md`. What reference that run
+should be held to is Sidh's decision.
+
+**Recorded by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
