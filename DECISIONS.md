@@ -3349,6 +3349,128 @@ rebuilt now that the refit no longer needs a search; anything about manuscript d
 **Recorded by:** Claude Code.
 
 
+### 2026-10-14 — PRE-REGISTRATION (reconstructed): Pc engine independent validation (REVIEWER_CHECKLIST RP4)
+
+**Reconstructed on 2026-10-14 from a draft lost with the D: project folder before it was ever committed.
+No validation code exists and no comparison has run. Wording may differ from the lost draft; the
+substantive terms are below.**
+
+**Status:** PRE-REGISTRATION, not yet run. Committed together with
+`config/experiments/pc_validation.yaml`, which holds every numeric value. Sources of the terms:
+- **Sidh's Step B specification**, the brief that followed the 2026-10-02 checkpoint;
+- **Claude Code's lost draft.** Every draft-only term is marked **[to be re-confirmed by Sidh]**:
+  it was never reviewed by Sidh before the loss, or it rests on an input check made on data that is now
+  lost.
+- The CARA/MATLAB reference is skipped (Sidh).
+- **Measurement only:** no recommendation follows, and no convention is adopted.
+
+**Inputs only.** Each method reads a CDM's relative state, its two covariances and its spans. No model
+output, prediction or interval is involved.
+
+**1. Sample (seed 42).** The strata are E3's pre-specified edges (`pc_spike.risk_strata_edges`
+= [−30, −15, −10, −6, 0]).
+- **Primary set: the official-test target-defining CDMs** (the rows E14 recomputed):
+  - **all 150** events in (−6, 0];
+  - **30 each** in floor, (−30, −15], (−15, −10] and (−10, −6];
+  - 270 CDMs in total.
+- **Population sizes.** The E14 findings entry (introduced in commit `7c9c50d`) records floor 1,673 and (−6, 0] 150 of 2,167
+  events, which leaves 344 across the three middle bands. The per-band split (108 / 138 / 98) was read
+  from a table now lost [to be re-confirmed by Sidh].
+- **Draw procedure:** `numpy.random.default_rng(42)`, without replacement, strata in the order above,
+  uids sorted first [to be re-confirmed by Sidh].
+- **Second set: E3's existing 100 training-pool CDMs** (Sidh's spec).
+  - Matched to the raw training data on `(event_uid, time_to_tca)`. In the session that wrote the lost draft, all 100 matched
+    uniquely, with `risk` equal to E3's recorded value, but that check ran on data now lost
+    [to be re-confirmed by Sidh; re-check on re-ingested data].
+  - Reported separately, not pooled [to be re-confirmed by Sidh].
+
+**2. Methods.** None shares the engine's code (`labelnoise/pc_foster.py`).
+- **Shared independent input assembly** [to be re-confirmed by Sidh]:
+  - RTN covariances from sigmas and correlations;
+  - HBR under convention C0;
+  - its own encounter-plane basis (relative velocity, then miss direction, then cross product);
+  - closed-form 2×2 principal axes instead of `eigh`.
+
+  It implements the **same conventions** as the engine. The checks therefore validate the
+  integration and the code, **not the conventions** (§6 and outcome (a)).
+- **M1, deterministic 1D reduction.** The inner direction is integrated analytically (error-function
+  difference via `log_ndtr`). The outer direction uses x = HBR·sin t and adaptive Gauss–Kronrod, in
+  log space with the peak factored out. Valid at every depth. Its tolerances are in the YAML
+  [to be re-confirmed by Sidh].
+- **M3, uniform-in-disk Monte Carlo** of the 2D density, in log space. The sample size, the escalation
+  rule and per-event seeds (42 + sample index) are in the YAML [to be re-confirmed by Sidh].
+- **M2, plain Monte Carlo** on the encounter plane (Sidh's spec):
+  - a per-event sample cap;
+  - counted only where the relative standard error is ≤ 10%, otherwise "not informative" (reported, not
+    counted);
+  - judged within 3 standard errors.
+
+  The chunking, the cap value, stopping at about 100 hits, and treating an event as "not informative"
+  without sampling when 100/Pc_M1 exceeds the cap are all [to be re-confirmed by Sidh]. M2 cannot reach
+  the deep tail.
+
+**3. Order, each step reported before the next is read** (Sidh's spec).
+1. **Engine self-convergence.** `recompute_pc_for_row` and `log10_pc_unfloored` are run at the
+   configured grid of 200 × 360 and at 2× (400 × 720). For each stratum, e_s is the 95th percentile of
+   |Δlog10|.
+2. **M1 vs M3 gate.** The median |Δlog10| must be ≤ 0.005, else **outcome b′**.
+3. **Engine vs independent.**
+
+**4. Tolerance and agreement** (Sidh's spec).
+- **Per stratum:** τ_s = max(0.01, 3·e_s) log10.
+- **"Agree"** means all three hold:
+  - ≥ 95% of the stratum's events lie within τ_s;
+  - no event lies beyond 0.1;
+  - the median |Δ| is ≤ 0.005.
+- **Every** out-of-tolerance event is listed.
+- **The floor stratum is judged on unfloored values.**
+- **The existing ±0.5 engine-vs-reported tolerance is unchanged.**
+- Requiring the engine to agree with **both** M1 and M3, and listing and excluding engine evaluation
+  errors, are [to be re-confirmed by Sidh].
+
+**5. Decision table.** Classified per stratum; a mixed outcome is reported stratum by stratum.
+- The outcomes and their meanings are Sidh's spec.
+- Sidh asked that the RP4/M3 consequences be stated; their wording is Claude's draft
+  [to be re-confirmed by Sidh].
+
+| outcome | condition | what it means | REVIEWER_CHECKLIST RP4 | REVIEWER_CHECKLIST M3 |
+|---|---|---|---|---|
+| **(a)** | M1 ≈ M3, the engine agrees with them, and both disagree with reported values | **Consistent with a label-production difference *or* a shared input-assembly error; the checks cannot separate these.** | [OPEN] narrows: "the integration is cross-validated against two independent methods (a third where informative); the shared input conventions are not." | The defense stands; the limitation gains "the disagreement is not in the numerical integration". |
+| **(b)** | M1 ≈ M3, the engine disagrees | **Possible engine bug.** E14's conclusions are suspended: all of them if (−6, 0] is affected, otherwise the deep-tail anchored arm only. **Gate 3 reopens; Sidh decides.** | Becomes a disclosed, unresolved engine defect. | The quantified defense (E3 65.0%, E14 79.3%, F07) is withdrawn in the affected strata until resolved. |
+| **(b′)** | M1 and M3 disagree | **Inconclusive.** Fix the checks; nothing changes. | Unchanged. | Unchanged. |
+
+**6. Convention sensitivity** (Sidh's spec). Propose and fix a finite list from the CDM documentation
+before running, report all, adopt none; a change of more than 10 pp in overall within-0.5 agreement is a
+finding for Sidh. **The list itself is Claude's draft [to be re-confirmed by Sidh]:**
+- **C0, baseline:** HBR = (t_span + c_span)/2, both covariances summed in one RTN frame.
+- **C1:** `x_span` read as a radius, so HBR = t_span + c_span.
+- **C3a / C3b:** the chaser covariance is rotated into the target's RTN frame about R by the crossing
+  angle.
+  - Circular-orbit approximation from `t_j2k_sma`.
+  - The relative velocity is taken as chaser − target (C3a) or target − chaser (C3b).
+  - The premise that each object's covariance is in its own RTN frame (the CCSDS CDM convention) is
+    **not verified** against this dataset.
+- **C4a / C4b, documented anchor:** Pc(k·C) vs `max_risk_estimate`, with k = `max_risk_scaling` as a
+  variance factor (C4a) or a sigma factor (C4b). Rows with k ≤ 0 are excluded. This bears on E14's
+  covariance-scale semantics.
+- **C2, dropped:** the 2 m chaser minimum was found already applied in the data (`c_span` ≥ 2.0
+  everywhere), but that check ran on data now lost [to be re-confirmed by Sidh; re-check on
+  re-ingested data].
+
+All are run with the engine by changing its inputs only. Within-0.5 agreement is reported per set and
+per stratum, against `risk` (C0, C1, C3a, C3b) or against `max_risk_estimate` (C4a, C4b).
+
+**7. Mechanics** [to be re-confirmed by Sidh].
+- The independent methods get unit tests against analytic isotropic cases first.
+- One `kc` subcommand writes `reports/tables/pcv_*.csv` and a provenance sidecar (commit, base config
+  hash, this YAML's SHA-256, seeds, timings).
+- **No existing pipeline code changes**, and the base config hash is unchanged.
+- **Prerequisite:** the lost `data/raw` must be re-ingested, and E3's `e3_full_comparison` table
+  regenerated, before any of this can run.
+
+**Reconstructed by:** Claude Code, per Sidh's 2026-10-14 instruction.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
