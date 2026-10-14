@@ -892,6 +892,82 @@ Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
 
+### 2026-10-14 — INCIDENT: the D: project folder was found emptied; recovered from GitHub; cause unknown
+
+**Status:** OBSERVATION, recorded by Claude Code per Sidh's 2026-10-14 instruction. **Only verified facts
+are stated.** The cause is **unknown** and was not investigated beyond the read-only checks below.
+
+**1. What was found (on 2026-10-14, system clock, before the 23:34 IST clone).**
+- `D:\College\Sem 3\EDI 1` contains only `Project\data`, which is **empty**: 3 directory entries in
+  total, 0 bytes.
+- The repository, every source file, `data/raw` and the off-repo bundle folder
+  `D:\College\Sem 3\EDI 1\repo-backups` are all gone.
+- **Last-modified times of the remaining folders:**
+  - `EDI 1`: 2026-10-10 05:39 IST;
+  - `Project`: 2026-10-10 05:39 IST;
+  - `data`: 2026-10-10 11:52 IST.
+
+  These record the last change to each folder's contents, not necessarily the time of deletion.
+- The Claude Code session scratchpad on C: was also found empty. It had held pre-run CSV snapshots, the
+  downloaded NASA license PDFs, and copies of the two removed EXPERIMENT_PLAN revision drafts.
+- A read-only search found **no moved copy**. It searched for `DECISIONS.md` and `*.bundle` (to depth 6)
+  under D:\ and the user's Desktop, Documents, Downloads and OneDrive folders. The two `DECISIONS.md`
+  files it found belong to unrelated projects.
+- The Recycle Bin and File History were **not** checked.
+
+**2. What survives on GitHub (`origin`, verified by `git ls-remote` and a fresh clone).**
+- **Branches:**
+  - `main` `640fda6`;
+  - `phase2/e6-e8-baselines` `c94fe4c`;
+  - `phase3/e12-cqr` `87a48bf`;
+  - `phase4/e14-labelnoise` `f931aac`;
+  - **`phase5/e15-decision-cost` `152cbb2`**, the last commit pushed before the loss.
+- **Tags:** `gate1-power-analysis` → `1d364bc`, `gate2-weighted-conformal` → `7ccf97f`,
+  `gate3-label-noise` → `ff6b972`.
+
+**3. What was lost.**
+- **Four commits, made locally and never pushed.** Their hashes and subjects are as recorded in the
+  session transcript; their absence from `origin` is verified.
+  - `c9132b9` "E18: state what RESTORED means wherever a learned-model cell is called restored";
+  - `32ecbb2` "E18: record the manuscript manifest rebuilt on a clean tree at c9132b9";
+  - `2379c27` "docs: annotate date provenance; git commit dates are authoritative";
+  - `6ae60cf` "docs: align CLAUDE.md §10's license rule with PROJECT_KNOWLEDGE §10".
+- **Two uncommitted items:** the Pc validation pre-registration entry and
+  `config/experiments/pc_validation.yaml`.
+- **Everything gitignored, by design never in git** (`.gitignore`):
+  - `/data/raw/` and `/data/processed/`;
+  - `/artifacts/`, which held the hyperparameter search caches and progress logs;
+  - `/reports/*.html`, `/reports/figures/` and `/reports/tables/`. The tables were **every computed
+    result table**, so no experiment's numbers exist on disk any more; only their committed provenance
+    sidecars, captions and manifest remain;
+  - `/reports/manuscript_figures/` and `/reports/manuscript_tables/`.
+- **The local git bundles** in `D:\College\Sem 3\EDI 1\repo-backups`.
+
+**4. What was recovered (2026-10-14).**
+- A fresh clone of `origin` at `C:\EDI-1-restored`, with every branch tracked and all tags fetched; its
+  `.git` was created at 23:34 IST.
+- A verified all-refs bundle in `C:\EDI-1-backups`.
+- Branch `recover/2026-10-14` from `152cbb2`, replaying the lost **documentation** only:
+  - the Pc pre-registration and YAML are reconstructed (`8d322fd`);
+  - this entry;
+  - the date-provenance annotation;
+  - the CLAUDE.md §10 wording;
+  - the pending-implementation record.
+
+  **The RESTORED wording (`c9132b9`/`32ecbb2`) is not re-applied.** It changes generated artifacts
+  whose source tables no longer exist; it is recorded as pending instead.
+- **Not recovered:**
+  - every computed result, which needs a full pipeline re-run after `kc ingest` re-downloads and
+    checksum-verifies the raw data;
+  - the search caches.
+
+**5. Consequence.** The project's numbers now exist only as values quoted in this log, the committed
+captions and manifest, and `REVIEWER_CHECKLIST.md`. They cannot be re-derived until the pipeline is
+re-run. Whether and when to run it is Sidh's decision.
+
+**Recorded by:** Claude Code.
+
+
 ### 2026-09-21 — pandas' default CSV float parser is not round-trip exact; it caused two false "not bit-identical" findings
 
 **The observation.** `write_table_atomic` writes every float with the full 17 significant digits
