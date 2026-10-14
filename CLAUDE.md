@@ -95,7 +95,7 @@ Each phase's Claude Code brief is scoped by Sidh at the time; do not self-assign
 - Never touch the official Kelvins test set outside its designated single evaluation use per experiment (see §3).
 - Never hardcode a number that should come from computation (a metric, a threshold derived from data, a p-value) directly into a report, README, or manuscript draft.
 - Never loosen a test tolerance, skip a test, or comment out an assertion to make CI pass, without an explicit logged reason and Sidh's sign-off.
-- Never introduce a new dependency without checking it against the license constraint (permissive licenses only, per PROJECT_KNOWLEDGE §10) and pinning its version.
+- Never introduce a new dependency without checking it against the license constraint (PROJECT_KNOWLEDGE §10: "released code under an OSI license compatible with dependencies") and pinning its version.
 - Never push directly to `main`, force-push over `main`, or rewrite tagged history.
 - Never fabricate, extrapolate, or "smooth over" a missing data point — missingness is handled per the documented policy (Q-DATA-05) or the run fails loudly.
 - Never make a design decision on an item flagged "blocks implementation" in OPEN_QUESTIONS.md without explicit resolution recorded in `DECISIONS.md`.
