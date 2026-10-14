@@ -3547,6 +3547,90 @@ per stratum, against `risk` (C0, C1, C3a, C3b) or against `max_risk_estimate` (C
 **Reconstructed by:** Claude Code, per Sidh's 2026-10-14 instruction.
 
 
+### 2026-10-14 — Date provenance: git commit dates are authoritative; 35 of 67 dated headings differ from their commit dates
+
+**Status:** ANNOTATION by Claude Code, per Sidh's 2026-10-14 instruction. It replays an annotation lost with
+the D: folder (see the 2026-10-14 incident entry in the Observations Log), **recomputed from the clone**.
+**No heading is edited.**
+
+**Rule.** Where a heading's date and the git commit that introduced it disagree, **the git commit date is
+authoritative**. Some headings were dated in drafts written without access to a clock.
+
+**Method.** For each `### YYYY-MM-DD — ` heading, the introducing commit is the first commit whose
+`DECISIONS.md` contains the heading's date and its first ~30 title characters (`git log -S`, author date,
+IST). Matching on the full current title instead would date a retitled heading by its retitle. Computed
+on branch `recover/2026-10-14` at `19ad5a4`.
+
+**Result.** Of 67 dated headings:
+- **32** match their commit date (including this branch's two entries dated 2026-10-14);
+- **26** are dated **after** the commit that introduced them, by 2–5 days;
+- **9** are dated **before** it.
+
+Headings dated **after** their commit:
+
+| heading date | introduced in | Δ days | entry |
+|---|---|---|---|
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-CONF-01 (calibration unit) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-SEL-01 (weight construction) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-SEL-03 (weight diagnostics, clipping, and positivity) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-STAT-04 (multiple-comparison policy) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-PUB-04 (pre-registration mechanism) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 blocking gate cleared |
+| 2026-09-16 | `7ccf97f` 2026-09-11 12:21 | -5 | GATE 2 DECISION: Contribution 1 (weighted conformal correction) |
+| 2026-09-16 | `87a48bf` 2026-09-12 14:52 | -4 | E12 (CQR) manuscript disposition + cross-experiment synthesis of the weight… |
+| 2026-09-16 | `87a48bf` 2026-09-12 14:52 | -4 | Q-LBL-02: covariance-rescaling grid semantics (label-noise, E14) |
+| 2026-09-16 | `87a48bf` 2026-09-12 14:52 | -4 | Q-LBL-03: rescaled labels used for evaluation only (label-noise, E14) |
+| 2026-09-16 | `2c21661` 2026-09-12 19:45 | -4 | Assumption A4 / Q-LBL-01: PARTIAL HOLD → scoped M7; Q-DATA-05 resolved with it |
+| 2026-09-18 | `ff6b972` 2026-09-15 02:08 | -3 | GATE 3 DECISION: Contribution 2 (label-noise sensitivity) + Venue Tier |
+| 2026-09-18 | `3c40917` 2026-09-15 15:47 | -3 | E15 design review (Gate 3 binding requirement): high-risk lens, one-sided b… |
+| 2026-09-19 | `cc67cf8` 2026-09-17 11:15 | -2 | Expanded E15 design decisions: Q-METH-04 revised to {2-day, 3-day} on the o… |
+| 2026-09-16 | `3bc9c20` 2026-09-11 13:13 | -5 | E12 CQR: large efficiency gain, but a genuine coverage negative (failure cr… |
+| 2026-09-16 | `e636d34` 2026-09-12 20:08 | -4 | PRE-REGISTRATION: E14 label-noise sensitivity protocol |
+| 2026-09-16 | `e636d34` 2026-09-12 20:08 | -4 | AMENDMENT to the E14 pre-registration: the anchored arm is undefined at the… |
+| 2026-09-16 | `7c9c50d` 2026-09-12 20:56 | -4 | E14 label-noise sensitivity: Contribution 1's claim is robust, but for a re… |
+| 2026-09-18 | `fc03e5c` 2026-09-15 16:07 | -3 | PRE-REGISTRATION: E15 decision-cost protocol (turning the E15 design review… |
+| 2026-09-18 | `73b7abc` 2026-09-16 01:37 | -2 | PRE-REGISTRATION: expanded threshold-based decision analysis (E15 expansion… |
+| 2026-09-19 | `d43b5fc` 2026-09-17 11:18 | -2 | AMENDMENT to the expanded threshold pre-registration: implementing the {2-d… |
+| 2026-09-18 | `504dfbf` 2026-09-15 17:14 | -3 | E15 decision cost: conformal calibration changes no matched-budget decision… |
+| 2026-09-18 | `b020061` 2026-09-16 01:42 | -2 | EXTENSION of the E15 matched-budget finding: rank invariance (Proposition 1… |
+| 2026-09-19 | `21a9c9a` 2026-09-17 17:12 | -2 | Expanded E15 threshold analysis over lead times (E16 merged): P1 holds exac… |
+| 2026-09-16 | `7ccf97f` 2026-09-11 12:21 | -5 | GATE 2 (E9–E11 review): GO, scoped to two-sided coverage |
+| 2026-09-18 | `ff6b972` 2026-09-15 02:08 | -3 | GATE 3 (E11–E14 review): GO, venue tier Q2 confirmed as firm target |
+
+Headings dated **before** their commit:
+
+| heading date | introduced in | Δ days | entry |
+|---|---|---|---|
+| 2026-08-01 | `3048f19` 2026-08-02 02:58 | +1 | Q-COMP-01: compute inventory (factual record, not a judgement) |
+| 2026-08-01 | `3048f19` 2026-08-02 02:58 | +1 | CONFLICT FLAGGED: `feature_dictionary.yaml`'s `risk` verdict vs. E6/E7 as s… |
+| 2026-08-01 | `3048f19` 2026-08-02 02:58 | +1 | E6/E7 decision rule: a validation-selected promotion threshold — PROPOSED |
+| 2026-08-01 | `08d03ca` 2026-08-31 19:09 | +30 | E6/E7: both learned point predictors are MUCH WORSE than persistence |
+| 2026-08-01 | `08d03ca` 2026-08-31 19:09 | +30 | E8: the expected coverage deficiency is CONFIRMED |
+| 2026-09-01 | `6f01910` 2026-09-02 03:37 | +1 | PRE-REGISTRATION (written BEFORE any re-run): risk_history audit outcome |
+| 2026-09-01 | `6f01910` 2026-09-02 03:37 | +1 | Phase 3 scope addition: persistence (E5 LRP) as a fourth conformal base lea… |
+| 2026-09-22 | `023f7f1` 2026-10-01 19:11 | +9 | E18 (final manuscript consolidation): deferred fixes verified, artifact set… |
+| 2026-10-01 | `105cedd` 2026-10-02 00:27 | +1 | E8 inclusion check RESULT: identical → MC-dropout joins E17 H1; existing ro… |
+
+Seven of the nine are 1-day gaps where the commit was made after midnight. Two are larger:
+- the E6/E7 and E8 findings are headed 2026-08-01 but were first committed 2026-08-31 (+30 d);
+- the E18 entry is headed 2026-09-22 but was first committed 2026-10-01 (+9 d).
+
+**Pre-registration order is set by commit ancestry, not by heading dates.** Re-verified from the clone with
+`git merge-base --is-ancestor`: each pre-registration commit below is an ancestor of, and earlier than,
+its result commit.
+
+| pre-registration | result | gap |
+|---|---|---|
+| E14 `e636d34` | `7c9c50d` | 48 min |
+| E15 `fc03e5c` | `504dfbf` | 67 min |
+| expanded E15 `73b7abc` | `21a9c9a` | about 40 h |
+| its amendment `d43b5fc` | `21a9c9a` | about 6 h |
+| extended grid `f2ef40e` | `6e8debd` | 11 min |
+| E8 inclusion `145b10c` | `b1a2580` | 28 min |
+
+**Recorded by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
