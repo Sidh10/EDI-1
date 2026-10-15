@@ -3726,6 +3726,39 @@ should be held to is Sidh's decision.
 **Recorded by:** Claude Code.
 
 
+### 2026-10-15 — AMENDMENT (pending Sidh's confirmation): the first reproduction audit is native Windows; the container run follows
+
+**Status:** AMENDMENT to item (b)2 of the 2026-10-14 "PENDING IMPLEMENTATION" entry, recorded by Claude Code
+per Sidh's 2026-10-15 instruction. **Pending Sidh's confirmation.** No code changes.
+
+**The amended decision.**
+- **Before:** "The canonical reference is a container run. Windows results are compared with it under a
+  tolerance that is measured first, then decided by Sidh."
+- **After:**
+  1. **First audit, native Windows.** It runs with Python 3.13.11 and tests **byte identity** against
+     every committed SHA-256.
+  2. **Then the container run.** It is compared against the **regenerated Windows outputs** under a
+     tolerance measured at that time.
+
+**Why.**
+- **Every committed byte-level reference was produced on Windows with Python 3.13.11.** That covers the
+  manuscript manifest's `source_sha256`, the 05c sidecar, and E17's `4a35a92` sidecar.
+  - All 13 committed provenance sidecars record `"python": "3.13.11"`.
+  - The sidecars do not record the operating system. The only development machine in the record is
+    Windows 11 (the Q-COMP-01 compute inventory).
+- **The outputs those hashes describe were lost with the D: folder** (2026-10-14 incident entry). Nothing
+  else is left to compare a container's outputs against.
+- **A container run first could not tell two things apart:** a platform or toolchain difference, and a
+  failure of the code to reproduce its own published bytes. A native Windows run on the same interpreter
+  version is the only setting in which byte identity with the committed hashes is a fair test.
+- **Once the Windows outputs are regenerated** and checked against those hashes, they become the
+  reference the container run is measured against.
+
+**Unchanged:** every other item of the 2026-10-14 reproduce-all record.
+
+**Recorded by:** Claude Code. **Awaiting confirmation by:** Sidh.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
