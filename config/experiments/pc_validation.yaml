@@ -1,0 +1,76 @@
+# Pc engine independent validation (REVIEWER_CHECKLIST RP4): pre-registered values.
+#
+# RECONSTRUCTED on 2026-10-14 from a draft lost with the D: project folder before it was ever
+# committed (DECISIONS.md, 2026-10-14 reconstruction entry). No validation code exists and no
+# comparison has run. Values marked "[to be re-confirmed by Sidh]" were proposed by Claude Code in
+# the lost draft and never reviewed by Sidh, or rest on input checks made on data that was lost;
+# every other value is from Sidh's Step B specification.
+#
+# This file is read only by the validation runner. It is NOT merged into config/default.yaml, so the
+# base config hash (00d1cb2d..., the key of every search cache) is unchanged. The runner stamps this
+# file's SHA-256 into its provenance.
+
+seed: 42                       # sampling seed (Sidh's spec)
+
+sample:
+  # Official-test target-defining CDMs (the rows E14 recomputed), stratified by reported log10 risk
+  # using E3's pre-specified edges (config pc_spike.risk_strata_edges).
+  official_test:
+    take_all_strata: ["(-6, 0]"]          # all 150 high-risk events (Sidh's spec)
+    per_stratum_n: 30                     # floor, (-30,-15], (-15,-10], (-10,-6] (Sidh's spec)
+  # E3's existing 100 training-pool CDMs (e3_full_comparison), matched to the raw training data on
+  # (event_uid, time_to_tca) under exact round-trip parsing (Sidh's spec: include them).
+  # Reported as a second set, not pooled [to be re-confirmed by Sidh].
+  e3_sample: true
+
+engine:
+  n_radial: 200                # the grid E3 and E14 used (config labelnoise.integration)
+  n_angular: 360
+  refined_factor: 2            # self-convergence at 2x grid, i.e. 400 x 720 (Sidh's spec)
+
+gate_m1_m3:
+  max_median_abs_dlog10: 0.005 # step (ii): M1 vs M3 must agree, else outcome b' (Sidh's spec)
+
+agreement:                     # all from Sidh's spec
+  tau_floor: 0.01              # tau_s = max(tau_floor, tau_mult * e_s)
+  tau_mult: 3.0                # e_s = per-stratum 95th pct of |engine(2x) - engine(1x)|
+  min_frac_within: 0.95
+  max_abs_any: 0.1
+  max_median_abs: 0.005
+
+m1:                            # deterministic 1D reduction, adaptive Gauss-Kronrod
+  epsrel: 1.0e-10              # [to be re-confirmed by Sidh]
+  limit: 500                   # [to be re-confirmed by Sidh]
+
+m3:                            # uniform-in-disk Monte Carlo of the density, log space
+  n_samples: 1000000           # [to be re-confirmed by Sidh]
+  rel_se_escalate: 0.01        # rerun once at n_escalated if relative SE > 1% [to be re-confirmed by Sidh]
+  n_escalated: 10000000        # [to be re-confirmed by Sidh]
+
+m2:                            # plain Monte Carlo on the encounter plane
+  chunk: 10000000              # [to be re-confirmed by Sidh]
+  cap: 100000000               # per-event sample cap: the cap is Sidh's spec, this value is [to be re-confirmed by Sidh]
+  min_hits_target: 100         # stop once relative SE <= 10% (~100 hits) [to be re-confirmed by Sidh]
+  max_rel_se_counted: 0.10     # counted only if relative SE <= 10%; else "not informative" (Sidh's spec)
+  n_se: 3.0                    # judged within 3 SE (Sidh's spec), in log10 via the delta method
+
+reported_tolerance: 0.5        # the existing engine-vs-reported tolerance, unchanged (Sidh's spec)
+
+conventions:                   # Sidh's spec: a finite list fixed before running; all reported, none adopted.
+                               # The list itself is Claude's draft [to be re-confirmed by Sidh].
+  - id: C0
+    description: baseline engine conventions (HBR = (t_span + c_span)/2; both covariances summed in one RTN frame)
+  - id: C1
+    description: x_span read as a radius, HBR = t_span + c_span
+  - id: C3a
+    description: chaser covariance rotated into the target RTN frame about R by the crossing angle, circular-orbit approximation, relative velocity = chaser - target
+  - id: C3b
+    description: as C3a with relative velocity = target - chaser
+  - id: C4a
+    description: max-risk anchor, Pc(k * C) vs max_risk_estimate, k = max_risk_scaling as a VARIANCE factor
+  - id: C4b
+    description: max-risk anchor, Pc(k^2 * C) vs max_risk_estimate, k = max_risk_scaling as a SIGMA factor
+  dropped:
+    - id: C2
+      reason: chaser 2 m minimum diameter already applied in the data (c_span >= 2.0 in every official-test and training CDM, checked on the now-lost local data) [to be re-confirmed by Sidh; re-check on re-ingested data before any run]
+  material_change_pp: 10.0     # change in overall within-0.5 agreement > 10 pp is reported as a finding (Sidh's spec)

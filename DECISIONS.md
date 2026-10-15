@@ -892,6 +892,82 @@ Phase-3 scope consequence of E6/E7 underperforming. **Reported by:** Claude Code
 
 *(Per CLAUDE.md §2: interesting things noticed outside current scope get logged here, not acted on.)*
 
+### 2026-10-14 — INCIDENT: the D: project folder was found emptied; recovered from GitHub; cause unknown
+
+**Status:** OBSERVATION, recorded by Claude Code per Sidh's 2026-10-14 instruction. **Only verified facts
+are stated.** The cause is **unknown** and was not investigated beyond the read-only checks below.
+
+**1. What was found (on 2026-10-14, system clock, before the 23:34 IST clone).**
+- `D:\College\Sem 3\EDI 1` contains only `Project\data`, which is **empty**: 3 directory entries in
+  total, 0 bytes.
+- The repository, every source file, `data/raw` and the off-repo bundle folder
+  `D:\College\Sem 3\EDI 1\repo-backups` are all gone.
+- **Last-modified times of the remaining folders:**
+  - `EDI 1`: 2026-10-10 05:39 IST;
+  - `Project`: 2026-10-10 05:39 IST;
+  - `data`: 2026-10-10 11:52 IST.
+
+  These record the last change to each folder's contents, not necessarily the time of deletion.
+- The Claude Code session scratchpad on C: was also found empty. It had held pre-run CSV snapshots, the
+  downloaded NASA license PDFs, and copies of the two removed EXPERIMENT_PLAN revision drafts.
+- A read-only search found **no moved copy**. It searched for `DECISIONS.md` and `*.bundle` (to depth 6)
+  under D:\ and the user's Desktop, Documents, Downloads and OneDrive folders. The two `DECISIONS.md`
+  files it found belong to unrelated projects.
+- The Recycle Bin and File History were **not** checked.
+
+**2. What survives on GitHub (`origin`, verified by `git ls-remote` and a fresh clone).**
+- **Branches:**
+  - `main` `640fda6`;
+  - `phase2/e6-e8-baselines` `c94fe4c`;
+  - `phase3/e12-cqr` `87a48bf`;
+  - `phase4/e14-labelnoise` `f931aac`;
+  - **`phase5/e15-decision-cost` `152cbb2`**, the last commit pushed before the loss.
+- **Tags:** `gate1-power-analysis` → `1d364bc`, `gate2-weighted-conformal` → `7ccf97f`,
+  `gate3-label-noise` → `ff6b972`.
+
+**3. What was lost.**
+- **Four commits, made locally and never pushed.** Their hashes and subjects are as recorded in the
+  session transcript; their absence from `origin` is verified.
+  - `c9132b9` "E18: state what RESTORED means wherever a learned-model cell is called restored";
+  - `32ecbb2` "E18: record the manuscript manifest rebuilt on a clean tree at c9132b9";
+  - `2379c27` "docs: annotate date provenance; git commit dates are authoritative";
+  - `6ae60cf` "docs: align CLAUDE.md §10's license rule with PROJECT_KNOWLEDGE §10".
+- **Two uncommitted items:** the Pc validation pre-registration entry and
+  `config/experiments/pc_validation.yaml`.
+- **Everything gitignored, by design never in git** (`.gitignore`):
+  - `/data/raw/` and `/data/processed/`;
+  - `/artifacts/`, which held the hyperparameter search caches and progress logs;
+  - `/reports/*.html`, `/reports/figures/` and `/reports/tables/`. The tables were **every computed
+    result table**, so no experiment's numbers exist on disk any more; only their committed provenance
+    sidecars, captions and manifest remain;
+  - `/reports/manuscript_figures/` and `/reports/manuscript_tables/`.
+- **The local git bundles** in `D:\College\Sem 3\EDI 1\repo-backups`.
+
+**4. What was recovered (2026-10-14).**
+- A fresh clone of `origin` at `C:\EDI-1-restored`, with every branch tracked and all tags fetched; its
+  `.git` was created at 23:34 IST.
+- A verified all-refs bundle in `C:\EDI-1-backups`.
+- Branch `recover/2026-10-14` from `152cbb2`, replaying the lost **documentation** only:
+  - the Pc pre-registration and YAML are reconstructed (`8d322fd`);
+  - this entry;
+  - the date-provenance annotation;
+  - the CLAUDE.md §10 wording;
+  - the pending-implementation record.
+
+  **The RESTORED wording (`c9132b9`/`32ecbb2`) is not re-applied.** It changes generated artifacts
+  whose source tables no longer exist; it is recorded as pending instead.
+- **Not recovered:**
+  - every computed result, which needs a full pipeline re-run after `kc ingest` re-downloads and
+    checksum-verifies the raw data;
+  - the search caches.
+
+**5. Consequence.** The project's numbers now exist only as values quoted in this log, the committed
+captions and manifest, and `REVIEWER_CHECKLIST.md`. They cannot be re-derived until the pipeline is
+re-run. Whether and when to run it is Sidh's decision.
+
+**Recorded by:** Claude Code.
+
+
 ### 2026-09-21 — pandas' default CSV float parser is not round-trip exact; it caused two false "not bit-identical" findings
 
 **The observation.** `write_table_atomic` writes every float with the full 17 significant digits
@@ -3345,6 +3421,307 @@ rebuilt now that the refit no longer needs a search; anything about manuscript d
 
    Copies are kept outside the repository (session scratchpad).
 3. **E9 one-sided "≤0.8pp" annotated in place** with the exact 0.82 pp (Gate 2 entry).
+
+**Recorded by:** Claude Code.
+
+
+### 2026-10-14 — PRE-REGISTRATION (reconstructed): Pc engine independent validation (REVIEWER_CHECKLIST RP4)
+
+**Reconstructed on 2026-10-14 from a draft lost with the D: project folder before it was ever committed.
+No validation code exists and no comparison has run. Wording may differ from the lost draft; the
+substantive terms are below.**
+
+**Status:** PRE-REGISTRATION, not yet run. Committed together with
+`config/experiments/pc_validation.yaml`, which holds every numeric value. Sources of the terms:
+- **Sidh's Step B specification**, the brief that followed the 2026-10-02 checkpoint;
+- **Claude Code's lost draft.** Every draft-only term is marked **[to be re-confirmed by Sidh]**:
+  it was never reviewed by Sidh before the loss, or it rests on an input check made on data that is now
+  lost.
+- The CARA/MATLAB reference is skipped (Sidh).
+- **Measurement only:** no recommendation follows, and no convention is adopted.
+
+**Inputs only.** Each method reads a CDM's relative state, its two covariances and its spans. No model
+output, prediction or interval is involved.
+
+**1. Sample (seed 42).** The strata are E3's pre-specified edges (`pc_spike.risk_strata_edges`
+= [−30, −15, −10, −6, 0]).
+- **Primary set: the official-test target-defining CDMs** (the rows E14 recomputed):
+  - **all 150** events in (−6, 0];
+  - **30 each** in floor, (−30, −15], (−15, −10] and (−10, −6];
+  - 270 CDMs in total.
+- **Population sizes.** The E14 findings entry (introduced in commit `7c9c50d`) records floor 1,673 and (−6, 0] 150 of 2,167
+  events, which leaves 344 across the three middle bands. The per-band split (108 / 138 / 98) was read
+  from a table now lost [to be re-confirmed by Sidh].
+- **Draw procedure:** `numpy.random.default_rng(42)`, without replacement, strata in the order above,
+  uids sorted first [to be re-confirmed by Sidh].
+- **Second set: E3's existing 100 training-pool CDMs** (Sidh's spec).
+  - Matched to the raw training data on `(event_uid, time_to_tca)`. In the session that wrote the lost draft, all 100 matched
+    uniquely, with `risk` equal to E3's recorded value, but that check ran on data now lost
+    [to be re-confirmed by Sidh; re-check on re-ingested data].
+  - Reported separately, not pooled [to be re-confirmed by Sidh].
+
+**2. Methods.** None shares the engine's code (`labelnoise/pc_foster.py`).
+- **Shared independent input assembly** [to be re-confirmed by Sidh]:
+  - RTN covariances from sigmas and correlations;
+  - HBR under convention C0;
+  - its own encounter-plane basis (relative velocity, then miss direction, then cross product);
+  - closed-form 2×2 principal axes instead of `eigh`.
+
+  It implements the **same conventions** as the engine. The checks therefore validate the
+  integration and the code, **not the conventions** (§6 and outcome (a)).
+- **M1, deterministic 1D reduction.** The inner direction is integrated analytically (error-function
+  difference via `log_ndtr`). The outer direction uses x = HBR·sin t and adaptive Gauss–Kronrod, in
+  log space with the peak factored out. Valid at every depth. Its tolerances are in the YAML
+  [to be re-confirmed by Sidh].
+- **M3, uniform-in-disk Monte Carlo** of the 2D density, in log space. The sample size, the escalation
+  rule and per-event seeds (42 + sample index) are in the YAML [to be re-confirmed by Sidh].
+- **M2, plain Monte Carlo** on the encounter plane (Sidh's spec):
+  - a per-event sample cap;
+  - counted only where the relative standard error is ≤ 10%, otherwise "not informative" (reported, not
+    counted);
+  - judged within 3 standard errors.
+
+  The chunking, the cap value, stopping at about 100 hits, and treating an event as "not informative"
+  without sampling when 100/Pc_M1 exceeds the cap are all [to be re-confirmed by Sidh]. M2 cannot reach
+  the deep tail.
+
+**3. Order, each step reported before the next is read** (Sidh's spec).
+1. **Engine self-convergence.** `recompute_pc_for_row` and `log10_pc_unfloored` are run at the
+   configured grid of 200 × 360 and at 2× (400 × 720). For each stratum, e_s is the 95th percentile of
+   |Δlog10|.
+2. **M1 vs M3 gate.** The median |Δlog10| must be ≤ 0.005, else **outcome b′**.
+3. **Engine vs independent.**
+
+**4. Tolerance and agreement** (Sidh's spec).
+- **Per stratum:** τ_s = max(0.01, 3·e_s) log10.
+- **"Agree"** means all three hold:
+  - ≥ 95% of the stratum's events lie within τ_s;
+  - no event lies beyond 0.1;
+  - the median |Δ| is ≤ 0.005.
+- **Every** out-of-tolerance event is listed.
+- **The floor stratum is judged on unfloored values.**
+- **The existing ±0.5 engine-vs-reported tolerance is unchanged.**
+- Requiring the engine to agree with **both** M1 and M3, and listing and excluding engine evaluation
+  errors, are [to be re-confirmed by Sidh].
+
+**5. Decision table.** Classified per stratum; a mixed outcome is reported stratum by stratum.
+- The outcomes and their meanings are Sidh's spec.
+- Sidh asked that the RP4/M3 consequences be stated; their wording is Claude's draft
+  [to be re-confirmed by Sidh].
+
+| outcome | condition | what it means | REVIEWER_CHECKLIST RP4 | REVIEWER_CHECKLIST M3 |
+|---|---|---|---|---|
+| **(a)** | M1 ≈ M3, the engine agrees with them, and both disagree with reported values | **Consistent with a label-production difference *or* a shared input-assembly error; the checks cannot separate these.** | [OPEN] narrows: "the integration is cross-validated against two independent methods (a third where informative); the shared input conventions are not." | The defense stands; the limitation gains "the disagreement is not in the numerical integration". |
+| **(b)** | M1 ≈ M3, the engine disagrees | **Possible engine bug.** E14's conclusions are suspended: all of them if (−6, 0] is affected, otherwise the deep-tail anchored arm only. **Gate 3 reopens; Sidh decides.** | Becomes a disclosed, unresolved engine defect. | The quantified defense (E3 65.0%, E14 79.3%, F07) is withdrawn in the affected strata until resolved. |
+| **(b′)** | M1 and M3 disagree | **Inconclusive.** Fix the checks; nothing changes. | Unchanged. | Unchanged. |
+
+**6. Convention sensitivity** (Sidh's spec). Propose and fix a finite list from the CDM documentation
+before running, report all, adopt none; a change of more than 10 pp in overall within-0.5 agreement is a
+finding for Sidh. **The list itself is Claude's draft [to be re-confirmed by Sidh]:**
+- **C0, baseline:** HBR = (t_span + c_span)/2, both covariances summed in one RTN frame.
+- **C1:** `x_span` read as a radius, so HBR = t_span + c_span.
+- **C3a / C3b:** the chaser covariance is rotated into the target's RTN frame about R by the crossing
+  angle.
+  - Circular-orbit approximation from `t_j2k_sma`.
+  - The relative velocity is taken as chaser − target (C3a) or target − chaser (C3b).
+  - The premise that each object's covariance is in its own RTN frame (the CCSDS CDM convention) is
+    **not verified** against this dataset.
+- **C4a / C4b, documented anchor:** Pc(k·C) vs `max_risk_estimate`, with k = `max_risk_scaling` as a
+  variance factor (C4a) or a sigma factor (C4b). Rows with k ≤ 0 are excluded. This bears on E14's
+  covariance-scale semantics.
+- **C2, dropped:** the 2 m chaser minimum was found already applied in the data (`c_span` ≥ 2.0
+  everywhere), but that check ran on data now lost [to be re-confirmed by Sidh; re-check on
+  re-ingested data].
+
+All are run with the engine by changing its inputs only. Within-0.5 agreement is reported per set and
+per stratum, against `risk` (C0, C1, C3a, C3b) or against `max_risk_estimate` (C4a, C4b).
+
+**7. Mechanics** [to be re-confirmed by Sidh].
+- The independent methods get unit tests against analytic isotropic cases first.
+- One `kc` subcommand writes `reports/tables/pcv_*.csv` and a provenance sidecar (commit, base config
+  hash, this YAML's SHA-256, seeds, timings).
+- **No existing pipeline code changes**, and the base config hash is unchanged.
+- **Prerequisite:** the lost `data/raw` must be re-ingested, and E3's `e3_full_comparison` table
+  regenerated, before any of this can run.
+
+**Reconstructed by:** Claude Code, per Sidh's 2026-10-14 instruction.
+
+
+### 2026-10-14 — Date provenance: git commit dates are authoritative; 35 of 67 dated headings differ from their commit dates
+
+**Status:** ANNOTATION by Claude Code, per Sidh's 2026-10-14 instruction. It replays an annotation lost with
+the D: folder (see the 2026-10-14 incident entry in the Observations Log), **recomputed from the clone**.
+**No heading is edited.**
+
+**Rule.** Where a heading's date and the git commit that introduced it disagree, **the git commit date is
+authoritative**. Some headings were dated in drafts written without access to a clock.
+
+**Method.** For each `### YYYY-MM-DD — ` heading, the introducing commit is the first commit whose
+`DECISIONS.md` contains the heading's date and its first ~30 title characters (`git log -S`, author date,
+IST). Matching on the full current title instead would date a retitled heading by its retitle. Computed
+on branch `recover/2026-10-14` at `19ad5a4`.
+
+**Result.** Of 67 dated headings:
+- **32** match their commit date (including this branch's two entries dated 2026-10-14);
+- **26** are dated **after** the commit that introduced them, by 2–5 days;
+- **9** are dated **before** it.
+
+Headings dated **after** their commit:
+
+| heading date | introduced in | Δ days | entry |
+|---|---|---|---|
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-CONF-01 (calibration unit) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-SEL-01 (weight construction) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-SEL-03 (weight diagnostics, clipping, and positivity) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-STAT-04 (multiple-comparison policy) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 Design Review: Q-PUB-04 (pre-registration mechanism) |
+| 2026-09-15 | `232a0de` 2026-09-10 23:26 | -5 | Phase 3 blocking gate cleared |
+| 2026-09-16 | `7ccf97f` 2026-09-11 12:21 | -5 | GATE 2 DECISION: Contribution 1 (weighted conformal correction) |
+| 2026-09-16 | `87a48bf` 2026-09-12 14:52 | -4 | E12 (CQR) manuscript disposition + cross-experiment synthesis of the weight… |
+| 2026-09-16 | `87a48bf` 2026-09-12 14:52 | -4 | Q-LBL-02: covariance-rescaling grid semantics (label-noise, E14) |
+| 2026-09-16 | `87a48bf` 2026-09-12 14:52 | -4 | Q-LBL-03: rescaled labels used for evaluation only (label-noise, E14) |
+| 2026-09-16 | `2c21661` 2026-09-12 19:45 | -4 | Assumption A4 / Q-LBL-01: PARTIAL HOLD → scoped M7; Q-DATA-05 resolved with it |
+| 2026-09-18 | `ff6b972` 2026-09-15 02:08 | -3 | GATE 3 DECISION: Contribution 2 (label-noise sensitivity) + Venue Tier |
+| 2026-09-18 | `3c40917` 2026-09-15 15:47 | -3 | E15 design review (Gate 3 binding requirement): high-risk lens, one-sided b… |
+| 2026-09-19 | `cc67cf8` 2026-09-17 11:15 | -2 | Expanded E15 design decisions: Q-METH-04 revised to {2-day, 3-day} on the o… |
+| 2026-09-16 | `3bc9c20` 2026-09-11 13:13 | -5 | E12 CQR: large efficiency gain, but a genuine coverage negative (failure cr… |
+| 2026-09-16 | `e636d34` 2026-09-12 20:08 | -4 | PRE-REGISTRATION: E14 label-noise sensitivity protocol |
+| 2026-09-16 | `e636d34` 2026-09-12 20:08 | -4 | AMENDMENT to the E14 pre-registration: the anchored arm is undefined at the… |
+| 2026-09-16 | `7c9c50d` 2026-09-12 20:56 | -4 | E14 label-noise sensitivity: Contribution 1's claim is robust, but for a re… |
+| 2026-09-18 | `fc03e5c` 2026-09-15 16:07 | -3 | PRE-REGISTRATION: E15 decision-cost protocol (turning the E15 design review… |
+| 2026-09-18 | `73b7abc` 2026-09-16 01:37 | -2 | PRE-REGISTRATION: expanded threshold-based decision analysis (E15 expansion… |
+| 2026-09-19 | `d43b5fc` 2026-09-17 11:18 | -2 | AMENDMENT to the expanded threshold pre-registration: implementing the {2-d… |
+| 2026-09-18 | `504dfbf` 2026-09-15 17:14 | -3 | E15 decision cost: conformal calibration changes no matched-budget decision… |
+| 2026-09-18 | `b020061` 2026-09-16 01:42 | -2 | EXTENSION of the E15 matched-budget finding: rank invariance (Proposition 1… |
+| 2026-09-19 | `21a9c9a` 2026-09-17 17:12 | -2 | Expanded E15 threshold analysis over lead times (E16 merged): P1 holds exac… |
+| 2026-09-16 | `7ccf97f` 2026-09-11 12:21 | -5 | GATE 2 (E9–E11 review): GO, scoped to two-sided coverage |
+| 2026-09-18 | `ff6b972` 2026-09-15 02:08 | -3 | GATE 3 (E11–E14 review): GO, venue tier Q2 confirmed as firm target |
+
+Headings dated **before** their commit:
+
+| heading date | introduced in | Δ days | entry |
+|---|---|---|---|
+| 2026-08-01 | `3048f19` 2026-08-02 02:58 | +1 | Q-COMP-01: compute inventory (factual record, not a judgement) |
+| 2026-08-01 | `3048f19` 2026-08-02 02:58 | +1 | CONFLICT FLAGGED: `feature_dictionary.yaml`'s `risk` verdict vs. E6/E7 as s… |
+| 2026-08-01 | `3048f19` 2026-08-02 02:58 | +1 | E6/E7 decision rule: a validation-selected promotion threshold — PROPOSED |
+| 2026-08-01 | `08d03ca` 2026-08-31 19:09 | +30 | E6/E7: both learned point predictors are MUCH WORSE than persistence |
+| 2026-08-01 | `08d03ca` 2026-08-31 19:09 | +30 | E8: the expected coverage deficiency is CONFIRMED |
+| 2026-09-01 | `6f01910` 2026-09-02 03:37 | +1 | PRE-REGISTRATION (written BEFORE any re-run): risk_history audit outcome |
+| 2026-09-01 | `6f01910` 2026-09-02 03:37 | +1 | Phase 3 scope addition: persistence (E5 LRP) as a fourth conformal base lea… |
+| 2026-09-22 | `023f7f1` 2026-10-01 19:11 | +9 | E18 (final manuscript consolidation): deferred fixes verified, artifact set… |
+| 2026-10-01 | `105cedd` 2026-10-02 00:27 | +1 | E8 inclusion check RESULT: identical → MC-dropout joins E17 H1; existing ro… |
+
+Seven of the nine are 1-day gaps where the commit was made after midnight. Two are larger:
+- the E6/E7 and E8 findings are headed 2026-08-01 but were first committed 2026-08-31 (+30 d);
+- the E18 entry is headed 2026-09-22 but was first committed 2026-10-01 (+9 d).
+
+**Pre-registration order is set by commit ancestry, not by heading dates.** Re-verified from the clone with
+`git merge-base --is-ancestor`: each pre-registration commit below is an ancestor of, and earlier than,
+its result commit.
+
+| pre-registration | result | gap |
+|---|---|---|
+| E14 `e636d34` | `7c9c50d` | 48 min |
+| E15 `fc03e5c` | `504dfbf` | 67 min |
+| expanded E15 `73b7abc` | `21a9c9a` | about 40 h |
+| its amendment `d43b5fc` | `21a9c9a` | about 6 h |
+| extended grid `f2ef40e` | `6e8debd` | 11 min |
+| E8 inclusion `145b10c` | `b1a2580` | 28 min |
+
+**Recorded by:** Claude Code.
+
+
+### 2026-10-14 — PENDING IMPLEMENTATION: the RESTORED wording, and the reproduce-all design decisions
+
+**Status:** DECISIONS by Sidh, recorded by Claude Code on 2026-10-14 as **pending implementation**. **No
+code is written by this entry.** Both items were decided in the brief that followed the 2026-10-02
+checkpoint.
+- Item (a) was implemented locally in commits `c9132b9` and `32ecbb2`, lost with the D: folder before
+  being pushed (see the 2026-10-14 incident entry in the Observations Log).
+- Item (b) was never recorded before the loss.
+
+Every code fact cited below was verified in the clone at `1e475e5`.
+
+---
+
+**(a) The RESTORED wording: to be re-applied after the result tables are regenerated.**
+
+*The decision (Sidh).*
+- Wherever "restores" or "restored" describes a learned-model cell whose rule-weighted point estimate is
+  below nominal, the text must say what the verdict means.
+- **RESTORED means under-coverage is no longer established; it does not mean coverage reaches nominal.**
+- Persistence is the only learner whose weighted interval lies wholly above nominal in the headline cells
+  (two-sided, 90%).
+
+*Where it applies.*
+- **F04 caption.**
+  - The first sentence says weighting removes naive split conformal's established two-sided
+    under-coverage, instead of saying it "restores" coverage.
+  - Panel (a) names persistence as the only learner wholly above nominal, and lists the learners whose
+    weighted point estimate stays below nominal.
+  - Panel (b) adds, per bootstrap scheme, the cells whose weighted interval is wholly at or above nominal
+    and the cells whose point estimate is below nominal.
+  - Every count and list is **computed from the verdict table at build time** and guarded by `_require`,
+    including "persistence is the only learner wholly above nominal at the primary level".
+- **F11 caption and figure label.**
+  - The caption says "meets the restoration criterion in N of 4 cells" and qualifies the RESTORED cell
+    when its weighted point estimate is below nominal.
+  - The figure adds a muted label "weighted point estimate below nominal" to any such cell.
+- **`REVIEWER_CHECKLIST.md`:** the N1 "strengthened since drafting" line (line 17) and the M8 "finding, stated
+  plainly" line (line 127).
+- **`README.md`:** the Gate 2 line and the E17 "restores 1 of the 4" line.
+- **`DECISIONS.md`:** append-only annotations on the RESOLVED Gate 2 entry, the Gate 2 outcome line, the
+  E17 findings entry and the E8-inclusion result entry.
+  - Their numbers must be **read from the regenerated tables**, not copied from the lost commit.
+- **F05 and F06 were checked and need no change:** F05 states non-restoration only, and F06 makes no
+  restore claim.
+
+*Allowed changes:* captions, figure label text, markdown tables that embed captions, and the manifest.
+
+*Required check:* every CSV, including both verdict tables, SHA-256-identical before and after. Then
+`kc manuscript` rebuilt on a clean tree, with the manifest committed.
+
+*Why it is not re-applied now.* The captions are generated from `reports/tables/`, which was lost, so
+they cannot be rebuilt or byte-checked. The wording is applied only once the tables exist again.
+
+---
+
+**(b) reproduce-all design decisions (Sidh).**
+1. **Output hashing.** The manifest records the SHA-256 of **every output file** at a tagged release: all
+   result tables and every manuscript figure and table, not only each artifact's source tables (which is
+   all `reports/manuscript_manifest.json` records today).
+2. **Canonical reference.** The reference is a **container run**. Windows results are compared with it
+   under a tolerance that is **measured first, then decided by Sidh**.
+3. **Measure before change.** Each of the following is run, diffed against the published outputs, and
+   reported **before** any change is adopted:
+   - torch thread pinning. `sequence.py:173` pins threads to 1 only around training;
+   - the torch `warn_only` setting. `sequence.py:39` calls
+     `torch.use_deterministic_algorithms(True, warn_only=True)`;
+   - the `read_csv` parser change. 10 `pd.read_csv` calls in `src/kelvins_conformal` don't pass
+     `float_precision="round_trip"`.
+4. **Hardcoded literals** are replaced by computed or saved quantities during the full run. Known cases,
+   verified in the clone:
+   - the persistence 65.9% zero-atom, a constant in `decision_runner.py:71` and `threshold_runner.py:74`;
+   - the original-grid 62.3% / 54.2% in `05c_threshold_analysis.ipynb` §7b, plus `decision.py:396` and
+     two `manuscript.py` notes;
+   - E3's 65.0% in `04_labelnoise.ipynb`;
+   - E14's label-shift size, which was printed by the E14 run but never saved (`manuscript.py:937`).
+
+   F02b also cannot be regenerated: E8's per-event predictive distributions were never saved
+   (`manuscript.py:500`).
+5. **HEAD-reproduction audit.** The first full run doubles as the reproduction audit for the stages whose
+   reproduction at HEAD has never been checked: **E1, E3–E11, E14, E15 and E15b**.
+6. **CI and Docker, as proposed.**
+   - Pin Python **3.13.11** in CI and the Dockerfile: the result sidecars record 3.13.11, but CI installs
+     3.11 (`ci.yaml:31`) and the Dockerfile uses `python:3.11-slim-bookworm` (`Dockerfile:5`).
+   - Add `--extra models` to the Docker sync.
+   - Remove the `|| uv sync` fallback from `Dockerfile:19`.
+   - Set `OMP_NUM_THREADS`, `MKL_NUM_THREADS` and `OPENBLAS_NUM_THREADS` to 1 in the container.
+
+**Consequence of the D: loss for item 3.** "The published outputs" no longer exist as files. Until the
+first full run regenerates them, a measure-before-change diff can be checked only against values quoted
+in this log, the committed captions and manifest, and `REVIEWER_CHECKLIST.md`. What reference that run
+should be held to is Sidh's decision.
 
 **Recorded by:** Claude Code.
 
