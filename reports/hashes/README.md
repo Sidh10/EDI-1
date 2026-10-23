@@ -10,6 +10,7 @@ uses (`manuscript.py`: `hashlib.sha256(path.read_bytes())`).
 | `E1-E3.sha256.csv` | the 20 E1–E3 result tables written by `kc audit` |
 | `events_parquet.sha256.csv` | `data/processed/events.parquet` (built by `kc audit`) |
 | `data_raw.sha256.csv` | every file in `data/raw/` after `kc ingest` |
+| `E4-E5.sha256.csv` | the 14 E4–E5 result tables written by `kc power` and `kc baselines` |
 
 **Columns** (`E1-E3.sha256.csv`):
 - `experiment`, `path`, `sha256`, `bytes`;
@@ -43,3 +44,17 @@ values, one per row:
 
 `events.parquet` holds **one row per CDM**, not per event: 162,634 train and 24,484 test CDM rows
 (187,118 in total) across 15,321 distinct `event_uid`.
+
+**`E4-E5.sha256.csv`.** It uses the same columns plus `identical_across_two_runs`. Every row is
+`first-recorded`: no earlier committed hash covers any E4/E5 output.
+
+The two runs: `kc power` and `kc baselines` were run twice on 2026-10-23, at `266badf` with config
+`00d1cb2d…`, and run 1's outputs were copied aside before run 2. Of 22 output files, 16 are
+byte-identical: all 14 tables and both PNG figures. The other six differ only in run metadata:
+- the two provenance sidecars: `executed_utc`;
+- the two PDF figures: `/CreationDate` (identical once that field is removed);
+- the two HTML reports: `executed_utc`, the kernel's temp path inside a printed warning, and, in the E5
+  report, one cell's printed output split into two output blocks with identical text.
+
+**This shows determinism on this machine. It does not show reproduction of the original runs.** Those
+outputs were lost, and no committed hash covers them.

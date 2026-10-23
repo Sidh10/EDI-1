@@ -3979,6 +3979,49 @@ same commit as their results.
 **Reported by:** Claude Code.
 
 
+### 2026-10-23 — E4–E5 regenerated natively: deterministic on this machine; 60 of 62 committed numbers reproduced; no committed hashes existed
+
+**Status:** REPORTED by Claude Code, per Sidh's 2026-10-23 instruction. This is the second stage of the
+native-Windows reproduction audit (2026-10-15 amendment, pending confirmation). **No decision is taken
+here.**
+
+**Runs.** `kc power` (E4) and `kc baselines` (E5) ran on 2026-10-23, at `266badf` with config
+`00d1cb2d…`, on Python 3.13.11 and Windows 11, in `E:\EDI-1\repo`. Wall-clock:
+
+| command | run 1 | run 2 |
+|---|---|---|
+| `kc power` (E4) | 4 min 8 s (13 s startup + 3 min 55 s notebook) | 2 min 3 s |
+| `kc baselines` (E5) | 13 s (4 s startup + 8 s notebook) | 20 s |
+
+Commit headroom never fell below 12.42 GB (limit 38.18 GB).
+
+**Byte level.** No earlier committed hash covers any E4 or E5 output: the manuscript manifest has no
+E4/E5 entries, and the sidecars carry no table hashes. The 14 regenerated tables are recorded as
+`first-recorded` in `reports/hashes/E4-E5.sha256.csv`.
+
+**Determinism.** Each command ran twice, with run 1's outputs copied aside before run 2. Of 22 output
+files, **16 are byte-identical**: all 14 tables and both PNG figures. The six differences are run
+metadata only: `executed_utc` in the two sidecars; `/CreationDate` in the two PDFs; and in the two HTML
+reports, `executed_utc`, the kernel's temp path in a warning, and one printed output split into two
+output blocks.
+
+**This shows determinism on this machine. It does not show reproduction of the original 2026-08-01
+runs**, whose outputs were lost and were never hashed.
+
+**Number level — 60 of 62 committed numbers reproduced**, compared against the E4 findings entry
+(lines 681–723), the E5 findings entry (646–680), the E5 pre-registration (503–533) and the Gate 1
+entry. The marginal precision, the per-mission table, the merge threshold, the bootstrap degeneracy and
+all seven published E5 quantities with their stated tolerances reproduce. The two mismatches, the Gate 1
+"0.001" wording and the `59c7bedf` provenance are each recorded in the four 2026-10-23 entries directly
+above.
+
+**Sidecars: not committed.** In each, only `git_commit_sha` (`5a309ac` → `266badf`), `config_hash`
+(`59c7bedf…` → `00d1cb2d…`) and `executed_utc` differ. The originals were restored. The regenerated
+copies are kept outside the repository, in `E:\EDI-1\regenerated_sidecars\`.
+
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
