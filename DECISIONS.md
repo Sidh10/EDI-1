@@ -3759,6 +3759,269 @@ per Sidh's 2026-10-15 instruction. **Pending Sidh's confirmation.** No code chan
 **Recorded by:** Claude Code. **Awaiting confirmation by:** Sidh.
 
 
+### 2026-10-23 — E1–E3 regenerated natively: 3 of 3 committed hashes and 57 of 57 committed numbers reproduced
+
+**Status:** REPORTED by Claude Code, per Sidh's 2026-10-23 instruction. This is the first stage of the
+native-Windows reproduction audit (2026-10-15 amendment, pending confirmation). **No decision is taken
+here.**
+
+**Run.**
+- `kc audit` (E1–E3) on 2026-10-23, at commit `2aaa0d7`, config `00d1cb2d…`.
+- Python 3.13.11 (the system interpreter) on Windows 11, in a fresh clone at `E:\EDI-1\repo`, with an
+  environment installed by `uv sync --locked` with the `models`, `notebooks` and `dev` extras.
+- Raw data re-ingested by `kc ingest`. The zip's md5 `d19dc8875229f2f6893253c38adddc87` equals
+  `config/default.yaml`.
+
+**Per-stage wall-clock**, from timestamped CLI output (per-cell timings are not available, because the
+CLI deletes the executed notebook):
+
+| stage | duration |
+|---|---|
+| CLI and kernel startup | 35 s |
+| `00_data_audit.ipynb` (E1 + E2, including building `events.parquet`) | 86 s |
+| `00b_pc_spike.ipynb` (E3) | 35 s |
+| total | 157 s |
+
+Commit headroom never fell below 13.87 GB (limit 38.18 GB).
+
+**Byte level — 3 of 3 reproduced.**
+- Every committed SHA-256 covering E1–E3 is reproduced exactly: `e1_cutoff_rule_verification`,
+  `e1_high_risk_prevalence` and `e1_two_sample_tests`, against the manuscript manifest's
+  `source_sha256`, which hashes file bytes.
+- No other E1–E3 output had a committed hash.
+- The 20 regenerated tables, `events.parquet` and the `data/raw` files are now hashed in
+  `reports/hashes/` (`c324d62`): 3 are "reproduced", every other entry is "first-recorded".
+
+**Number level — 57 of 57 reproduced.** Every number in the Phase 0 findings entry (DECISIONS lines
+586–626) and its restatements matches, compared at the precision it was written to:
+- DECISIONS lines 285, 292, 295, 851, 1215, 1458, 1460 and 1729;
+- the F01 caption (`reports/manuscript_captions.md` line 7).
+
+The numbers cover event and feature counts, the cutoff rules, recency shares, high-risk prevalence and
+enrichment, KS p-values, mission counts, floor mass, the E2 feature tally, field missingness, and every
+E3 agreement, CI, test statistic and stratum figure.
+
+**First recorded, not reproduced.** Two E3 quantities had no committed value:
+- **MAE log10, full sample: 1.37655** (1.3765537488229966);
+- **median |Δ|, full sample: 0.23074** (0.23074145341466945).
+
+They are recorded here for the first time. A later run can reproduce them; this one could not.
+
+**Other checks.**
+- `events.parquet` holds **one row per CDM**: 187,118 = 162,634 train + 24,484 test, across 15,321
+  events. That equals the CDM totals implied by `e1_cdms_per_event` (events × mean CDMs per event), a
+  first-recorded table.
+- The slow test `test_splits_leakage.py::test_real_train_test_events_are_disjoint` passes.
+- The `data/raw` file md5s equal the values shown in this session from the `PROVENANCE.json` lost with
+  the D: folder. That earlier record survives only in the session transcript; it was never committed.
+
+**Sidecars: not committed.** `kc audit` rewrote the two tracked sidecars, and only three fields differ
+in each:
+
+| field | committed | regenerated |
+|---|---|---|
+| `git_commit_sha` | "UNAVAILABLE (working tree is not a git repository)" | `2aaa0d7…` |
+| `config_hash` | `9c732558…` | `00d1cb2d…` |
+| `executed_utc` | 2026-08-01 | 2026-10-23 |
+
+The committed originals were restored. The regenerated copies are kept outside the repository, in
+`E:\EDI-1\regenerated_sidecars\`, with SHA-256s.
+
+**What this does not show.**
+- **E4–E18 are untested.** No stage past E3 has been regenerated.
+- **One machine and one OS.** The run is on the machine the D: project ran on (Windows 11), with the
+  same interpreter version. Byte identity on any other machine or OS, including the container, is
+  not shown.
+- **E1–E3's original run predates git.** The comparison is against the committed hashes and numbers,
+  not against the original files, which are lost.
+
+**Reported by:** Claude Code.
+
+
+### 2026-10-23 — E5 record mismatch: "42.6% of training events" (line 669) is not what the code measures, and cannot be reproduced
+
+**Status:** FINDING, recorded by Claude Code from the native regeneration of E5 on 2026-10-23 (`266badf`,
+config `00d1cb2d…`). Append-only: line 669 is not edited.
+
+**The committed statement** (E5 findings entry, line 669, introduced in `4d9f38b`): "for 42.6% of
+training events `r_{-2}` *is* the target CDM and the baseline is exact by construction".
+
+**Where "42.6%" comes from.** It occurs exactly once in history: `git log --all -S"42.6%"` finds only
+`4d9f38b`, which adds line 669. No notebook, `src/` file or plan document has ever contained it. The
+committed notebooks store no outputs, so the original printed value is not recoverable.
+
+**What the code prints.** `notebooks/01b_baseline_validation.ipynb` cell 12 is unchanged since
+`4d9f38b`. Regenerated, it prints "training events where r_-2 IS the target CDM (zero error by
+construction): 7,891 of 11,942 (66.1%)".
+- **Numerator:** `np.isclose(r_minus_2, y_true)`, i.e. events whose latest pre-cutoff risk **value**
+  equals the target risk value.
+- **Denominator:** 11,942, the training events with an admissible pre-cutoff CDM (13,154 minus 1,212
+  with none; `baselines.build_baseline_frame`).
+- **The label overstates the measure.** Of the 7,891, **5,124 are both at the −30 floor** (two
+  different CDMs with the same sentinel value). Only 2,767 are equal and not both at the floor.
+
+**Candidate definitions, computed read-only. None gives 42.6%:**
+
+| definition | share |
+|---|---|
+| value equality, ÷ 11,942 (the code's measure) | 66.08% |
+| the same 7,891, ÷ 13,154 | 59.99% |
+| identity — the final CDM itself lies at or beyond the 2-day cutoff, so the pre-cutoff CDM *is* the target CDM — ÷ 11,942 | 25.54% |
+| identity, ÷ 13,154 | 23.19% |
+
+**Conclusion:** the committed 42.6% and the regenerated 66.1% do not measure the same thing on any
+reading found, and 42.6% cannot be reproduced. The E5 entry's qualitative point stands as recomputed:
+LRP is exact by construction for a large share of unfiltered training events, which deflates MSE_HR.
+Unfiltered L = 0.0964 (committed 0.096) reproduces. The specific percentage does not.
+
+**Touches a Gate 1 decision input? No.** Gate 1's E5 inputs are the seven published quantities and
+their tolerance, all reproduced. Line 669 is a diagnostic of the unfiltered-train anomaly, not an input.
+
+**Reported by:** Claude Code.
+
+
+### 2026-10-23 — E4 record mismatch: "calibration term (0.58–0.82 pp) at every fraction" (line 696)
+
+**Status:** FINDING, recorded by Claude Code from the native regeneration of E4 on 2026-10-23
+(`266badf`, config `00d1cb2d…`). Append-only.
+
+**The terms, as `power.py` defines them.**
+- **calibration term** = `beta_sd_pp`, the SD (pp) of Beta(n_cal + 1 − ℓ, ℓ) with ℓ = ⌊α(n_cal + 1)⌋:
+  the spread of conditional coverage across calibration draws;
+- **test-set term** = 100·√(p(1−p)/n_test).
+
+Both are **standard deviations**. The reported precision is a different quantity: the **median
+Clopper–Pearson half-width** of k/150, where k is the simulated number of covered high-risk events.
+
+**Regenerated calibration terms (pp)**, from `e4_marginal_precision`:
+
+| nominal | 10% (n_cal 1,315) | 20% (2,631) | 30% (3,946) |
+|---|---|---|---|
+| 80% | 1.102 | 0.779 | 0.636 |
+| 90% | 0.825 | 0.584 | **0.477** |
+| 95% | 0.597 | 0.424 | 0.347 |
+
+- **"0.58–0.82" matches only the 90% values at the 10% and 20% fractions.** The 30% value, 0.477, lies
+  outside it.
+- No nominal level has all three fractions inside 0.58–0.82. **"At every fraction" is not reproduced.**
+  The table is deterministic: two runs on this machine are byte-identical.
+
+**Why the half-width barely moves, reconciled.**
+- The calibration term adds **in quadrature** with the test-set term (2.449 pp at 90%):
+  - √(0.825² + 2.449²) = 2.585 pp;
+  - √(0.477² + 2.449²) = 2.496 pp;
+  - a 0.09 pp change in total spread; the simulated "sd of estimate" moves 2.578 → 2.500.
+- The median CP half-width does not include that spread at all. The median simulated k is 135
+  (90.00%) at every fraction, so the median half-width is exactly CP(135, 150) = 5.1255 pp at all three.
+  For reference, k = 134 gives 5.2613 and k = 136 gives 4.9834.
+- So the E4 conclusion "<0.01 pp" (in fact 0) holds, and a falling calibration term is consistent with
+  it.
+
+**Touches a Gate 1 decision input? No.** Gate 1 rests on the marginal half-width (5.13 pp at
+n_HR = 150) and the merge threshold (200 > 150), both reproduced. The calibration-term range is
+supporting text for "precision is limited by the evaluation set". That statement still holds, with the
+range corrected to 0.48–0.82 pp at 90%.
+
+**Reported by:** Claude Code.
+
+
+### 2026-10-23 — Gate 1 wording: the "0.001 criterion" does not cover CRP
+
+**Status:** FINDING (wording), recorded by Claude Code. Append-only: the Gate 1 entry is not edited.
+
+**The record.**
+- **The Gate 1 entry** ("2026-08-01 — GATE 1 (E1–E5 review)", paragraph "E5 agreement tolerance
+  RESOLVED") reads: "The 0.001
+  absolute-difference criterion is confirmed as adequate — all 7 published quantities matched well
+  within it."
+- **The E5 pre-registration** (lines 514 and 519) sets ≤ 0.001 for the six LRP quantities and
+  **≤ 0.05 for CRP L**, "since 2.5 is given to 2 significant figures only".
+- **CRP L differs by 0.0041** (2.504140 vs 2.5; committed at line 657, and reproduced natively on
+  2026-10-23). That is within its own 0.05 tolerance but not within 0.001. Six of the seven quantities
+  are within 0.001.
+
+**Reading.** Every quantity met the tolerance pre-registered for it, so the substance of the
+resolution holds. The sentence's premise, that all seven were within 0.001, is imprecise for CRP.
+
+**Touches a Gate 1 decision input? Yes.** It is the factual basis the Gate 1 entry gives for resolving
+the E5 tolerance. Under the pre-registered per-quantity tolerances the outcome is unchanged. Whether
+the Gate 1 entry needs an annotation is Sidh's call.
+
+**Reported by:** Claude Code.
+
+
+### 2026-10-23 — Provenance: E4/E5 ran under a sixth config hash, `59c7bedf…`, committed in `4d9f38b`
+
+**Status:** FINDING (provenance), recorded by Claude Code. Append-only.
+
+**The committed sidecars.** `reports/01_power_analysis_provenance.json` and
+`reports/01b_baseline_validation_provenance.json` record:
+- `git_commit_sha` = `5a309ac`;
+- `config_hash` = `59c7bedf6a284b2097c07583fca1044aac5b9a9d508c35fd5fb3d77667728f86`;
+- executed 2026-08-01 at 06:17 UTC (11:47 IST).
+
+**Locating the config.** Hashing every historical `config/default.yaml` with `compute_config_hash`
+gives:
+- `59c7bedf…` is exactly the config committed in **`4d9f38b`** (11:53 IST, about 6 minutes after the
+  runs);
+- `5a309ac`'s own config hashes to `9c732558…`, which is E1/E3's.
+
+So E4/E5 ran on an uncommitted working tree whose config was later committed in `4d9f38b`, while the
+sidecar records HEAD as `5a309ac`. Earlier lists of historical config hashes named five
+(`9c732558`, `eb89df79`, `30b803eb`, `7d6ccea5`, `00d1cb2d`), taken from the manuscript manifest, which
+does not cover E4/E5. **`59c7bedf` is a sixth.**
+
+**Touches a Gate 1 decision input? Yes — its provenance, not its values.** The E4/E5 reports are Gate 1's
+evidence. The values Gate 1 rests on reproduce natively under `00d1cb2d`. The commit-level provenance
+of those original runs is limited, though: their code and config entered git only after the run, in the
+same commit as their results.
+
+**Reported by:** Claude Code.
+
+
+### 2026-10-23 — E4–E5 regenerated natively: deterministic on this machine; 60 of 62 committed numbers reproduced; no committed hashes existed
+
+**Status:** REPORTED by Claude Code, per Sidh's 2026-10-23 instruction. This is the second stage of the
+native-Windows reproduction audit (2026-10-15 amendment, pending confirmation). **No decision is taken
+here.**
+
+**Runs.** `kc power` (E4) and `kc baselines` (E5) ran on 2026-10-23, at `266badf` with config
+`00d1cb2d…`, on Python 3.13.11 and Windows 11, in `E:\EDI-1\repo`. Wall-clock:
+
+| command | run 1 | run 2 |
+|---|---|---|
+| `kc power` (E4) | 4 min 8 s (13 s startup + 3 min 55 s notebook) | 2 min 3 s |
+| `kc baselines` (E5) | 13 s (4 s startup + 8 s notebook) | 20 s |
+
+Commit headroom never fell below 12.42 GB (limit 38.18 GB).
+
+**Byte level.** No earlier committed hash covers any E4 or E5 output: the manuscript manifest has no
+E4/E5 entries, and the sidecars carry no table hashes. The 14 regenerated tables are recorded as
+`first-recorded` in `reports/hashes/E4-E5.sha256.csv`.
+
+**Determinism.** Each command ran twice, with run 1's outputs copied aside before run 2. Of 22 output
+files, **16 are byte-identical**: all 14 tables and both PNG figures. The six differences are run
+metadata only: `executed_utc` in the two sidecars; `/CreationDate` in the two PDFs; and in the two HTML
+reports, `executed_utc`, the kernel's temp path in a warning, and one printed output split into two
+output blocks.
+
+**This shows determinism on this machine. It does not show reproduction of the original 2026-08-01
+runs**, whose outputs were lost and were never hashed.
+
+**Number level — 60 of 62 committed numbers reproduced**, compared against the E4 findings entry
+(lines 681–723), the E5 findings entry (646–680), the E5 pre-registration (503–533) and the Gate 1
+entry. The marginal precision, the per-mission table, the merge threshold, the bootstrap degeneracy and
+all seven published E5 quantities with their stated tolerances reproduce. The two mismatches, the Gate 1
+"0.001" wording and the `59c7bedf` provenance are each recorded in the four 2026-10-23 entries directly
+above.
+
+**Sidecars: not committed.** In each, only `git_commit_sha` (`5a309ac` → `266badf`), `config_hash`
+(`59c7bedf…` → `00d1cb2d…`) and `executed_utc` differ. The originals were restored. The regenerated
+copies are kept outside the repository, in `E:\EDI-1\regenerated_sidecars\`.
+
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
