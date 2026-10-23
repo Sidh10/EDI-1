@@ -3759,6 +3759,85 @@ per Sidh's 2026-10-15 instruction. **Pending Sidh's confirmation.** No code chan
 **Recorded by:** Claude Code. **Awaiting confirmation by:** Sidh.
 
 
+### 2026-10-23 — E1–E3 regenerated natively: 3 of 3 committed hashes and 57 of 57 committed numbers reproduced
+
+**Status:** REPORTED by Claude Code, per Sidh's 2026-10-23 instruction. This is the first stage of the
+native-Windows reproduction audit (2026-10-15 amendment, pending confirmation). **No decision is taken
+here.**
+
+**Run.**
+- `kc audit` (E1–E3) on 2026-10-23, at commit `2aaa0d7`, config `00d1cb2d…`.
+- Python 3.13.11 (the system interpreter) on Windows 11, in a fresh clone at `E:\EDI-1\repo`, with an
+  environment installed by `uv sync --locked` with the `models`, `notebooks` and `dev` extras.
+- Raw data re-ingested by `kc ingest`. The zip's md5 `d19dc8875229f2f6893253c38adddc87` equals
+  `config/default.yaml`.
+
+**Per-stage wall-clock**, from timestamped CLI output (per-cell timings are not available, because the
+CLI deletes the executed notebook):
+
+| stage | duration |
+|---|---|
+| CLI and kernel startup | 35 s |
+| `00_data_audit.ipynb` (E1 + E2, including building `events.parquet`) | 86 s |
+| `00b_pc_spike.ipynb` (E3) | 35 s |
+| total | 157 s |
+
+Commit headroom never fell below 13.87 GB (limit 38.18 GB).
+
+**Byte level — 3 of 3 reproduced.**
+- Every committed SHA-256 covering E1–E3 is reproduced exactly: `e1_cutoff_rule_verification`,
+  `e1_high_risk_prevalence` and `e1_two_sample_tests`, against the manuscript manifest's
+  `source_sha256`, which hashes file bytes.
+- No other E1–E3 output had a committed hash.
+- The 20 regenerated tables, `events.parquet` and the `data/raw` files are now hashed in
+  `reports/hashes/` (`c324d62`): 3 are "reproduced", every other entry is "first-recorded".
+
+**Number level — 57 of 57 reproduced.** Every number in the Phase 0 findings entry (DECISIONS lines
+586–626) and its restatements matches, compared at the precision it was written to:
+- DECISIONS lines 285, 292, 295, 851, 1215, 1458, 1460 and 1729;
+- the F01 caption (`reports/manuscript_captions.md` line 7).
+
+The numbers cover event and feature counts, the cutoff rules, recency shares, high-risk prevalence and
+enrichment, KS p-values, mission counts, floor mass, the E2 feature tally, field missingness, and every
+E3 agreement, CI, test statistic and stratum figure.
+
+**First recorded, not reproduced.** Two E3 quantities had no committed value:
+- **MAE log10, full sample: 1.37655** (1.3765537488229966);
+- **median |Δ|, full sample: 0.23074** (0.23074145341466945).
+
+They are recorded here for the first time. A later run can reproduce them; this one could not.
+
+**Other checks.**
+- `events.parquet` holds **one row per CDM**: 187,118 = 162,634 train + 24,484 test, across 15,321
+  events. That equals the CDM totals implied by `e1_cdms_per_event` (events × mean CDMs per event), a
+  first-recorded table.
+- The slow test `test_splits_leakage.py::test_real_train_test_events_are_disjoint` passes.
+- The `data/raw` file md5s equal the values shown in this session from the `PROVENANCE.json` lost with
+  the D: folder. That earlier record survives only in the session transcript; it was never committed.
+
+**Sidecars: not committed.** `kc audit` rewrote the two tracked sidecars, and only three fields differ
+in each:
+
+| field | committed | regenerated |
+|---|---|---|
+| `git_commit_sha` | "UNAVAILABLE (working tree is not a git repository)" | `2aaa0d7…` |
+| `config_hash` | `9c732558…` | `00d1cb2d…` |
+| `executed_utc` | 2026-08-01 | 2026-10-23 |
+
+The committed originals were restored. The regenerated copies are kept outside the repository, in
+`E:\EDI-1\regenerated_sidecars\`, with SHA-256s.
+
+**What this does not show.**
+- **E4–E18 are untested.** No stage past E3 has been regenerated.
+- **One machine and one OS.** The run is on the machine the D: project ran on (Windows 11), with the
+  same interpreter version. Byte identity on any other machine or OS, including the container, is
+  not shown.
+- **E1–E3's original run predates git.** The comparison is against the committed hashes and numbers,
+  not against the original files, which are lost.
+
+**Reported by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
