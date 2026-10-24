@@ -4100,6 +4100,92 @@ entry.
 **Recorded by:** Claude Code.
 
 
+### 2026-10-24 — Engine input-assembly approximation and the CDM standard
+
+**Status:** FACTS ONLY, recorded by Claude Code per Sidh's 2026-10-24 instruction. Nothing is re-run. **E3's
+and E14's conclusions stand as recorded.** No engine run, independent method or validation code was involved.
+
+**1. What the engine does** (`src/kelvins_conformal/labelnoise/pc_foster.py`).
+- **Docstring, lines 19–20:** "Each object's covariance is taken in a common RTN frame and summed directly
+  (no inter-object frame rotation). This is the standard first-order treatment."
+- **Lines 266–273:** `cov_t` and `cov_c` are each built as a 3×3 matrix by `position_covariance_rtn`
+  (lines 49–66, "3x3 RTN position covariance from sigmas + position-position correlations").
+- **Line 276:** `cov = (cov_t + cov_c) * float(covariance_scale)` — summed with no rotation between
+  objects.
+- **Lines 259–264:** the relative state is taken unchanged from `relative_position_{r,t,n}` and
+  `relative_velocity_{r,t,n}`.
+- **Line 278:** `hbr = 0.5 * (t_span + c_span)`.
+- **Lines 280–282:** projection onto the plane perpendicular to the relative velocity.
+- **E3 and E14 use this same assembly:**
+  - E3: `00b_pc_spike.ipynb`, cell 11, `pf.recompute_pc_for_row(d, floor_sentinel=floor)`;
+  - E14: `labelnoise/rescale.py`, lines 117–120, `recompute_pc_for_row(row, ..., covariance_scale=s)`.
+
+**2. What the CDM standard specifies** (CCSDS 508.0-B-1, Blue Book, June 2013, including Technical
+Corrigendum 2 of October 2021; read 2026-10-24).
+- **§2.2, p. 2-1:** "Object1/Object2 covariances at TCA with respect to an object centered reference
+  frame;" and "the relative position/velocity of Object2 with respect to an Object1 centered reference
+  frame;"
+- **p. 3-4:** "NOTE – Table 3-3 and table 3-4 will be used to define both Object1 and Object2 …"
+- **Table 3-4, p. 3-9:** "Covariance Matrix in the RTN Coordinate Frame (see annex E for definition)".
+- **Table 3-2, p. 3-3:** "The R component of Object2's position relative to Object1's position in the
+  Radial, Transverse, and Normal (RTN) coordinate frame."
+- **Annex E (informative), §E1, p. E-1** defines RTN as an "Object-centered coordinate system". It states
+  the relative state "with components expressed in the Object1-centered RTN coordinate frame".
+- **No sentence** in the text explicitly says that Object2's covariance is centred on Object2.
+
+**3. What the dataset's sources say about frames — nothing.** Searched for frame, RTN, coordinate, ECI,
+Object1 and CCSDS:
+- **Dataset documentation** (`data/raw/raw_data/raw_data_2015-2019.txt`):
+  - lines 29–30: "target refers to the ESA satellites while chaser refers to the space debris/object we
+    want to avoid";
+  - lines 44–49 and 60–80: components named radial, transverse (along-track) and normal (cross-track);
+  - no frame and no Object1/Object2 mapping.
+- **Kelvins paper** (arXiv:2008.03069v2):
+  - §2, p. 3: the CDMs "are ascii files issued and distributed by the US-based Combined Space Operations
+    Center (CSpOC)";
+  - §3, p. 4: anonymisation transformed "position/velocity values in relative values … state with
+    respect to the target";
+  - no frame statement.
+- **Zenodo record 10.5281/zenodo.4463683 description** (fetched 2026-10-24; the first request returned
+  HTTP 403 "unusual traffic", and one retry succeeded): describes the dataset as CDMs "received by ESA
+  from 2015 to 2019 … anonymised for distribution". **No frame statement and no Object1 mapping.**
+- **Kelvins pages** (kelvins.esa.int/collision-avoidance-challenge/ and its data page, fetched
+  2026-10-24): repeat the column documentation, including "target refers to the ESA satellites …". **No
+  frame statement.**
+- **kesslerlib/kessler** (FDL Europe 2020, a third-party library; README, `docs/*.rst`, `docs/index.md`
+  and documentation notebooks, fetched 2026-10-24): **no frame statement.**
+  - Its converter `kessler/data.py` (latest change `b80359304f`, 2025-04-24) maps `t_*` to
+    `OBJECT1_C*` and `c_*` to `OBJECT2_C*`, and copies `relative_*` into CCSDS `RELATIVE_*` unchanged.
+  - **This is kessler's own assumption in code, not documentation of the dataset. It does not verify
+    either point.**
+
+**4. Status.**
+- **Whether the dataset's covariances and relative state follow the CCSDS conventions is unverified.**
+  So is whether "target" is CCSDS Object1. None of the sources above settles either.
+- If the dataset does follow the standard, line 276 adds two matrices expressed in different object-
+  centred frames. **The effect of that on E3's agreement and on E14 is unmeasured.**
+
+**5. How E3 and E14 depend on the engine**, quoted from the code.
+- **E3's within-0.5 statistic** compares the engine's **absolute** floored log10 Pc with the reported
+  `risk` (`00b_pc_spike.ipynb`, cell 11, lines 21–23):
+  `comp["delta"] = comp["recomputed"] - comp["reported"]`, `comp["abs_delta"] = comp["delta"].abs()`,
+  `comp["within_tol"] = comp["abs_delta"] <= TOL`.
+  E14's `agreement_at_anchor` (`rescale.py`, lines 163–175) makes the same comparison at s = 1 over the
+  eligible set.
+- **E14's direct arm**, `"y_direct": np.maximum(unfloored, floor_sentinel)` (`rescale.py`, line 155),
+  depends on the engine's **absolute** log10 Pc at scale s.
+- **E14's anchored arm**, `y_anchored = np.where(anchored_defined, np.clip(y_reported + delta,
+  floor_sentinel, 0.0), np.nan)` with `delta = unfloored - anchor` (lines 145–150), depends on the engine
+  only through the **change** between scale s and s = 1. It is defined only where
+  `np.isfinite(anchor) & (y_reported > floor_sentinel)` (line 140).
+  - Both ends of that change are computed from the same assembled covariance and geometry. So the
+    differencing cancels an offset common to both, but it does not by construction cancel an assembly
+    effect that changes how log10 Pc responds to scaling.
+  - That is a property of the formula, not a measured effect.
+
+**Recorded by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
