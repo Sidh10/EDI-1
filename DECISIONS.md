@@ -4186,6 +4186,218 @@ Object1 and CCSDS:
 **Recorded by:** Claude Code.
 
 
+### 2026-10-24 — PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation — checklist resolved, convention section replaced
+
+**Status:** CONFIRMED by Sidh on 2026-10-24, recorded by Claude Code.
+- **Committed before any validation code exists.**
+- The reconstructed pre-registration (2026-10-14) is **not edited**. This entry resolves its
+  "[to be re-confirmed by Sidh]" markers as set out below.
+- `config/experiments/pc_validation.yaml`, which holds every numeric value, is updated in the same
+  commit.
+- No comparison has run, and none may run on any real event, real CDM or E3's sample until it is
+  separately authorised.
+
+**Checklist resolution** (numbering as in the 2026-10-23 checkpoint):
+
+| # | term | resolution |
+|---|---|---|
+| 1 | per-band population split | **confirmed as fact** (2026-10-24 entry): 108 / 138 / 98 |
+| 2 | draw procedure | **as drafted**: `default_rng(42)`, without replacement, strata in the listed order, uids sorted first |
+| 3 | E3 row matching | **confirmed as fact**: 100 of 100 match on `(event_uid, time_to_tca)` with `reported == risk`, on the regenerated comparison table |
+| 4 | E3 set reported separately | **as drafted**: a second set, not pooled |
+| 5 | shared independent input assembly | **as drafted** |
+| 6 | M1 tolerances | **as drafted** (`epsrel` 1e-10, `limit` 500), **plus**: non-convergence (quad `ier != 0`) is an **event-level failure** and is **never loosened afterwards** |
+| 7 | M3 settings | **amended**: target relative SE **0.5%**. 1e6 samples, rerun once at 1e7 if missed. An event still above 0.5% at 1e7 is **"not informative"** for M3 |
+| 8 | M2 settings | **as drafted**: chunks of 1e7, cap 1e8, stop at about 100 hits, a priori "not informative" if 100/Pc_M1 exceeds the cap; counted at relative SE ≤ 10%, judged within 3 SE |
+| 9 | agreement rules | **amended**: engine evaluation errors **count as disagreements**; agreement **requires both M1 and M3** |
+| 10 | RP4/M3 consequence wording | **deferred until after the result** |
+| 11 | convention list | **replaced** by the convention section copied in full below, with C1 as a labelled negative control: exempt from the E3/E14 flag rule, governed by the insensitivity rule, with its per-stratum median change reported against +0.602 and **no pass/fail threshold** |
+| 12 | C2 dropped | **confirmed as fact**: `c_span` ≥ 2.0 everywhere |
+| 13 | mechanics | **as drafted**: unit tests on analytic cases first; one `kc` subcommand writing `pcv_*` tables; no change to the existing engine or pipeline |
+
+**OPEN — not decided, and blocking classification only.** Item 9 requires agreement with **both** M1 and
+M3. The checklist does not say how an event enters a stratum's agreement fractions when it has **no
+valid independent value**: an M1 non-convergence (item 6), or an M3 "not informative" (item 7).
+- `config/experiments/pc_validation.yaml` carries `missing_independent_value_policy: null`.
+- The runner **refuses to classify** while it is null.
+- Sidh decides this before any comparison is read. Nothing else depends on it.
+
+**Implementation constants fixed now**, before any code or run, and recorded in the YAML:
+- **M1 peak-search grid:** 2,001 points in t, used only to locate the peak that is factored out in log
+  space and passed to quad as a breakpoint;
+- **M3 draw chunk:** 1e6. It fixes the draw order from the per-event generator seeded 42 + sample index;
+- **μ = 398600.4418 km³/s²** (WGS-84 GM), used only for C3's circular-orbit speed.
+
+**Convention section (item 11), replacing §6 of the 2026-10-14 entry.** Copied in full from
+`E:/EDI-1/scratch/proposed_convention_section.md` as confirmed. Its headings are demoted so they are not
+read as log entries.
+
+#### Convention sensitivity (§6) — as confirmed by Sidh on 2026-10-24
+
+Drafted 2026-10-24 by Claude Code and confirmed by Sidh on 2026-10-24, with C1 set as a labelled negative
+control. This section replaces §6 of the reconstructed pre-registration (2026-10-14). That entry is not
+edited; this replacement is recorded in a new, dated, append-only entry, committed before any validation
+code exists.
+
+##### Disclosure
+
+- **Where the conventions come from:** the CCSDS Conjunction Data Message standard (CCSDS 508.0-B-1,
+  including Technical Corrigendum 2, October 2021), the dataset's own column documentation
+  (`data/raw/raw_data/raw_data_2015-2019.txt`), and the Kelvins paper (Uriot et al., arXiv:2008.03069v2).
+- **The outcome was known when the list was drafted.** E3's 65.0% within ±0.5 log10 (56.8% excluding
+  floor-to-floor) was already known when C1, C3a/b and C4a/b were first drafted (2026-10-03 by that
+  session's clock; that draft was lost before it was committed, so no git record of the date exists),
+  and when this amendment was drafted. The list therefore cannot be called blind to the outcome it might move.
+  What limits that exposure: each convention is justified only by the sources quoted below, all of them
+  are run and reported, and none is adopted.
+
+##### Sources (quoted from primary text, 2026-10-24)
+
+| tag | source | text |
+|---|---|---|
+| S1 | CCSDS 508.0-B-1, §2.2, p. 2-1 | "Object1/Object2 covariances at TCA with respect to an object centered reference frame;" |
+| S2 | CCSDS 508.0-B-1, §2.2, p. 2-1 | "the relative position/velocity of Object2 with respect to an Object1 centered reference frame;" |
+| S3 | CCSDS 508.0-B-1, Table 3-2, p. 3-3 | "The R component of Object2's position relative to Object1's position in the Radial, Transverse, and Normal (RTN) coordinate frame. (See annex E for definition.)" (T, N and the velocity components are worded the same way) |
+| S4 | CCSDS 508.0-B-1, p. 3-4 | "NOTE – Table 3-3 and table 3-4 will be used to define both Object1 and Object2 depending on the value of the keyword OBJECT which is specified in table 3-3." |
+| S5 | CCSDS 508.0-B-1, Table 3-4, p. 3-9 | "Covariance Matrix in the RTN Coordinate Frame (see annex E for definition)" |
+| S6 | CCSDS 508.0-B-1, Annex E (informative), §E1, p. E-1 | "RELATIVE_POSITION/RELATIVE_VELOCITY: Object2's position/velocity relative to Object1's position/velocity, calculated by taking the difference of the position and velocity vectors relative to the frame in which they are defined, with components expressed in the Object1-centered RTN coordinate frame at the time of closest approach." |
+| S7 | CCSDS 508.0-B-1, Annex E, §E1, p. E-1 | "RTN Coordinate Frame: Object-centered coordinate system. The Object1-centered RTN coordinate frame: R (Radial) is the unit vector in the radial direction pointed outward from the center of the central body, T (Transverse) is the unit vector perpendicular to the R vector in the direction of the spacecraft velocity, and N (Normal) is the unit vector normal to the satellite's inertial orbit plane (in the direction of the satellite's angular momentum) that completes the right-hand coordinate frame (see figure E-1)." |
+| D29–30 | dataset documentation, lines 29–30 | "Here, target refers to the ESA satellites while chaser refers to the space debris/object we want to avoid. … we replace t and c with the placeholder x." |
+| D40–41 | dataset documentation, lines 40–41 | "max_risk_estimate: maximum collision probability obtained by scaling combined covariance" / "max_risk_scaling: scaling factor used to compute maximum collision probability" |
+| D44–49 | dataset documentation, lines 44–49 | "relative_position_r: relative position between chaser & target: radial [m]" (likewise t, n, and relative_velocity_*) |
+| D60–80 | dataset documentation, lines 60–80 | "x_sigma_r: covariance; radial position standard deviation (sigma) [m]"; "x_ct_r: covariance; correlation of transverse (along-track) position vs radial position" |
+| D88 | dataset documentation, line 88 | "x_j2k_sma: semi-major axis [km]" |
+| D90 | dataset documentation, line 90 | "x_span: size used by the collision risk computation algorithm (minimum 2 m diameter assumed for the chaser) [m]" |
+| K3 | Kelvins paper, §3, p. 4 | "This involved transforming absolute time stamps and position/velocity values in relative values, respectively, in terms of time to TCA and state with respect to the target." |
+| K3b | Kelvins paper, §3, p. 4 | "the maximum collision probability obtained by scaling combined target-chaser covariance" |
+| Z | Zenodo record 10.5281/zenodo.4463683, description (fetched 2026-10-24; the first request returned HTTP 403 "unusual traffic", one retry succeeded) | "The dataset is a collection of Conjunction Data Messages (CDMs) received by ESA from 2015 to 2019. The CDMs have been anonymised for distribution." No frame statement and no Object1 mapping. |
+| KP | kelvins.esa.int/collision-avoidance-challenge/ and its data page (fetched 2026-10-24) | Repeats the column documentation, including "Here, target refers to the ESA satellites while chaser refers to the space debris/object we want to avoid." No frame statement. |
+| KK | kesslerlib/kessler README, `docs/*.rst`, `docs/index.md` and documentation notebooks (FDL Europe 2020, third-party; fetched 2026-10-24) | No frame statement. `docs/notebooks/basics.ipynb`: "we built a specific converter that takes care of the conversion from the Kelvins format to standard CDM format." |
+| KC | kesslerlib/kessler `kessler/data.py`, `kelvins_to_event_dataset` (third-party **code**, latest change `b80359304f`, 2025-04-24) | `cdm['RELATIVE_POSITION_R'] = kelvins_cdm['relative_position_r']` (and T, N, and velocity components, copied unchanged); `cdm['OBJECT1_CR_R'] = kelvins_cdm['t_sigma_r']**2.`; `cdm['OBJECT2_CR_R'] = kelvins_cdm['c_sigma_r']**2.` This is kessler's own mapping assumption, not documentation of the dataset. |
+
+None of the dataset documentation, the Kelvins paper, the Zenodo description, the Kelvins pages or the
+kessler documentation names any reference frame or maps target or chaser to Object1/Object2. A search for
+"frame", "RTN", "coordinate", "ECI", "Object1" and "CCSDS" finds nothing relevant. Only kessler's converter
+code (KC) assumes a mapping: target to OBJECT1, and relative vectors carried over unchanged.
+
+##### The conventions
+
+All conventions run through the **engine** (`labelnoise/pc_foster.py`), changing its inputs only. C0
+stays the engine baseline. Agreement is the fraction within ±0.5 log10 of `risk` (C0, C1, C3a, C3b) or
+of `max_risk_estimate` (C4a, C4b), reported per set (official-test sample; E3's 100) and per stratum.
+
+###### C0 — engine baseline (unchanged)
+- **Source:** `pc_foster.py` lines 19–22 and 266–282; D90; D44–49; D60–80.
+- **Premises:**
+  1. Both objects' covariances and the relative vectors are in **one common frame**, and are summed
+     directly (`cov = (cov_t + cov_c) * s`, line 276).
+     - **Not verified, and contrary to the CCSDS convention:** S1/S4/S5 give each object's covariance in
+       an object-centered RTN frame. If the Kelvins fields follow CCSDS, C0 omits the rotation between the
+       target and chaser frames. This is the documented first-order approximation (lines 19–20).
+  2. `x_span` is a diameter, so HBR = (t_span + c_span)/2.
+     - **Partly supported:** D90 calls the chaser's 2 m floor a "diameter".
+     - **Not verified for the target.**
+- **Computation:** none new. This is the E3/E14 code path.
+- **What its result changes:** nothing; it is the reference row.
+
+###### C1 — NEGATIVE CONTROL: `x_span` read as a radius (HBR doubled)
+- **Role:** a labelled **negative control**. It tests whether the within-0.5 agreement metric responds to a
+  known, deliberate change in an input. It is **not** a candidate correction to the engine.
+- **Source:** D90 ("size").
+- **Premise:** "size" means radius, so HBR = t_span + c_span.
+  - **Not verified, and weakly contradicted for the chaser** by D90's "minimum 2 m diameter". The target's
+    "size" is unqualified.
+- **Computation:** the engine with both spans doubled, which doubles HBR.
+- **Stated expectation — to be checked by the run, not assumed:**
+  - when the hard-body radius is small compared with the projected covariance, Pc ≈ (density at the
+    origin) × πHBR²;
+  - so doubling HBR multiplies Pc by about 4 and changes log10 Pc by about **+0.6** (log10 4 ≈ 0.602);
+  - where HBR is not small compared with the covariance, or the miss is many sigmas out, the change can
+    differ from 0.6.
+  - The run reports the per-event distribution of log10 Pc(C1) − log10 Pc(C0), per stratum, and states
+    how far it departs from 0.6.
+- **What its result would change:** only what we know about the metric's sensitivity to HBR (see the
+  decision rule, where C1 is exempt from the E3/E14 flag rule). No engine change and no E3/E14 change
+  follow from it.
+
+###### C3a / C3b — rotate the chaser covariance into the target's RTN frame
+- **Source:** S1, S4, S5, S6, S7; D29–30; D44–49; D88; K3.
+- **Premises:**
+  1. **Each object's covariance is in its own object-centered RTN frame.**
+     - **Verified from primary text** that CCSDS gives covariances "with respect to an object centered
+       reference frame" (S1), "in the RTN Coordinate Frame" (S5), with one table per object (S4).
+     - **Not verified:** CCSDS has no single sentence saying Object2's covariance is centred on Object2.
+       S7 defines "Object-centered" RTN and gives only the Object1-centered example.
+  2. **The Kelvins fields keep the CCSDS conventions after anonymisation.**
+     - **Not verified.** K3 says positions and velocities became a "state with respect to the target",
+       and is silent on covariance frames. Z, KP and KK are silent too.
+  3. **The target is CCSDS Object1.**
+     - **Not verified.** The Kelvins paper calls the target the "primary satellite" but never maps it to
+       Object1. Z, KP and KK give no mapping.
+     - kessler's converter (KC) **assumes** target = OBJECT1 and copies the relative vectors unchanged.
+       That is a third party's coding choice, not evidence about the dataset.
+  4. **Direction of the relative vectors.**
+     - CCSDS gives Object2 relative to Object1 (S6). If the target is Object1, that is chaser − target,
+       i.e. C3a.
+     - D44–49 says only "between chaser & target", so C3b (target − chaser) is kept as the alternative.
+     - **Not verified for this dataset.**
+  5. **The rotation is approximated** with a circular orbit: target speed √(μ/a_t) along T, from D88
+     (`t_j2k_sma`). This is an approximation, not a premise to verify.
+- **Computation:**
+  - estimate the crossing angle about R from the relative velocity and the circular speed;
+  - rotate the chaser's 3×3 position covariance by that angle;
+  - write it back as sigmas and correlations;
+  - run the engine.
+- **What its result would change:** whether the omitted frame rotation accounts for part of the
+  recomputed-vs-reported disagreement, especially in the deep-tail strata.
+
+###### C4a / C4b — the documented max-risk anchor
+- **Source:** D40–41; K3b.
+- **Premises:**
+  1. `max_risk_estimate` = Pc(k·C) with k = `max_risk_scaling`, and C is the same combined covariance as
+     the engine's.
+     - **Verified as stated in D40–41 and K3b.**
+     - **Not verified:** that ESA's combination equals the engine's direct sum.
+  2. Whether k scales **variance** (C4a: covariance_scale = k) or **sigma** (C4b: covariance_scale = k²).
+     - **Not stated anywhere. Not verified.**
+- **Computation:** the engine with `covariance_scale` = k or k². Compared against `max_risk_estimate`.
+  Rows with k ≤ 0 are excluded and counted.
+- **What its result would change:**
+  - which scaling semantics reproduce an ESA-computed quantity, which bears on E14's covariance-scale
+    semantics (Q-LBL-02 resolved (a), variance scale);
+  - an anchor for the combined-covariance assembly that does not depend on `risk`.
+
+###### C2 — dropped
+The 2 m chaser minimum is already applied in the data. `c_span` ≥ 2.0 holds in all 2,167 official-test
+target CDMs and all 162,634 training CDMs (confirmed 2026-10-24).
+
+##### Decision rule (fixed before running)
+
+- Report every convention's within-0.5 agreement per set and per stratum, next to C0. **Adopt none.**
+- **If any convention other than C1 changes overall within-0.5 agreement, in either set, by more than 10 percentage
+  points relative to C0:**
+  - report it as a **finding**;
+  - **flag E3's partial-hold disposition** (Assumption A4: 65.0% against an 80% bar) for Sidh's review;
+  - **flag E14** for Sidh's review, since its labels come from the same engine and the same C0 input
+    assembly (`rescale.py:117–120`).
+- **C1 (negative control) is EXEMPT from the E3/E14 flag rule above** (Sidh, 2026-10-24). It is governed
+  only by these two rules:
+  - **Insensitivity rule:** if C1 changes overall within-0.5 agreement, in either set, by **less than
+    10 percentage points** relative to C0, report that **the within-0.5 metric is insensitive to HBR**:
+    a doubling of the hard-body radius does not move it materially. A change of 10 pp or more is
+    reported as measured, with no flag.
+  - **Expectation report:** report the per-stratum **median** of log10 Pc(C1) − log10 Pc(C0) against the
+    stated expectation of **+0.602** (log10 4), **with no pass/fail threshold**.
+  - In neither case is the HBR reading changed.
+- **C4a vs C4b** are reported side by side against `max_risk_estimate`. If they differ by more than
+  10 pp, that is a finding on scaling semantics, flagged against E14's Q-LBL-02 resolution for Sidh's
+  review.
+- No convention result changes any engine code, any E3/E14 number, or any gate decision without a
+  separate, recorded decision by Sidh.
+
+**Confirmed by:** Sidh (2026-10-24). **Recorded by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
