@@ -102,7 +102,9 @@ conventions:                   # Item 11 (Sidh 2026-10-24): the convention secti
     description: max-risk anchor, Pc(k * C) vs max_risk_estimate, k = max_risk_scaling as a VARIANCE factor
   - id: C4b
     description: max-risk anchor, Pc(k^2 * C) vs max_risk_estimate, k = max_risk_scaling as a SIGMA factor
-  dropped:
+# YAML syntax fix (Claude Code, 2026-10-24, before any run): these two keys sat inside the list above,
+# which made the file unparseable since 2026-10-14. Lifted to top level with a prefix; values unchanged.
+conventions_dropped:
     - id: C2
       reason: chaser 2 m minimum diameter already applied in the data (c_span >= 2.0 in all 2,167 official-test target CDMs and all 162,634 training CDMs; confirmed on re-ingested data 2026-10-24, item 12)
-  material_change_pp: 10.0     # a change in overall within-0.5 agreement > 10 pp (conventions other than C1) is a finding; flags E3's partial hold and E14 for Sidh's review
+conventions_material_change_pp: 10.0     # a change in overall within-0.5 agreement > 10 pp (conventions other than C1) is a finding; flags E3's partial hold and E14 for Sidh's review

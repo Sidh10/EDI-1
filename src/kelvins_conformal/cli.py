@@ -378,5 +378,40 @@ def manuscript(
                "reports/manuscript_captions.md, provenance in reports/manuscript_manifest.json.")
 
 
+@app.command()
+def pc_validate(
+    step: str = typer.Argument(
+        ..., help="One of: sample, self-convergence, gate, compare, m2, conventions (in that order)."),
+    config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
+    pcv_config: Path | None = typer.Option(
+        None, "--pcv-config", help="Path to the validation YAML (default config/experiments/pc_validation.yaml)."),
+) -> None:
+    """Pc engine independent validation (REVIEWER_CHECKLIST RP4), one pre-registered step at a time.
+
+    Writes ``pcv_*`` tables plus a ``pcv_provenance_<step>.json`` sidecar (the validation YAML's
+    SHA-256 and the commit) to the tables directory. Each step requires the previous step's tables.
+    The engine (``labelnoise.pc_foster``) and the pipeline are unchanged. ``compare`` refuses while
+    ``agreement.missing_independent_value_policy`` is null (OPEN for Sidh, DECISIONS.md 2026-10-24).
+    """
+    import time as _time
+
+    from .models import pc_validation_runner as pvr
+    from .reporting import OutputLockError, output_lock
+
+    if step not in pvr.STEPS:
+        raise typer.BadParameter(f"step must be one of: {', '.join(pvr.STEPS)}")
+    cfg = load_config(config)
+    run_id = f"pcv-{step}-{cfg.config_hash[:12]}-{int(_time.time())}"
+    try:
+        with output_lock(cfg.path("tables_dir"), run_id):
+            written = pvr.run_step(cfg, step, pcv_config)
+    except OutputLockError as exc:
+        raise typer.Exit(code=1) from exc
+    except pvr.OpenDecisionError as exc:
+        typer.echo(f"[pc-validate] refused: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(f"[pc-validate] {step}: wrote {len(written)} table(s). Interpretation is Sidh's (CLAUDE.md §13).")
+
+
 if __name__ == "__main__":
     app()
