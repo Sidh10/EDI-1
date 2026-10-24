@@ -4022,6 +4022,84 @@ copies are kept outside the repository, in `E:\EDI-1\regenerated_sidecars\`.
 **Reported by:** Claude Code.
 
 
+### 2026-10-24 — Pc pre-registration checklist items 1, 3 and 12 confirmed as facts on re-ingested data
+
+**Status:** RECORDED by Claude Code, per Sidh's 2026-10-24 instruction. These are facts checked on inputs
+only: no Pc engine run, no independent method, no validation code. They concern three
+"[to be re-confirmed by Sidh]" items in the reconstructed Pc validation pre-registration (2026-10-14).
+**That entry is not edited**, and the other ten items stay open.
+
+Checked on 2026-10-23 against the data re-ingested by `kc ingest` (file hashes in
+`reports/hashes/data_raw.sha256.csv`):
+1. **Item 1 — per-band population split: CONFIRMED.**
+   - Stratifying the 2,167 official-test target-defining CDMs (`data.official_test_target_cdms`) by
+     reported log10 risk with E3's edges (`pc_spike.risk_strata_edges` = [−30, −15, −10, −6, 0]) gives:
+     floor 1,673; (−30, −15] **108**; (−15, −10] **138**; (−10, −6] **98**; (−6, 0] 150.
+   - The drafted split 108 / 138 / 98 holds, and the total matches.
+2. **Item 3 — E3 row matching: CONFIRMED, on today's regenerated comparison table.**
+   - All 100 rows of `reports/tables/e3_full_comparison.csv` are training-pool CDMs.
+   - Each matches exactly one raw training row on `(event_uid, time_to_tca)`.
+   - The stored `reported` value equals the raw `risk` exactly in 100 of 100.
+   - **The table used is the one regenerated on 2026-10-23** (SHA-256 `4a2863cd…`, recorded as
+     first-recorded in `reports/hashes/E1-E3.sha256.csv`), not the lost original. The regenerated E3
+     reproduced every committed E3 number (2026-10-23 E1–E3 entry).
+3. **Item 12 — `c_span` ≥ 2.0, the reason C2 was dropped: CONFIRMED.**
+   - It holds for all 2,167 official-test target CDMs and all 162,634 training-pool CDMs.
+   - The minimum is 2.0 in both, and no value is missing.
+
+**Recorded by:** Claude Code.
+
+
+### 2026-10-24 — Observation: E4's "half-width changes by <0.01 pp across calibration fractions" is a discrete-median artifact
+
+**Status:** OBSERVATION by Claude Code. It is derived from the regenerated E4 numbers (2026-10-23, `266badf`,
+config `00d1cb2d…`). **It is not a Gate 1 amendment.** It adds one point to the 2026-10-23 calibration-term
+entry (`c4b5819`) without repeating its table.
+
+**The point.**
+- E4 reports precision as the **median** Clopper–Pearson half-width of k/150, where k is an integer.
+- The `c4b5819` entry found the median simulated k is **135 at every calibration fraction**, so the
+  median half-width is exactly CP(135, 150) = **5.1255 pp** at 10%, 20% and 30%.
+- Because the median is a single integer outcome, this quantity **cannot respond to calibration size**
+  unless the median k moves. The next values are CP(136, 150) = **4.9834 pp** (computed with
+  `power.clopper_pearson_half_width_pp`) and CP(134, 150) = 5.2613 pp. The equality therefore says
+  nothing about calibration size either way.
+
+**Where the support actually lies.** The support for "precision is limited by the evaluation set, not the
+calibration set" (E4 entry, lines 695–698) is the **quadrature calculation**, not the half-width
+equality:
+- √(cal² + test²) moves only from 2.585 to 2.496 pp as the calibration term falls from 0.825 to
+  0.477 pp at nominal 90%;
+- the test-set term, 2.449 pp, dominates throughout.
+
+The `c4b5819` entry's sentence "the E4 conclusion '<0.01 pp' (in fact 0) holds" is accurate as
+arithmetic, but it is not independent evidence for that conclusion.
+
+**Recorded by:** Claude Code.
+
+
+### 2026-10-24 — Observation: at exactly nominal coverage the half-width is 5.13 pp at any calibration size; near nominal, the 5 pp bar is met only above it
+
+**Status:** OBSERVATION by Claude Code. It is derived from the regenerated E4 numbers. **It is not a Gate 1
+amendment**: Gate 1 accepted 5.13 pp as sufficient and reports it as ±5.13 pp.
+
+**The observation.**
+- With n_HR = 150, an observed coverage of exactly nominal (90%, k = 135) gives a Clopper–Pearson
+  half-width of **5.1255 pp**. That is a property of k and n alone, so it holds at every calibration
+  size; the regenerated E4 shows it at all three fractions.
+- Over all k from 0 to 150, the half-width is at most 5 pp only for **k ≥ 136** (CP(136, 150) =
+  4.9834 pp; an observed coverage of **at least 90.67%, above nominal**) or for **k ≤ 14** (coverage
+  ≤ 9.33%, the mirror case, irrelevant to a nominal-90% interval).
+- **So at n_HR = 150, for any coverage near the nominal 90%, the pre-registered 5 pp bar could be met
+  only if the observed coverage exceeded nominal.** No calibration size changes this.
+
+**What this bears on.** It sharpens why Gate 1 found a 0.13 pp shortfall. The bar was not reachable at
+nominal coverage with 150 high-risk events, whatever the calibration size. No decision follows from this
+entry.
+
+**Recorded by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
