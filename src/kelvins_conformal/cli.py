@@ -385,13 +385,19 @@ def pc_validate(
     config: Path | None = typer.Option(None, "--config", help="Path to a config YAML."),
     pcv_config: Path | None = typer.Option(
         None, "--pcv-config", help="Path to the validation YAML (default config/experiments/pc_validation.yaml)."),
+    prereg_commit: str | None = typer.Option(
+        None, "--prereg-commit",
+        help="Commit holding the confirmed pre-registration: must be an ancestor of HEAD, its DECISIONS.md "
+             "must contain the confirmation heading, and the YAML in use must match the one committed there."),
 ) -> None:
     """Pc engine independent validation (REVIEWER_CHECKLIST RP4), one pre-registered step at a time.
 
     Writes ``pcv_*`` tables plus a ``pcv_provenance_<step>.json`` sidecar (the validation YAML's
     SHA-256 and the commit) to the tables directory. Each step requires the previous step's tables.
-    The engine (``labelnoise.pc_foster``) and the pipeline are unchanged. ``compare`` refuses while
-    ``agreement.missing_independent_value_policy`` is null (OPEN for Sidh, DECISIONS.md 2026-10-24).
+    The engine (``labelnoise.pc_foster``) and the pipeline are unchanged. ``compare`` refuses if
+    ``agreement.missing_independent_value_policy`` is null (set to ``exclude`` by Sidh, 2026-10-25).
+    Every step reads real data or its products, so every step refuses unless ``--prereg-commit`` passes
+    the pre-registration guard (Sidh, 2026-10-25); the guard runs before the output lock is taken.
     """
     import time as _time
 
@@ -400,13 +406,21 @@ def pc_validate(
 
     if step not in pvr.STEPS:
         raise typer.BadParameter(f"step must be one of: {', '.join(pvr.STEPS)}")
+    try:
+        pvr.verify_prereg(prereg_commit, yaml_path=pcv_config)
+    except pvr.PreregGuardError as exc:
+        typer.echo(f"[pc-validate] refused: {exc}", err=True)
+        raise typer.Exit(code=3) from exc
     cfg = load_config(config)
     run_id = f"pcv-{step}-{cfg.config_hash[:12]}-{int(_time.time())}"
     try:
         with output_lock(cfg.path("tables_dir"), run_id):
-            written = pvr.run_step(cfg, step, pcv_config)
+            written = pvr.run_step(cfg, step, pcv_config, prereg_commit=prereg_commit)
     except OutputLockError as exc:
         raise typer.Exit(code=1) from exc
+    except pvr.PreregGuardError as exc:
+        typer.echo(f"[pc-validate] refused: {exc}", err=True)
+        raise typer.Exit(code=3) from exc
     except pvr.OpenDecisionError as exc:
         typer.echo(f"[pc-validate] refused: {exc}", err=True)
         raise typer.Exit(code=2) from exc

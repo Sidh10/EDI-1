@@ -58,11 +58,82 @@ class OpenDecisionError(RuntimeError):
     """Raised where the pre-registration leaves a decision OPEN for Sidh."""
 
 
+class PreregGuardError(RuntimeError):
+    """Raised when a step is asked to run without a verifiable pre-registration commit."""
+
+
+# The heading of the 2026-10-24 confirmation entry; the guard requires it in DECISIONS.md at the
+# pre-registration commit.
+PREREG_HEADING = "PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation"
+PCV_CONFIG_REPO_PATH = "config/experiments/pc_validation.yaml"
+_CRLF, _LF = bytes((13, 10)), bytes((10,))
+
+
 # --- config ------------------------------------------------------------------------------------
+def canonical_sha256(raw: bytes) -> str:
+    """SHA-256 of the YAML in git's canonical form (CRLF -> LF), i.e. the hash of the committed blob.
+
+    A Windows checkout with core.autocrlf rewrites line endings, so hashing the raw working-copy bytes
+    would make the recorded hash depend on the machine. The canonical form does not.
+    """
+    return hashlib.sha256(raw.replace(_CRLF, _LF)).hexdigest()
+
+
 def load_pcv_config(path: str | Path | None = None) -> tuple[dict, str]:
-    """The pre-registered YAML and the SHA-256 of its bytes (stamped into every provenance sidecar)."""
+    """The pre-registered YAML and its canonical SHA-256 (stamped into every provenance sidecar)."""
     raw = Path(path or PCV_CONFIG).read_bytes()
-    return yaml.safe_load(raw), hashlib.sha256(raw).hexdigest()
+    return yaml.safe_load(raw), canonical_sha256(raw)
+
+
+# --- the pre-registration guard (Sidh, 2026-10-25) ------------------------------------------------
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True)
+
+
+def _resolve_commit(repo: Path, ref: str) -> str:
+    r = _git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    sha = r.stdout.decode("ascii", "replace").strip()
+    if r.returncode != 0 or not sha:
+        raise PreregGuardError(f"--prereg-commit {ref!r} is not a commit in {repo}")
+    return sha
+
+
+def _is_ancestor(repo: Path, sha: str) -> bool:
+    r = _git(repo, "merge-base", "--is-ancestor", sha, "HEAD")
+    if r.returncode not in (0, 1):
+        raise PreregGuardError(f"git merge-base failed: {r.stderr.decode('utf-8', 'replace').strip()}")
+    return r.returncode == 0
+
+
+def verify_prereg(prereg_commit: str | None, *, yaml_path: str | Path | None = None,
+                  repo: str | Path = REPO_ROOT) -> dict:
+    """Refuse unless the pre-registration is verifiable; every step reads real data or its products.
+
+    Requires (1) ``prereg_commit`` given and a commit; (2) an ancestor of HEAD; (3) DECISIONS.md at that
+    commit containing the confirmation heading; (4) the canonical SHA-256 of the validation YAML in use
+    equal to that of the YAML committed at that commit. Returns what was verified, for provenance.
+    """
+    repo = Path(repo)
+    if not prereg_commit:
+        raise PreregGuardError("every pc-validate step reads real data or its products: --prereg-commit <sha> "
+                               "is required")
+    sha = _resolve_commit(repo, prereg_commit)
+    if not _is_ancestor(repo, sha):
+        raise PreregGuardError(f"pre-registration commit {sha[:12]} is not an ancestor of HEAD")
+    dec = _git(repo, "show", f"{sha}:DECISIONS.md")
+    if dec.returncode != 0 or PREREG_HEADING.encode("utf-8") not in dec.stdout:
+        raise PreregGuardError(f"DECISIONS.md at {sha[:12]} does not contain the confirmation heading "
+                               f"{PREREG_HEADING!r}")
+    blob = _git(repo, "show", f"{sha}:{PCV_CONFIG_REPO_PATH}")
+    if blob.returncode != 0:
+        raise PreregGuardError(f"{PCV_CONFIG_REPO_PATH} does not exist at {sha[:12]}")
+    recorded = canonical_sha256(blob.stdout)
+    in_use = canonical_sha256(Path(yaml_path or repo / PCV_CONFIG_REPO_PATH).read_bytes())
+    if in_use != recorded:
+        raise PreregGuardError(f"validation YAML sha256 {in_use[:16]}... differs from {recorded[:16]}... "
+                               f"recorded at {sha[:12]}")
+    head = _git(repo, "rev-parse", "HEAD").stdout.decode("ascii", "replace").strip()
+    return {"prereg_commit": sha, "head": head, "pc_validation_yaml_sha256": recorded}
 
 
 # --- sampling (items 1, 2) -----------------------------------------------------------------------
@@ -310,18 +381,10 @@ def _require(cfg: Config, *names: str) -> list[pd.DataFrame]:
     return out
 
 
-def _git_commit() -> str:
-    try:
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
-                              text=True, check=True).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-
-
-def _provenance(cfg: Config, step: str, digest: str, written: list[str]) -> None:
+def _provenance(cfg: Config, step: str, digest: str, written: list[str], guard: dict) -> None:
     rec = {"step": step, "pc_validation_yaml_sha256": digest, "base_config_hash": cfg.config_hash,
-           "git_commit": _git_commit(), "written_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-           "tables": written}
+           "git_commit": guard["head"], "prereg_commit": guard["prereg_commit"],
+           "written_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "tables": written}
     path = _tables(cfg) / f"pcv_provenance_{step.replace('-', '_')}.json"
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(rec, indent=2), encoding="utf-8")
@@ -582,11 +645,16 @@ _STEP_FUNCS = {"sample": step_sample, "self-convergence": step_self_convergence,
                "compare": step_compare, "m2": step_m2, "conventions": step_conventions}
 
 
-def run_step(cfg: Config, step: str, pcv_path: str | Path | None = None) -> list[str]:
-    """Run one pre-registered step and write its provenance sidecar."""
+def run_step(cfg: Config, step: str, pcv_path: str | Path | None = None, *,
+             prereg_commit: str | None = None, repo: str | Path = REPO_ROOT) -> list[str]:
+    """Run one pre-registered step, behind the pre-registration guard, and write its provenance sidecar."""
     if step not in _STEP_FUNCS:
         raise ValueError(f"unknown step {step!r}; expected one of {STEPS}")
-    pcv, digest = load_pcv_config(pcv_path)
+    yaml_path = Path(pcv_path) if pcv_path else Path(repo) / PCV_CONFIG_REPO_PATH
+    guard = verify_prereg(prereg_commit, yaml_path=yaml_path, repo=repo)
+    pcv, digest = load_pcv_config(yaml_path)
+    if digest != guard["pc_validation_yaml_sha256"]:
+        raise PreregGuardError("the validation YAML changed between the guard and the load")
     written = _STEP_FUNCS[step](cfg, pcv)
-    _provenance(cfg, step, digest, written)
+    _provenance(cfg, step, digest, written, guard)
     return written

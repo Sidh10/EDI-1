@@ -8,6 +8,7 @@ errors as disagreements, and the OPEN missing-value policy), and the convention 
 from __future__ import annotations
 
 import json
+import subprocess
 
 import numpy as np
 import pandas as pd
@@ -285,6 +286,35 @@ def _reported(n_per):
     return vals
 
 
+def _git_test(repo, *args):
+    out = subprocess.run(["git", "-c", "user.name=pcv-test", "-c", "user.email=pcv-test@example.invalid", *args],
+                         cwd=repo, check=True, capture_output=True)
+    return out.stdout.decode("ascii", "replace").strip()
+
+
+DECISIONS_WITH_HEADING = """# Decisions (synthetic test repository)
+
+### 2026-10-24 — PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation — test copy
+"""
+DECISIONS_WITHOUT_HEADING = """# Decisions (synthetic test repository)
+
+### 2026-10-24 — some other entry
+"""
+
+
+def make_prereg_repo(root, pcv, *, decisions=DECISIONS_WITH_HEADING):
+    """A throwaway git repository holding a DECISIONS.md and the validation YAML, committed once."""
+    root.mkdir(parents=True)
+    _git_test(root, "init", "-q")
+    (root / "DECISIONS.md").write_text(decisions, encoding="utf-8")
+    yp = root / pvr.PCV_CONFIG_REPO_PATH
+    yp.parent.mkdir(parents=True)
+    yp.write_text(yaml.safe_dump(pcv), encoding="utf-8")
+    _git_test(root, "add", "-A")
+    _git_test(root, "commit", "-q", "-m", "pre-registration")
+    return root, _git_test(root, "rev-parse", "HEAD"), yp
+
+
 @pytest.fixture
 def synthetic_run(tmp_path, monkeypatch):
     from kelvins_conformal import data as data_mod
@@ -307,25 +337,25 @@ def synthetic_run(tmp_path, monkeypatch):
     pcv["m3"].update({"n_samples": 20_000, "n_escalated": 40_000, "chunk": 10_000})
     pcv["m2"].update({"chunk": 20_000, "cap": 40_000})
 
-    def write(policy):
+    def prereg(policy):
         pcv["agreement"]["missing_independent_value_policy"] = policy
-        p = tmp_path / f"pcv_{policy}.yaml"
-        p.write_text(yaml.safe_dump(pcv), encoding="utf-8")
-        return p
+        return make_prereg_repo(tmp_path / f"repo_{policy}", pcv)
 
-    return load_config(), tables, write
+    return load_config(), tables, prereg
 
 
-def test_steps_run_end_to_end_on_synthetic_cdms_and_compare_refuses_while_open(synthetic_run):
-    cfg, tables, write = synthetic_run
-    open_yaml, set_yaml = write(None), write("exclude")
+def test_steps_run_end_to_end_on_synthetic_cdms_through_the_guard(synthetic_run):
+    """The guard's PASS case, on synthetic data: every step runs with a valid pre-registration commit."""
+    cfg, tables, prereg = synthetic_run
+    open_repo, open_sha, open_yaml = prereg(None)
+    set_repo, set_sha, set_yaml = prereg("exclude")
     for step in ("sample", "self-convergence", "gate"):
-        pvr.run_step(cfg, step, open_yaml)
+        pvr.run_step(cfg, step, open_yaml, prereg_commit=open_sha, repo=open_repo)
     with pytest.raises(pvr.OpenDecisionError):
-        pvr.run_step(cfg, "compare", open_yaml)
+        pvr.run_step(cfg, "compare", open_yaml, prereg_commit=open_sha, repo=open_repo)
     assert not (tables / "pcv_agreement.csv").exists()
     for step in ("compare", "m2", "conventions"):
-        pvr.run_step(cfg, step, set_yaml)
+        pvr.run_step(cfg, step, set_yaml, prereg_commit=set_sha, repo=set_repo)
 
     off = pd.read_csv(tables / "pcv_sample_official.csv")
     assert off["stratum"].value_counts().to_dict() == {
@@ -335,10 +365,88 @@ def test_steps_run_end_to_end_on_synthetic_cdms_and_compare_refuses_while_open(s
     agree = pd.read_csv(tables / "pcv_agreement.csv")
     assert len(agree) == 10 and set(agree["missing_policy"]) == {"exclude"}
     assert "classification" in agree.columns and (tables / "pcv_excluded.csv").exists()
-    assert len(pd.read_csv(tables / "pcv_m2.csv")) == 27
+    m2 = pd.read_csv(tables / "pcv_m2.csv")
+    ind = pd.read_csv(tables / "pcv_independent.csv")
+    assert len(m2) == 27 and set(m2["m2_seed"]).isdisjoint(set(ind["m3_seed"]))
     summ = pd.read_csv(tables / "pcv_convention_summary.csv")
     assert set(summ["convention"]) == {"C0", "C1", "C3a", "C3b", "C4a", "C4b"}
     assert len(pd.read_csv(tables / "pcv_c1_expectation.csv")) == 10
     for step in pvr.STEPS:
         prov = json.loads((tables / f"pcv_provenance_{step.replace('-', '_')}.json").read_text(encoding="utf-8"))
         assert len(prov["pc_validation_yaml_sha256"]) == 64
+        assert prov["prereg_commit"] == (open_sha if step in ("sample", "self-convergence", "gate") else set_sha)
+
+
+# --- the pre-registration guard (Sidh, 2026-10-25) --------------------------------------------------
+@pytest.fixture
+def guard_repo(tmp_path):
+    pcv, _ = pvr.load_pcv_config()
+    return make_prereg_repo(tmp_path / "repo", pcv)
+
+
+def test_guard_passes_for_a_valid_pre_registration_commit(guard_repo):
+    repo, sha, yp = guard_repo
+    got = pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
+    assert got["prereg_commit"] == sha and got["head"] == sha
+    assert got["pc_validation_yaml_sha256"] == pvr.load_pcv_config(yp)[1]
+
+
+def test_guard_refuses_without_a_prereg_commit(guard_repo, synthetic_run):
+    repo, _, yp = guard_repo
+    cfg, tables, _ = synthetic_run
+    with pytest.raises(pvr.PreregGuardError, match="required"):
+        pvr.verify_prereg(None, yaml_path=yp, repo=repo)
+    with pytest.raises(pvr.PreregGuardError):
+        pvr.run_step(cfg, "sample", yp, repo=repo)
+    assert not list(tables.glob("pcv_*"))           # refused before anything was written
+
+
+def test_guard_refuses_a_commit_that_is_not_an_ancestor_of_head(guard_repo):
+    repo, base, yp = guard_repo
+    _git_test(repo, "checkout", "-q", "-b", "side")
+    (repo / "notes.txt").write_text("a commit off the side branch", encoding="utf-8")
+    _git_test(repo, "add", "notes.txt")
+    _git_test(repo, "commit", "-q", "-m", "side")
+    side = _git_test(repo, "rev-parse", "HEAD")
+    _git_test(repo, "checkout", "-q", base)          # HEAD back at the base: side is not its ancestor
+    with pytest.raises(pvr.PreregGuardError, match="not an ancestor"):
+        pvr.verify_prereg(side, yaml_path=yp, repo=repo)
+    assert pvr.verify_prereg(base, yaml_path=yp, repo=repo)["prereg_commit"] == base
+
+
+def test_guard_refuses_a_yaml_whose_hash_differs_from_the_recorded_one(guard_repo, tmp_path):
+    repo, sha, yp = guard_repo
+    edited = tmp_path / "edited.yaml"
+    edited.write_bytes(yp.read_bytes().replace(b"rel_se_target: 0.005", b"rel_se_target: 0.01"))
+    with pytest.raises(pvr.PreregGuardError, match="differs"):
+        pvr.verify_prereg(sha, yaml_path=edited, repo=repo)
+    yp.write_bytes(yp.read_bytes() + b"# an uncommitted edit" + bytes((10,)))
+    with pytest.raises(pvr.PreregGuardError, match="differs"):
+        pvr.verify_prereg(sha, repo=repo)
+
+
+def test_guard_refuses_when_decisions_lacks_the_confirmation_heading(tmp_path):
+    pcv, _ = pvr.load_pcv_config()
+    repo, sha, yp = make_prereg_repo(tmp_path / "repo", pcv, decisions=DECISIONS_WITHOUT_HEADING)
+    with pytest.raises(pvr.PreregGuardError, match="confirmation heading"):
+        pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
+
+
+def test_guard_refuses_an_unknown_commit(guard_repo):
+    repo, _, yp = guard_repo
+    with pytest.raises(pvr.PreregGuardError, match="not a commit"):
+        pvr.verify_prereg("0" * 40, yaml_path=yp, repo=repo)
+
+
+@pytest.mark.parametrize("step", ["sample", "self-convergence", "gate", "compare", "m2", "conventions"])
+def test_cli_refuses_every_step_without_a_valid_prereg_commit(step):
+    # Runs against the real repository but never with a valid commit, so the guard refuses before
+    # any config, data or output directory is touched.
+    from typer.testing import CliRunner
+
+    from kelvins_conformal.cli import app
+
+    runner = CliRunner()
+    for extra in ([], ["--prereg-commit", "0" * 40]):
+        res = runner.invoke(app, ["pc-validate", step, *extra])
+        assert res.exit_code == 3, res.output
