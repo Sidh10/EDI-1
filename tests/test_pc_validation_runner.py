@@ -19,14 +19,45 @@ from kelvins_conformal.models import pc_validation_runner as pvr
 
 EDGES = [-30.0, -15.0, -10.0, -6.0, 0.0]
 AGREE = {"tau_floor": 0.01, "tau_mult": 3.0, "min_frac_within": 0.95, "max_abs_any": 0.1,
-         "max_median_abs": 0.005, "require_both_m1_m3": True, "engine_errors_count_as_disagreement": True}
+         "max_median_abs": 0.005, "require_both_m1_m3": True, "engine_errors_count_as_disagreement": True,
+         "not_informative_if_frac_missing_above": 0.10}
 
 
-def test_pre_registered_config_loads_and_keeps_the_open_policy_null():
+def test_pre_registered_config_loads_with_the_2026_10_25_policy_and_seed_streams():
     cfg, digest = pvr.load_pcv_config()
     assert len(digest) == 64
     assert cfg["seed"] == 42 and cfg["m3"]["rel_se_target"] == 0.005
-    assert cfg["agreement"]["missing_independent_value_policy"] is None
+    a = cfg["agreement"]
+    assert a["missing_independent_value_policy"] == "exclude"
+    assert a["engine_errors_count_as_disagreement"] is True and a["list_excluded_events_per_stratum"] is True
+    assert a["not_informative_if_frac_missing_above"] == 0.10
+    assert cfg["m3"]["seed_offset"] == 0 and cfg["m2"]["seed_offset"] == 1_000_000
+
+
+def test_stratum_is_not_informative_when_more_than_10pct_lack_an_independent_value():
+    d = np.zeros(20)
+    d_m1, d_m3 = d.copy(), d.copy()
+    d_m1[0] = np.nan                              # 1 event lacks M1 ...
+    d_m3[[1, 2]] = np.nan                         # ... and 2 others lack M3: 3 of 20 = 15% > 10%
+    res = pvr.classify_stratum(d_m1, d_m3, np.zeros(20, bool), tau=0.01, agreement=AGREE, missing_policy="exclude")
+    assert res["frac_lacking_m1_or_m3"] == pytest.approx(0.15)
+    assert res["classification"] == "not informative" and res["not_informative"]
+    d_m3[2] = 0.0                                 # 2 of 20 = 10%: not MORE than 10%, so classified
+    res = pvr.classify_stratum(d_m1, d_m3, np.zeros(20, bool), tau=0.01, agreement=AGREE, missing_policy="exclude")
+    assert res["classification"] == "agree"
+
+
+def test_excluded_events_are_listed_per_method_and_engine_errors_are_never_excluded():
+    d_m1, d_m3 = np.zeros(30), np.zeros(30)
+    m3_lacks = np.zeros(30, bool)
+    m3_lacks[[4, 9]] = True
+    d_m3[[4, 9]] = np.nan
+    err = np.zeros(30, bool)
+    err[9] = True                                 # engine error on an event that also lacks M3
+    res = pvr.classify_stratum(d_m1, d_m3, err, tau=0.01, agreement=AGREE, missing_policy="exclude",
+                               m3_lacks=m3_lacks)
+    assert res["excluded_m3"] == [4] and res["excluded_m1"] == []
+    assert 9 in res["out_of_tolerance_m3"] and res["classification"] == "disagree"
 
 
 def test_strata_labels_follow_e3_edges():
@@ -264,6 +295,7 @@ def test_steps_run_end_to_end_on_synthetic_cdms_and_compare_refuses_while_open(s
     assert set(pd.read_csv(tables / "pcv_gate.csv")["set"]) == {"official", "e3"}
     agree = pd.read_csv(tables / "pcv_agreement.csv")
     assert len(agree) == 10 and set(agree["missing_policy"]) == {"exclude"}
+    assert "classification" in agree.columns and (tables / "pcv_excluded.csv").exists()
     assert len(pd.read_csv(tables / "pcv_m2.csv")) == 27
     summ = pd.read_csv(tables / "pcv_convention_summary.csv")
     assert set(summ["convention"]) == {"C0", "C1", "C3a", "C3b", "C4a", "C4b"}

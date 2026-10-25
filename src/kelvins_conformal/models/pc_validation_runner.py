@@ -15,14 +15,18 @@ Steps, each of which requires the previous step's tables:
   sample           -> pcv_sample_official.csv, pcv_sample_e3.csv
   self-convergence -> pcv_engine.csv, pcv_self_convergence.csv          (engine at 1x and 2x grid)
   gate             -> pcv_independent.csv, pcv_gate.csv                  (M1, M3; step (ii) gate)
-  compare          -> pcv_agreement.csv, pcv_out_of_tolerance.csv        (refuses while the OPEN
-                                                                          missing-value policy is null)
+  compare          -> pcv_agreement.csv, pcv_out_of_tolerance.csv, pcv_excluded.csv
+                                                                         (refuses if the missing-value
+                                                                          policy is null)
   m2               -> pcv_m2.csv
   conventions      -> pcv_conventions.csv, pcv_convention_summary.csv, pcv_c1_expectation.csv
 
 Classification rules (item 9 as amended): the engine agrees with a method in a stratum when >= 95% of
 events are within tau_s, none is beyond 0.1 and the median |dlog10| is <= 0.005; a stratum agrees only
 if this holds for BOTH M1 and M3; an engine evaluation error counts as a disagreement (|d| = inf).
+Missing-value policy (Sidh, 2026-10-25): an event with no valid M1 or M3 value is excluded from that
+method's fractions and listed in pcv_excluded.csv; a stratum where more than 10% of events lack an M1
+or an M3 value is classed "not informative".
 """
 
 from __future__ import annotations
@@ -129,9 +133,10 @@ def m1_m3_gate(m1, m3, threshold: float) -> dict:
             "outcome": "pass" if ok.any() and med <= threshold else "b'"}
 
 
-def _method_stats(d, err, tau: float, agreement: dict, missing_policy: str) -> dict:
+def _method_stats(d, err, tau: float, agreement: dict, missing_policy: str, lacks=None) -> dict:
     d = np.abs(np.asarray(d, float))
-    missing = ~np.isfinite(d) & ~err
+    lacks = ~np.isfinite(d) if lacks is None else np.asarray(lacks, bool)
+    missing = lacks & ~err                    # an engine error stays a disagreement even if the method lacks a value
     eff = d.copy()
     eff[err] = math.inf                       # engine error: a disagreement (item 9 as amended)
     if missing_policy == "count_as_disagreement":
@@ -141,25 +146,29 @@ def _method_stats(d, err, tau: float, agreement: dict, missing_policy: str) -> d
         keep = ~missing
     idx = np.flatnonzero(keep)
     e = eff[keep]
+    excluded = [int(i) for i in np.flatnonzero(missing)] if missing_policy == "exclude" else []
     if e.size == 0:
         return {"n": 0, "n_missing": int(missing.sum()), "frac_within": math.nan, "median_abs": math.nan,
-                "max_abs": math.nan, "agree": False, "out_of_tolerance": []}
+                "max_abs": math.nan, "agree": False, "out_of_tolerance": [], "excluded": excluded}
     frac = float(np.mean(e <= tau))
     med = float(np.median(e))
     agree = (frac >= float(agreement["min_frac_within"]) and not bool(np.any(e > float(agreement["max_abs_any"])))
              and med <= float(agreement["max_median_abs"]))
     return {"n": int(e.size), "n_missing": int(missing.sum()), "frac_within": frac, "median_abs": med,
             "max_abs": float(e.max()), "agree": bool(agree),
-            "out_of_tolerance": [int(i) for i in idx[e > tau]]}
+            "out_of_tolerance": [int(i) for i in idx[e > tau]], "excluded": excluded}
 
 
 def classify_stratum(d_m1, d_m3, engine_error_mask, *, tau: float, agreement: dict,
-                     missing_policy: str | None) -> dict:
-    """Per-stratum agreement of the engine with M1 and with M3 (item 9 as amended).
+                     missing_policy: str | None, m1_lacks=None, m3_lacks=None) -> dict:
+    """Per-stratum agreement of the engine with M1 and with M3 (item 9 as amended; policy of 2026-10-25).
 
-    ``d_m1`` / ``d_m3`` are engine-minus-method log10 differences (NaN where the method has no valid
-    value); ``engine_error_mask`` marks events where the engine raised or returned nothing.
-    ``missing_policy`` is the OPEN decision; ``None`` refuses to classify.
+    ``d_m1`` / ``d_m3`` are engine-minus-method log10 differences (NaN where either side has no
+    value); ``engine_error_mask`` marks events where the engine raised or returned nothing;
+    ``m1_lacks`` / ``m3_lacks`` mark events with no valid M1 / M3 value (default: non-finite d).
+    ``missing_policy`` ``None`` refuses to classify. ``classification`` is "not informative" when more
+    than ``agreement.not_informative_if_frac_missing_above`` of the stratum's events lack an M1 or an
+    M3 value; otherwise "agree" (both methods) or "disagree".
     """
     if missing_policy is None:
         raise OpenDecisionError(
@@ -169,15 +178,24 @@ def classify_stratum(d_m1, d_m3, engine_error_mask, *, tau: float, agreement: di
         raise ValueError(f"unknown missing_independent_value_policy {missing_policy!r}; expected {MISSING_POLICIES}")
     if not (agreement.get("require_both_m1_m3") and agreement.get("engine_errors_count_as_disagreement")):
         raise ValueError("the confirmed item 9 requires require_both_m1_m3 and engine_errors_count_as_disagreement")
+    threshold = float(agreement["not_informative_if_frac_missing_above"])
     err = np.asarray(engine_error_mask, bool)
-    s1 = _method_stats(d_m1, err, tau, agreement, missing_policy)
-    s3 = _method_stats(d_m3, err, tau, agreement, missing_policy)
+    l1 = ~np.isfinite(np.asarray(d_m1, float)) if m1_lacks is None else np.asarray(m1_lacks, bool)
+    l3 = ~np.isfinite(np.asarray(d_m3, float)) if m3_lacks is None else np.asarray(m3_lacks, bool)
+    s1 = _method_stats(d_m1, err, tau, agreement, missing_policy, l1)
+    s3 = _method_stats(d_m3, err, tau, agreement, missing_policy, l3)
+    frac_lacking = float(np.mean(l1 | l3)) if err.size else math.nan
+    agree = bool(s1["agree"] and s3["agree"])
+    not_informative = bool(err.size == 0 or frac_lacking > threshold)
     out = {"n_events": int(err.size), "n_engine_errors": int(err.sum()), "tau": float(tau),
-           "missing_policy": missing_policy, "agree": bool(s1["agree"] and s3["agree"])}
+           "missing_policy": missing_policy, "frac_lacking_m1_or_m3": frac_lacking,
+           "not_informative": not_informative, "agree": agree,
+           "classification": "not informative" if not_informative else ("agree" if agree else "disagree")}
     for tag, s in (("m1", s1), ("m3", s3)):
         out.update({f"agree_{tag}": s["agree"], f"n_{tag}": s["n"], f"n_missing_{tag}": s["n_missing"],
                     f"frac_within_{tag}": s["frac_within"], f"median_abs_{tag}": s["median_abs"],
-                    f"max_abs_{tag}": s["max_abs"], f"out_of_tolerance_{tag}": s["out_of_tolerance"]})
+                    f"max_abs_{tag}": s["max_abs"], f"out_of_tolerance_{tag}": s["out_of_tolerance"],
+                    f"excluded_{tag}": s["excluded"]})
     return out
 
 
@@ -412,15 +430,18 @@ def step_compare(cfg: Config, pcv: dict) -> list[str]:
     df["engine_error"] = df["engine_error"].fillna("")
     df["d_m1"] = df["engine_log10"] - df["m1_log10"]
     df["d_m3"] = df["engine_log10"] - df["m3_log10"]
-    rows, oot = [], []
+    df["assembly_error"] = df["assembly_error"].fillna("")
+    rows, oot, excl = [], [], []
     for (set_name, stratum), g in df.groupby(["set", "stratum"], sort=False):
         tau = float(sc.loc[(sc["set"] == set_name) & (sc["stratum"] == stratum), "tau_s"].iloc[0])
         res = classify_stratum(g["d_m1"].to_numpy(float), g["d_m3"].to_numpy(float),
                                (g["engine_error"] != "").to_numpy(bool), tau=tau, agreement=pcv["agreement"],
-                               missing_policy=policy)
+                               missing_policy=policy, m1_lacks=~np.isfinite(g["m1_log10"].to_numpy(float)),
+                               m3_lacks=~np.isfinite(g["m3_log10"].to_numpy(float)))
         gate_outcome = gate.loc[gate["set"] == set_name, "outcome"].iloc[0]
         rows.append({"set": set_name, "stratum": stratum, "gate_outcome": gate_outcome,
-                     **{k: v for k, v in res.items() if not k.startswith("out_of_tolerance")}})
+                     **{k: (len(v) if isinstance(v, list) else v) for k, v in res.items()
+                        if not k.startswith("out_of_tolerance")}})
         for tag in ("m1", "m3"):
             for i in res[f"out_of_tolerance_{tag}"]:
                 r = g.iloc[i]
@@ -428,8 +449,21 @@ def step_compare(cfg: Config, pcv: dict) -> list[str]:
                             "event_uid": r["event_uid"], "sample_index": r["sample_index"],
                             "engine_log10": r["engine_log10"], "engine_error": r["engine_error"],
                             "method_log10": r[f"{tag}_log10"], "dlog10": r[f"d_{tag}"]})
+            for i in res[f"excluded_{tag}"]:   # the per-stratum list of excluded events (policy of 2026-10-25)
+                r = g.iloc[i]
+                if r["assembly_error"]:
+                    reason = f"input assembly error: {r['assembly_error']}"
+                elif tag == "m1":
+                    reason = f"M1 non-convergence (quad ier {int(r['m1_ier'])})"
+                else:
+                    reason = f"M3 not informative (rel SE {r['m3_rel_se']:.4g} at n {int(r['m3_n_used'])})"
+                excl.append({"set": set_name, "stratum": stratum, "method": tag.upper(),
+                             "event_uid": r["event_uid"], "sample_index": r["sample_index"], "reason": reason})
+    excl_cols = ["set", "stratum", "method", "event_uid", "sample_index", "reason"]
     return [str(write_table_atomic(pd.DataFrame(rows), _tables(cfg) / "pcv_agreement.csv", index=False)),
-            str(write_table_atomic(pd.DataFrame(oot), _tables(cfg) / "pcv_out_of_tolerance.csv", index=False))]
+            str(write_table_atomic(pd.DataFrame(oot), _tables(cfg) / "pcv_out_of_tolerance.csv", index=False)),
+            str(write_table_atomic(pd.DataFrame(excl, columns=excl_cols), _tables(cfg) / "pcv_excluded.csv",
+                                   index=False))]
 
 
 def step_m2(cfg: Config, pcv: dict) -> list[str]:
