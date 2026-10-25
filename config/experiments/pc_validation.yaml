@@ -43,11 +43,14 @@ agreement:
   # and an engine evaluation error counts as a DISAGREEMENT (it is not excluded).
   require_both_m1_m3: true
   engine_errors_count_as_disagreement: true
-  # OPEN (DECISIONS.md 2026-10-24 confirmation entry): how an event with no valid independent value
-  # (M1 non-convergence, or M3 "not informative") enters a stratum's agreement fractions. Not
-  # decided. Must be set by Sidh before any classification; the runner refuses to classify while it
-  # is null.
-  missing_independent_value_policy: null
+  # SET by Sidh on 2026-10-25, before any real-data run (was OPEN, null): an event with no valid
+  # independent value (M1 non-convergence, or M3 "not informative") is EXCLUDED from that method's
+  # agreement fractions. Engine evaluation errors still count as disagreements (above). Excluded
+  # events are listed per stratum. A stratum is classed "not informative" if more than 10% of its
+  # events lack an M1 or an M3 value.
+  missing_independent_value_policy: exclude
+  list_excluded_events_per_stratum: true
+  not_informative_if_frac_missing_above: 0.10
 
 m1:                            # deterministic 1D reduction, adaptive Gauss-Kronrod (item 6)
   epsrel: 1.0e-10
@@ -70,6 +73,8 @@ m3:                            # uniform-in-disk Monte Carlo of the density, log
   # Implementation constant, fixed before any run: samples are drawn in chunks of this size
   # (memory). It fixes the order of draws from the per-event generator, seeded 42 + sample index.
   chunk: 1000000
+  # Seed stream (Sidh 2026-10-25): per-event seed = seed + seed_offset + sample index.
+  seed_offset: 0
 
 m2:                            # plain Monte Carlo on the encounter plane (item 8, as drafted)
   chunk: 10000000
@@ -77,6 +82,10 @@ m2:                            # plain Monte Carlo on the encounter plane (item 
   min_hits_target: 100         # stop once relative SE <= 10% (~100 hits)
   max_rel_se_counted: 0.10     # counted only if relative SE <= 10%; else "not informative"
   n_se: 3.0                    # judged within 3 SE, in log10 via the delta method
+  # Seed stream (Sidh 2026-10-25): M2 has its own stream, distinct from M3's. Per-event seed =
+  # seed + seed_offset + sample index. The offset exceeds any sample index, so no M2 seed equals any
+  # M3 seed.
+  seed_offset: 1000000
 
 reported_tolerance: 0.5        # the existing engine-vs-reported tolerance, unchanged
 
