@@ -4398,6 +4398,60 @@ target CDMs and all 162,634 training CDMs (confirmed 2026-10-24).
 **Confirmed by:** Sidh (2026-10-24). **Recorded by:** Claude Code.
 
 
+### 2026-10-25 — Pc validation: YAML syntax defect and its fix; "accept 13" clarified; missing-value policy and seed streams set; the three implementation constants
+
+**Status:** RECORDED by Claude Code on 2026-10-25 at Sidh's instruction. Insertion only; no earlier entry is edited.
+- The 2026-10-14 reconstruction and the 2026-10-24 confirmation (`d181408`) stand as written, except as stated in (c).
+- No validation step has run on any real event, real CDM or E3's sample. No `pcv_*` table exists.
+
+#### (a) YAML syntax defect, 8d322fd to 002d783
+- **Defect.** In `config/experiments/pc_validation.yaml`, the keys `dropped:` and `material_change_pp:` were indented as members of the `conventions:` list, which is invalid YAML.
+  - The file failed to parse at both commits that carried it: `8d322fd` (reconstruction, parse error at line 73) and `d181408` (confirmation, parse error at line 105).
+  - No code read the file before `002d783`, so no result depended on it.
+- **Fix in `002d783`** (branch `pc-validation`): the two keys were lifted to top level and renamed `conventions_dropped:` and `conventions_material_change_pp:`. Two comment lines record the fix. The runner reads the new names.
+- **Verified**, by comparing the committed blobs of `d181408` and `002d783` line by line, byte for byte:
+  - blob SHA-256: `d181408` `cff62633969105dbee01e9e2b800dc2d5b77161dd38db25d3995372e009d77a1` (6,236 bytes); `002d783` `6c96025912c8fe69317b88f7423c88f46a79fc52b0cea4271a9f675a9e647c89` (6,464 bytes);
+  - 106 of 108 lines unchanged and in order, including both moved C2 lines (`    - id: C2` and its `reason:` line), which are byte-identical;
+  - **the two key lines are not byte-identical:** their key name and indentation changed. Every byte after each key is identical, so the value `10.0`, its alignment and its comment are unchanged, and `dropped:` still carries no inline value;
+  - the only other added lines are the two comment lines;
+  - **no value changed.**
+
+#### (b) "accept 13" clarified (Sidh, 2026-10-25)
+- Sidh's 2026-10-24 brief opened with "accept 13". The `d181408` entry read that as accepting **item 13** (the mechanics) as drafted.
+- **Sidh's clarification: "accept 13" meant all 13 recommendations in the 2026-10-24 table.**
+- Read against that table (the 13-row checklist resolution table in the 2026-10-24 confirmation entry), the clarification **changes no row.** Each row already records the resolution in the same brief, including:
+  - the amendments to items 6, 7 and 9;
+  - the replacement of item 11;
+  - the deferral of item 10.
+
+#### (c) Missing-value policy and seed streams (Sidh, 2026-10-25), set before any real-data run
+Committed as `f71cf0d` on `pc-validation`, YAML only. The YAML's SHA-256 in git's canonical LF form (the committed blob) is `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+- **`agreement.missing_independent_value_policy: exclude`**, replacing the OPEN `null`.
+  - An event with no valid M1 value (non-convergence) or no valid M3 value ("not informative") is excluded from that method's agreement fractions.
+  - **Engine evaluation errors still count as disagreements.**
+  - Excluded events are **listed per stratum** (`list_excluded_events_per_stratum: true`).
+  - A stratum is classed **"not informative"** if more than 10% of its events lack an M1 or an M3 value (`not_informative_if_frac_missing_above: 0.10`).
+- **Seed streams.** Each event's seed is `seed + seed_offset + sample index`.
+  - M2 gets its own stream: `m2.seed_offset: 1000000`, which exceeds any sample index, so no M2 seed equals any M3 seed.
+  - `m3.seed_offset: 0` restates M3's existing rule (42 + sample index).
+- This closes the OPEN item in the 2026-10-24 confirmation entry. **Neither decision was taken after seeing any validation result.** No step had run on real data, and none has since.
+
+#### (d) The three implementation constants fixed in d181408
+- **μ = 398600.4418 km³/s²** (Earth's GM, WGS-84/EGM96 value).
+  - Used only for C3a/C3b's circular-orbit target speed, √(μ/a_t).
+  - **Reason:** it is the standard value for Earth-orbit work. The published alternatives differ from it by about 1e-8 relative, far below the error of the circular-orbit approximation itself, so the choice cannot move a result.
+- **M1 peak-search grid: 2,001 points** (midpoints in t over (−π/2, π/2), spacing π/2001 ≈ 1.6e-3 rad).
+  - Used only to locate the integrand's maximum. That maximum is factored out in log space and passed to quad as a breakpoint.
+  - **Reason:** it does not set M1's accuracy, which comes from quad's `epsrel` 1e-10. It only has to land near the peak so that the scaled integrand neither overflows nor underflows. 2,001 evaluations per event is cheap.
+  - A peak much narrower than the spacing could be missed. That would need a hard-body radius far larger than the covariance's scale, and none of the analytic tests reached it.
+- **M3 draw chunk: 1e6.**
+  - **Reason, memory:** a chunk holds about six float64 arrays of that length, roughly 50 MB at peak, well inside the commit limit whose exhaustion caused the earlier suite failures.
+  - **Reason, structure:** it equals `n_samples`, so the base run is a single chunk.
+  - **It is fixed, not free:** the chunk size decides how the generator's draws are split between the radius and angle variates, so changing it changes M3's numbers. Fixing it in advance makes M3 reproducible from (seed, n, chunk).
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-25).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
