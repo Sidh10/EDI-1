@@ -360,6 +360,21 @@ def step_sample(cfg: Config, pcv: dict) -> list[str]:
     return written
 
 
+def event_seeds(pcv: dict, sample_index: int) -> dict:
+    """Per-event seeds (Sidh, 2026-10-25): M3 and M2 draw from distinct streams.
+
+    seed + m3.seed_offset + index for M3 (42 + index, the pre-registered rule) and
+    seed + m2.seed_offset + index for M2. The offsets must differ by more than any sample index, so no
+    M2 seed can equal any M3 seed in either set.
+    """
+    base, i = int(pcv["seed"]), int(sample_index)
+    m3_off, m2_off = int(pcv["m3"]["seed_offset"]), int(pcv["m2"]["seed_offset"])
+    if i < 0 or i >= abs(m2_off - m3_off):
+        raise ValueError(f"sample index {i} would let the M2 and M3 seed streams overlap "
+                         f"(offsets {m3_off}, {m2_off})")
+    return {"m3": base + m3_off + i, "m2": base + m2_off + i}
+
+
 def _sets(pcv: dict) -> tuple[str, ...]:
     return SETS if pcv["sample"].get("e3_sample") else ("official",)
 
@@ -391,12 +406,12 @@ def step_self_convergence(cfg: Config, pcv: dict) -> list[str]:
 def step_gate(cfg: Config, pcv: dict) -> list[str]:
     _require(cfg, "pcv_engine.csv")
     m1c, m3c = pcv["m1"], pcv["m3"]
-    seed = int(pcv["seed"])
     recs = []
     for set_name in _sets(pcv):
         for row in _sample_rows(cfg, set_name).to_dict("records"):
+            m3_seed = event_seeds(pcv, row["sample_index"])["m3"]
             rec = {"set": set_name, "sample_index": row["sample_index"], "event_uid": row["event_uid"],
-                   "stratum": row["stratum"]}
+                   "stratum": row["stratum"], "m3_seed": m3_seed}
             try:
                 g = pi.geometry_from_row(row)
             except (KeyError, TypeError, ValueError) as exc:
@@ -406,7 +421,7 @@ def step_gate(cfg: Config, pcv: dict) -> list[str]:
                 continue
             m1 = pi.log10_pc_m1(g, epsrel=float(m1c["epsrel"]), limit=int(m1c["limit"]),
                                 peak_grid_points=int(m1c["peak_grid_points"]))
-            m3 = pi.log10_pc_m3(g, seed=seed + int(row["sample_index"]), n_samples=int(m3c["n_samples"]),
+            m3 = pi.log10_pc_m3(g, seed=m3_seed, n_samples=int(m3c["n_samples"]),
                                 n_escalated=int(m3c["n_escalated"]), rel_se_target=float(m3c["rel_se_target"]),
                                 chunk=int(m3c["chunk"]))
             recs.append({**rec, "assembly_error": "", "m1_log10": m1.log10_pc if m1.converged else math.nan,
@@ -470,18 +485,19 @@ def step_m2(cfg: Config, pcv: dict) -> list[str]:
     engine, ind = _require(cfg, "pcv_engine.csv", "pcv_independent.csv")
     df = engine.merge(ind, on=["set", "sample_index", "event_uid", "stratum"], validate="one_to_one")
     c = pcv["m2"]
-    seed = int(pcv["seed"])
     rows_by_key = {(s, int(r["sample_index"])): r for s in _sets(pcv)
                    for r in _sample_rows(cfg, s).to_dict("records")}
     recs = []
     for r in df.to_dict("records"):
-        rec = {"set": r["set"], "sample_index": r["sample_index"], "event_uid": r["event_uid"], "stratum": r["stratum"]}
+        m2_seed = event_seeds(pcv, r["sample_index"])["m2"]
+        rec = {"set": r["set"], "sample_index": r["sample_index"], "event_uid": r["event_uid"], "stratum": r["stratum"],
+               "m2_seed": m2_seed}
         if r["assembly_error"] and isinstance(r["assembly_error"], str):
             recs.append({**rec, "status": "assembly error", "hits": 0, "n": 0, "p_hat": math.nan,
                          "rel_se": math.nan, "consistent_with_engine": None})
             continue
         g = pi.geometry_from_row(rows_by_key[(r["set"], int(r["sample_index"]))])
-        res = pi.pc_m2(g, seed=seed + int(r["sample_index"]), chunk=int(c["chunk"]), cap=int(c["cap"]),
+        res = pi.pc_m2(g, seed=m2_seed, chunk=int(c["chunk"]), cap=int(c["cap"]),
                        min_hits=int(c["min_hits_target"]), max_rel_se=float(c["max_rel_se_counted"]),
                        prior_log10_pc=r["m1_log10"] if math.isfinite(r["m1_log10"]) else None)
         cons = (pi.m2_consistent(res, r["engine_log10"], n_se=float(c["n_se"]))

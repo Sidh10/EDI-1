@@ -214,6 +214,45 @@ def test_c1_median_change_is_reported_against_0_602_without_a_threshold():
     assert "pass" not in rep and "fail" not in rep
 
 
+# --- seed streams (Sidh, 2026-10-25) -----------------------------------------------------------------
+def test_m2_and_m3_draw_from_distinct_streams_for_the_same_event():
+    from kelvins_conformal.labelnoise import pc_independent as pi
+
+    pcv, _ = pvr.load_pcv_config()
+    seeds = [pvr.event_seeds(pcv, i) for i in range(400)]   # more than either sample set holds
+    assert {s["m2"] for s in seeds}.isdisjoint({s["m3"] for s in seeds})
+    assert seeds[0]["m3"] == 42                              # M3 keeps the pre-registered 42 + index
+    s = seeds[7]
+    # The raw streams the two methods consume differ ...
+    a = np.random.default_rng(s["m3"]).random(1000)
+    b = np.random.default_rng(s["m2"]).random(1000)
+    assert not np.allclose(a, b)
+    # ... so M2's samples for this event are not the ones it would draw from M3's seed (with a shared
+    # seed, M2's normals would be a deterministic transform of the bits behind M3's uniforms).
+    g = pi.PlaneGeometry(mx=50.0, my=-20.0, sx=100.0, sy=40.0, hbr=10.0)
+    m2_x = np.random.default_rng(s["m2"]).normal(g.mx, g.sx, 1000)
+    m2_x_if_shared = np.random.default_rng(s["m3"]).normal(g.mx, g.sx, 1000)
+    assert not np.allclose(m2_x, m2_x_if_shared)
+
+
+def test_m2_and_m3_are_each_deterministic_for_an_event():
+    from kelvins_conformal.labelnoise import pc_independent as pi
+
+    pcv, _ = pvr.load_pcv_config()
+    assert pvr.event_seeds(pcv, 11) == pvr.event_seeds(pcv, 11)
+    s = pvr.event_seeds(pcv, 11)
+    g = pi.PlaneGeometry(mx=30.0, my=10.0, sx=40.0, sy=25.0, hbr=8.0)
+    m3 = [pi.m3_estimate(g, seed=s["m3"], n=50_000, chunk=10_000) for _ in range(2)]
+    m2 = [pi.pc_m2(g, seed=s["m2"], chunk=20_000, cap=200_000, min_hits=100, max_rel_se=0.10) for _ in range(2)]
+    assert m3[0] == m3[1] and m2[0] == m2[1]
+
+
+def test_seed_streams_refuse_an_index_that_would_overlap():
+    pcv, _ = pvr.load_pcv_config()
+    with pytest.raises(ValueError):
+        pvr.event_seeds(pcv, 1_000_000)
+
+
 # --- the six steps, end to end, on SYNTHETIC CDMs only ------------------------------------------
 # Structural smoke test of the step chain: tables, provenance and the refusal. The data loaders are
 # replaced by synthetic frames and the tables directory by tmp_path, so no real event, CDM or E3 row
