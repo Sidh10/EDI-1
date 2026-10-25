@@ -89,7 +89,9 @@ def test_m1_tiny_hbr_limit_matches_point_mass(mx, my, sx, sy):
     assert r.log10_pc == pytest.approx(point_mass_log10(mx, my, sx, sy, hbr), abs=1e-6)
 
 
-@pytest.mark.parametrize("sigma,d,hbr", [(1.0, 20.0, 0.5), (100.0, 4000.0, 20.0)])
+# Every case has sigma != 1, so a normalisation error in sigma cannot hide (log sigma = 0 at sigma = 1).
+# (3, 60, 1.5) is the original (1, 20, 0.5) case rescaled: the same d/sigma and R/sigma, so the same Pc.
+@pytest.mark.parametrize("sigma,d,hbr", [(3.0, 60.0, 1.5), (100.0, 4000.0, 20.0), (25.0, 900.0, 5.0)])
 def test_m1_deep_tail_matches_bessel_radial_form(sigma, d, hbr):
     r = pi.log10_pc_m1(iso(d, 0.0, sigma, hbr))
     assert r.converged
