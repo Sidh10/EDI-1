@@ -228,6 +228,21 @@ def crossing_angle(row: dict, *, sign: float, mu_km3_s2: float) -> float:
     return math.atan2(sign * v_rel_n, v_t + sign * v_rel_t)
 
 
+def c3_rotation(row: dict, conv_id: str, *, mu_km3_s2: float) -> np.ndarray:
+    """C3's rotation: the chaser's RTN axes as columns, in target RTN components (a rotation about R).
+
+    A vector with chaser-RTN components x has target-RTN components ``rot @ x``, so a chaser covariance
+    C becomes ``rot @ C @ rot.T``. Exact for circular orbits at a common position; an approximation
+    otherwise (see ``crossing_angle``).
+    """
+    if conv_id not in ("C3a", "C3b"):
+        raise ValueError(f"c3_rotation applies to C3a / C3b, not {conv_id!r}")
+    th = crossing_angle(row, sign=1.0 if conv_id == "C3a" else -1.0, mu_km3_s2=mu_km3_s2)
+    c, s = math.cos(th), math.sin(th)
+    rot = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])   # chaser RTN axes in target RTN
+    return rot
+
+
 def apply_convention(row: dict, conv_id: str, *, mu_km3_s2: float):
     """The convention's input transform: ``(new_row, covariance_scale)``, or ``None`` (C4 with k <= 0).
 
@@ -241,9 +256,7 @@ def apply_convention(row: dict, conv_id: str, *, mu_km3_s2: float):
         new["c_span"] = 2.0 * float(row["c_span"])
         return new, 1.0
     if conv_id in ("C3a", "C3b"):
-        th = crossing_angle(row, sign=1.0 if conv_id == "C3a" else -1.0, mu_km3_s2=mu_km3_s2)
-        c, s = math.cos(th), math.sin(th)
-        rot = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])   # chaser RTN axes in target RTN
+        rot = c3_rotation(row, conv_id, mu_km3_s2=mu_km3_s2)
         _write_cov(new, "c", rot @ _cov_from_row(row, "c") @ rot.T)
         return new, 1.0
     if conv_id in ("C4a", "C4b"):
