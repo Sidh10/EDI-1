@@ -4805,6 +4805,37 @@ How the runner's outputs map onto this amendment (C3b's flag column, and marking
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-27 — AMENDMENT to the Pc validation pre-registration, restated: C3a designated the documented convention (Sidh); basis updated to ESA replies 2 and 3
+
+**Status:** AMENDMENT decided by Sidh, restated on 2026-10-27, recorded by Claude Code. Insertion only.
+- **The designation is the same as in the 2026-10-26 amendment entry (`fb4f957`).** It is restated here in full so its basis can name both replies. It adds no rule and removes none.
+- **The pre-registration is not edited:** the 2026-10-14 reconstruction, the 2026-10-24 confirmation (`d181408`) with its convention section, and the 2026-10-25 entry (`1ecbc11`).
+- **The validation YAML is not changed.** `config/experiments/pc_validation.yaml` on `pc-validation` keeps canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+- **No real-data run has occurred.** No `pc-validate` step has run on any real event, real CDM or E3's sample.
+
+**The amendment:**
+1. **C3a is designated the documented convention.** It is the convention for the comparison with the reported risk.
+2. **C0 is retained as the engine baseline,** and for continuity with E3 and E14.
+3. **C3b is retained in the run** as a **"contradicted by source" control.** It is **reported without any rule**: no flag, no finding and no threshold attach to it.
+4. **C3c is not added.**
+5. **C1 and C4 are unchanged.**
+6. **The existing 10 pp flag rule applies to C3a.**
+
+**What the designation rests on:**
+- **The ESA Space Debris Support replies of 2026-10-26.** Attribution: "ESA Space Debris Office, personal communication, 26 October 2026". The replies are recorded in `605270b` and `fd1ce8a`.
+  - **Reply 2:** each covariance is in its own object's RTN frame; the relative values are chaser − target; chaser = Object2 and target = Object1.
+  - **Reply 3:** the relative values are in Object1's RTN frame.
+- **It does not rest on any validation result,** because none exists. The input-only sign check (`0a2bcb8`) is consistent with C3a, but it is not the basis.
+
+**Disclosure:**
+- **E3's 65.0% within ±0.5 log10 was already known when the convention list was drafted,** and when this amendment was decided and restated.
+- **No real-data run has occurred.**
+
+**Not changed:** the engine, the YAML, the runner's code, and any E3, E14 or gate number.
+
+**Decided by:** Sidh (2026-10-26; restated 2026-10-27). **Recorded by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
