@@ -4452,6 +4452,54 @@ Committed as `f71cf0d` on `pc-validation`, YAML only. The YAML's SHA-256 in git'
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-25).
 
 
+### 2026-10-26 — ESA Space Debris Support reply on dataset frames
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only.
+- The 2026-10-14 reconstruction, the 2026-10-24 confirmation and its convention section are **not edited**. The pre-registered conventions (C0, C1, C3a, C3b, C4a, C4b) all stay in the set, and none is adopted.
+- No engine run, validation step or data read was made for this entry.
+
+**The reply, verbatim:**
+
+> Dear Siddharth, The target/chaser values do indeed correspond to Object1/2, which are otherwise defined as per the CCSDS standard, with covariances in RTN. As such the relative values are defined as (target - chaser). Best regards, [name withheld]
+
+- **Sender:** "Space Debris Support", signed by an individual staff member. The signatory's first name is **withheld here** because this repository is public (Sidh's decision, 2026-10-26). The quote is otherwise verbatim. The unredacted text is held outside the repository.
+- **Received:** 2026-10-26, about 14:29 IST.
+- **In reply to** Sidh's question about the frames of the `t_*`, `c_*` and `relative_*` fields.
+- **Status as a source:** a personal communication, not published documentation. **Permission to cite it has not yet been requested.**
+
+**What it establishes**, as a statement from the dataset provider's support channel:
+- the target/chaser values correspond to CCSDS Object1/Object2, which are "otherwise defined as per the CCSDS standard";
+- the covariances are in RTN.
+
+**What it does not establish:**
+- whether each covariance is in its **own object-centred** RTN frame, or both are in a **common** frame;
+- the **order** of Object1/2 against target/chaser. It says the values "correspond to Object1/2", not which object is which.
+
+**Tension, recorded and not resolved:**
+- CCSDS 508.0-B-1 (Annex E, §E1, p. E-1; source S6 in the 2026-10-24 convention section) defines RELATIVE_POSITION/RELATIVE_VELOCITY as "Object2's position/velocity relative to Object1's". **If target = Object1, that is chaser − target.**
+- The reply states that "the relative values are defined as (target - chaser)".
+- Both can hold only if target = Object2, or if the dataset's relative state departs from CCSDS. Which, if either, is the case is not settled here.
+
+**Premise status for the convention section** (C3's premises in the 2026-10-24 confirmation entry; that section is not edited):
+
+| Premise or reading | Status in the 2026-10-24 section | What the reply says | Status after the reply |
+|---|---|---|---|
+| P1: each covariance in its own object-centred RTN frame | not verified for the dataset (CCSDS has no sentence explicitly centring Object2's covariance on Object2) | "with covariances in RTN"; the centre is not stated | **not verified** |
+| P2: the dataset follows the CCSDS conventions | not verified | "otherwise defined as per the CCSDS standard" | **asserted by the provider in a personal communication**; not in published documentation |
+| P3: target = CCSDS Object1 | not verified | "The target/chaser values do indeed correspond to Object1/2" | **correspondence asserted; the order is not established** |
+| C3a reading: relative = chaser − target | follows from CCSDS S6 if P3 holds | contradicted: "(target - chaser)" | **in tension**: CCSDS S6 with P3 against the reply |
+| C3b reading: relative = target − chaser | kept as the alternative (D44–49 says only "between chaser & target") | stated: "(target - chaser)" | **supported by the reply**; in tension with CCSDS S6 if P3 holds |
+
+**Consequences:** none adopted. No engine, E3, E14 or pre-registered rule changes.
+
+**Release note:** this entry quotes a personal communication.
+- The repository should stay private, or the sender be redacted, before any public release.
+- **The repository was found to be public** on 2026-10-26, before this entry was pushed (github.com/Sidh10/EDI-1 shows the "Public" label). The signatory's name was therefore withheld from this entry (Sidh's decision).
+- Permission to cite has not been requested.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
