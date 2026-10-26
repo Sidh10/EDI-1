@@ -4612,6 +4612,46 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
 
 
+### 2026-10-26 — Relative-vector sign: two readings the sign check cannot separate; Pc invariance under reversal; the evidence on each side
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only. **Facts only: the tension is not resolved, nothing is adopted, and no pre-registered rule changes.**
+- No `pc-validate` step was run. The Pc engine and M1 were run on synthetic inputs only.
+
+**1. The sign-check limitation** (results entry of 2026-10-26, commit `0a2bcb8`). Two readings of the stored relative vector are each consistent with CCSDS 508.0-B-1, for opposite Object1 assignments:
+- **Reading A:** chaser − target, expressed in the **target's** RTN frame. This is CCSDS RELATIVE_* (Object2 relative to Object1, in Object1's RTN frame) if **target = Object1**.
+- **Reading B:** target − chaser, expressed in the **chaser's** RTN frame. This is the same CCSDS definition if **chaser = Object1**.
+
+The input-only sign check passes reading A (s = +1). On synthetic orbits, reading B also passes s = +1 to within the difference of the two orbits' sizes: median |e| 1.2e-16 at equal semi-major axes, 4.5e-3 at 50 km apart, 3.2e-2 at 400 km apart. **The check does not separate A from B.** It does exclude, by a wide margin, the reading "target − chaser in the target's frame" (s = −1; median |e| 1.489 train, 1.557 test).
+
+**2. Reversal invariance of the 2D Pc** (synthetic only):
+- **Script:** `E:/EDI-1/scratch/reversal_invariance_check.py`, SHA-256 `a2a84be1864f693dbf57ca96bd28bd4897dbde32b6a7da9847c0143be56625ce`.
+- **Methods:**
+  - the engine is `labelnoise/pc_foster.py`, unchanged (byte-identical on `phase5/e15-decision-cost` and `pc-validation`), on its 200 × 360 grid, using `log10_pc_unfloored`;
+  - M1 is `pc_independent.py` exported from tag `pcv-code-v1` (blob `1e5bd364`, SHA-256 `a7b213b4…6f26f40`).
+- **Cases:** 300 random cases with anisotropic target and chaser covariances (up to 10× between axes, random correlations), offsets of 0 to about 6σ, and HBR from 1.00 to 98.15 m (two decades). Engine log10 Pc ranges from −14.9 to 0.0.
+- **Result:** reversing the sign of both the relative position and the relative velocity changes log10 Pc by at most **8.9e-16 (engine)** and **0 (M1)**.
+- **What a reversal does to the projection plane:**
+  - the encounter plane is the same set of points, because its normal ±v defines the same plane;
+  - in the engine's basis, axis1 = r×v/|r×v| is unchanged and axis2 = v̂×axis1 changes sign. In M1's basis, the miss-direction axis changes sign and the other axis is unchanged;
+  - either way the projected miss vector and the projected covariance become the **mirror image** of the original (one in-plane axis reflected). The hard-body disk is centred on the origin and mirror-symmetric, so Pc is unchanged.
+- **The requested mutation (reverse the position only) did not make the test fail** (max |Δ| = 0 for both methods). This is exact, not chance: with the velocity fixed, reversing r flips both in-plane axes, so the miss vector and the projected covariance come out identical. A 2D Pc is invariant to it as well.
+- **An alternative mutation** (flip only the R components of the position and velocity, a reflection that does not also reflect the covariance) makes the test fail: max |Δ| = 8.43 for both methods.
+
+**3. Where the sign matters:**
+- **Under C0 the sign does not affect the Pc** (item 2): the engine sums the two covariances and projects, and a reversal leaves Pc unchanged.
+- **The sign enters C3** through the RTN rotation. C3's crossing angle is computed from v_t + s · v_rel, so s = +1 (C3a) and s = −1 (C3b) give different rotations of the chaser covariance.
+- **Readings A and B also differ in which object's frame the vector is expressed in, and so in which covariance would be rotated.** The pre-registered C3a and C3b both rotate the chaser's covariance into the target's frame.
+
+**4. The evidence on each side, quoted** (not resolved here):
+- **Kelvins paper** (Uriot et al., arXiv:2008.03069v2, §3, p. 4; K3 in the 2026-10-24 convention section): "This involved transforming absolute time stamps and position/velocity values in relative values, respectively, in terms of time to TCA and state with respect to the target." Read literally, a state "with respect to the target" has the target as its origin. That matches reading A's direction.
+- **ESA Space Debris Support reply** (2026-10-26 entry; personal communication):
+  - "The target/chaser values do indeed correspond to Object1/2, which are otherwise defined as per the CCSDS standard, with covariances in RTN." If "target/chaser … Object1/2" is read in order (target = Object1), this matches reading A.
+  - "As such the relative values are defined as (target - chaser)." Read literally, this matches reading B's direction (or the excluded s = −1 reading if the frame is the target's).
+- The two sentences of the reply point to different readings under CCSDS if "Object1/2" is read in order. **This entry does not choose between them.**
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
