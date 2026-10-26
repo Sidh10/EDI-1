@@ -4652,6 +4652,56 @@ The input-only sign check passes reading A (s = +1). On synthetic orbits, readin
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
 
 
+### 2026-10-26 — ESA Space Debris Support second reply and permission to cite
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only.
+- The earlier entries are **not edited**: the 2026-10-26 ESA-reply entry (`89c5971`), the sign-check pre-registration and results (`a591d1a`, `0a2bcb8`), and the readings entry (`d3fd812`).
+- No `pc-validate` step or Pc engine was run, and no risk, label or E3 value was read.
+
+**The reply, verbatim** (the signatory's name withheld):
+
+> Dear Siddharth, 1. They are each given in the objects respective RTN frame, as per CCSDS 2. My mistake, you are correct that it should be chaser-target, again as per CCSDS (chaser being object2, target being object1). Yes feel free to cite this clarification. Best regards, [name withheld]
+
+- **Received:** 2026-10-26, before 19:56 IST (exact time not recorded).
+- **In reply to** Sidh's follow-up question on the frames and the sign.
+- **Status as a source:** personal communication from the dataset provider's support channel.
+- **Permission:** granted to cite the clarification ("Yes feel free to cite this clarification"). Permission to use the signatory's name was **not** given, so the name stays withheld.
+- **Suggested citation:** "ESA Space Debris Office, personal communication, 26 October 2026".
+
+**What it establishes:**
+- Each object's covariance (`t_*`, `c_*`) is given in **that object's own RTN frame** ("each given in the objects respective RTN frame, as per CCSDS").
+- The relative values are **chaser − target** ("it should be chaser-target, again as per CCSDS").
+- **chaser = Object2, target = Object1** ("chaser being object2, target being object1").
+- **The first reply's "(target - chaser)" was corrected by the sender** ("My mistake").
+
+**Not stated verbatim:** the frame in which the relative vector's components are expressed.
+- It is implied by "as per CCSDS".
+- The CCSDS text puts it in Object1's RTN frame, i.e. the target's: CCSDS 508.0-B-1, Table 3-2, p. 3-3 (S3), and Annex E, §E1, p. E-1 (S6).
+
+**Premise status, updated** (supersedes, for interpretation only, the table in the 2026-10-26 ESA-reply entry; neither the earlier entries nor the pre-registration is edited):
+
+| Premise or reading | Evidence | Status |
+|---|---|---|
+| P1: each covariance in its own object-centred RTN frame | this reply, item 1 | **confirmed by the data's source** |
+| P2: the dataset follows the CCSDS conventions | this reply ("as per CCSDS", twice); the first reply | **confirmed by the data's source** |
+| P3: target = CCSDS Object1 | this reply ("target being object1") | **confirmed by the data's source** |
+| C3a, reading A: chaser − target, target's RTN frame | this reply (sign, roles); CCSDS S3/S6 (frame); consistent with the input-only sign check (`0a2bcb8`) | **the documented convention** |
+| C3b: target − chaser, target's frame (s = −1) | this reply; **the input-only sign check** (results entry 2026-10-26, `0a2bcb8`: median abs e 1.489 train, 1.557 test) | **contradicted** by the source and by the sign check |
+| Reading B: target − chaser, chaser's frame (chaser = Object1) | this reply: chaser = Object2, relative = chaser − target | **excluded by the reply** |
+| The sign check cannot separate readings A and B (`d3fd812`) | reading B is excluded by the source | **moot** |
+
+**The engine differs from the documented convention:**
+- The Pc engine sums the two covariances directly, with **no inter-object frame rotation**.
+- See `src/kelvins_conformal/labelnoise/pc_foster.py`:
+  - the module docstring, lines 19–20: "Each object's covariance is taken in a common RTN frame and summed directly (no inter-object frame rotation). This is the standard first-order treatment.";
+  - the code, lines 266–276, ending in `cov = (cov_t + cov_c) * float(covariance_scale)`.
+- Under the documented convention, the chaser's covariance is in the chaser's own RTN frame. The engine (convention C0) therefore **differs from the documented convention**, by omitting the rotation of the chaser covariance into the target's frame.
+
+**Effect on E3 and E14: unmeasured.** Both **stand as recorded**. Nothing is re-run, and no E3, E14 or gate number changes.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
