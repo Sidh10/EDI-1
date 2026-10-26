@@ -4561,6 +4561,57 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
 
 
+### 2026-10-26 — RESULTS: input-only relative-velocity sign check (pre-registered in a591d1a)
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only. **Facts only: no recommendation, nothing adopted, no pre-registered rule changed.**
+- The tension recorded in the 2026-10-26 ESA-reply entry stays recorded and is **not resolved here**.
+- No `pc-validate` step or Pc engine was run, and no risk, label or E3 value was read.
+
+**Provenance:**
+- **Pre-registration:** commit `a591d1a`, pushed 2026-10-26 at about 17:20 IST, before the script existed.
+- **Script:** `E:/EDI-1/scratch/frame_sign_check.py`, outside the repository. SHA-256 `21c6220591c8c25c0b242042fdc96bc0f372145f20bea9da78266b8bb2da523a`.
+- **Results file:** `E:/EDI-1/scratch/frame_sign_results.json`, written 2026-10-26 17:21:38 IST. SHA-256 `9f30759151aec2657f5fe1941a4cd23243cc43e925ad28acbfd55c17568c5841`.
+- **Read:** only `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`, `t_j2k_sma`, `c_j2k_sma` and `t_j2k_ecc`, from `train_data.csv` (in `train_data.zip`) and `test_data.csv`. `test_data_private.csv` was not opened.
+
+**Synthetic test, run before the real data** (it also runs automatically before every real run):
+- **Setup:** 400 target/chaser pairs on circular target orbits with known inclination and RAAN, including four fixed pairs. Each chaser passes through the target's position, on a circular orbit or one with e = 0.05. The target's RTN frame is built by definition, and the true relative velocity is stored under each sign convention.
+- **Result:** in all four runs the true sign gives median |e| ≈ 1.2e-16, the other sign about 1.09–1.10, and the true sign is selected.
+- **Mutation:** flipping the sign applied to v_rel (`sv = s * v_rel` → `sv = -s * v_rel`) makes all four runs fail (exit code 1). The script was restored byte for byte, with the SHA-256 above.
+
+**Sample sizes:**
+- **train:** 162,634 CDMs read, 162,634 used.
+- **test:** 24,484 read, 24,484 used.
+- **Excluded:** none (0 non-finite, 0 non-positive semi-major axis, 0 non-positive vis-viva energy).
+- **The t_j2k_ecc < 0.05 subset is identical to the full set** in both splits: every CDM read has t_j2k_ecc < 0.05. Its row of the table therefore adds no information.
+
+**Results** (e_s = (implied chaser speed − vis-viva speed) / vis-viva speed):
+
+| Split, subset | n | s | median abs e_s | share within 5% | share within 10% | median signed e_s | signs differ by more than 10% of v_exp |
+|---|---|---|---|---|---|---|---|
+| train, all | 162,634 | +1 (chaser − target) | 0.000860 | 1.000 | 1.000 | −0.000623 | 0.943 |
+| train, all | 162,634 | −1 (target − chaser) | 1.489 | 0.038 | 0.057 | +1.489 | 0.943 |
+| test, all | 24,484 | +1 (chaser − target) | 0.000962 | 1.000 | 1.000 | −0.000691 | 0.944 |
+| test, all | 24,484 | −1 (target − chaser) | 1.557 | 0.037 | 0.056 | +1.557 | 0.944 |
+| train / test, t_j2k_ecc < 0.05 | same as "all" | | | | | | |
+
+"Share within 5%" for s = +1 is 1.000 exactly: every used CDM is within 5%.
+
+**Pre-registered wording rule applied:** no cell meets either condition. In every cell s = +1 has median |e| ≤ 0.10, and in every cell more than half the CDMs (0.943 and 0.944) have signs differing by more than 10% of v_exp. So, by the rule, the numbers are reported **without characterisation**.
+
+**Limitation of the method, identified after the run**, by working through the formula and shown on synthetic orbits only (no further real data was analysed):
+- The check uses only speeds. Suppose the relative vector were instead **target − chaser, expressed in the chaser's RTN frame**. That is the CCSDS definition if target = Object2.
+- In that case |(0, v, 0) + v_rel| reproduces the other object's speed **with s = +1 as well**, to the extent the two objects' speeds are equal.
+- **On synthetic orbits through a common point,** that alternative passes the s = +1 test with median |e|:
+  - 1.2e-16 when a_c = a_t;
+  - 4.5e-3 when a_c − a_t = 50 km;
+  - 3.2e-2 when a_c − a_t = 400 km.
+- So this check, as pre-registered, **does not separate** "chaser − target in the target's RTN frame" from "target − chaser in the chaser's RTN frame" when the two orbits are similar in size.
+- It does exclude, by a wide margin, "target − chaser in the target's RTN frame" (s = −1): median error 149% (train) and 156% (test).
+- Separating the remaining two readings would need a further check, for example using c_j2k_sma − t_j2k_sma. Any such check would have to be pre-registered first. None has been run.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
