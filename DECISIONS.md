@@ -4836,6 +4836,45 @@ How the runner's outputs map onto this amendment (C3b's flag column, and marking
 **Decided by:** Sidh (2026-10-26; restated 2026-10-27). **Recorded by:** Claude Code.
 
 
+### 2026-10-27 — ESA Space Debris Support: third reply, exact times
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. No earlier entry is edited.
+- **This overlaps the 2026-10-27 entry `fd1ce8a`**, which already recorded reply 3, the timeline and the attribution.
+- It is entered as instructed, and it **corrects one detail of `fd1ce8a`:** that entry quoted reply 3 without its closing signature line. The verbatim text, with the name withheld, ends with "[name withheld]" (below).
+- The sender's name, employer and email address are not written here.
+
+**Reply 3, verbatim** (2026-10-26 20:45:39 IST; signatory's name withheld):
+
+> Dear Siddharth, Your proposed attribution sounds good to me, thank you! Correct, this is in the Object1's RTN frame as per CCSDS Of course we'd be happy if you shared the final paper, feel free to reach out to this inbox again for this. [name withheld]
+
+**Exact times** (from the mail headers, UTC converted to IST):
+- Sidh's email: 13:14:57, 24 Oct 2026.
+- Reply 1: 14:28:52, 26 Oct.
+- Sidh's follow-up: 17:00:36, 26 Oct.
+- Reply 2: 19:31:48, 26 Oct.
+- Sidh's note proposing the attribution and asking to confirm the relative-vector frame: 20:00:25, 26 Oct.
+- Reply 3: 20:45:39, 26 Oct.
+
+These supply the reply-2 time recorded as "not recorded" in the 2026-10-26 entry (`605270b`), which is not edited.
+
+**Recorded:**
+- **Agreed attribution:** "ESA Space Debris Office, personal communication, 26 October 2026".
+- **The name** stays withheld.
+- **The sender welcomes the final paper,** to be sent to the same inbox when final.
+
+**Establishes** (verified from the data's source): the relative vector is expressed in **Object1's (the target's) RTN frame**.
+
+**Premise table, updated** (earlier entries not edited):
+
+| Premise | Status |
+|---|---|
+| Frame of the relative vector: Object1's (target's) RTN | **confirmed by the data's source** (reply 3) |
+
+All other rows stand as in `fd1ce8a`.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
