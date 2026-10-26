@@ -4921,6 +4921,72 @@ All other rows stand as in `fd1ce8a`.
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-27 — PRE-REGISTRATION: input-only bound on the C3a position-along-R approximation
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-27 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- **No script exists at the time of this commit.**
+- **No covariance, risk, label or E3 value is read.** No `pc-validate` step and no Pc engine is run.
+- The result is **reported without any rule**. Sidh decides afterwards whether the implementation stands as the designated C3a.
+- Because only inputs are read, that decision **cannot depend on the outcome of the comparison with the reported risk.**
+
+**Question.** How large is the difference between the two rotations?
+- **The implemented C3a rotation:** about the target's R axis, from `relative_velocity_t`, `relative_velocity_n` and the circular speed. This is `pc_validation_runner.py` at tag `pcv-code-v1`, lines 289–314.
+- **The rotation from the source's formulation** (C3a comparison entry, `3a5ce30`):
+  - chaser position (1000·`t_j2k_sma` + rel_R, rel_T, rel_N) in m;
+  - chaser velocity (0, v_t, 0) + v_rel in m/s;
+  - chaser axes by definition: R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R.
+
+**Data read**, with only these columns (pandas `usecols`):
+- **Files:** `data/raw/kelvins_competition_data/train_data.zip` (`train_data.csv`) and `test_data.csv`. **Not opened:** `test_data_private.csv`, the label file (as in the 2026-10-26 sign check).
+- **Columns:** `relative_position_r`, `relative_position_t`, `relative_position_n`, `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`, `t_j2k_sma`. Nothing else.
+- **Units, from the raw documentation** (`data/raw/raw_data/raw_data_2015-2019.txt`):
+  - `relative_position_*` in **m** (lines 44–46);
+  - `relative_velocity_*` in **m/s** (lines 47–49);
+  - `x_j2k_sma` in **km** (line 88).
+- μ = 398600.4418 km³/s².
+
+**Method**, per CDM (all in the target's RTN axes):
+- **Circular speed:** v_t = √(μ / `t_j2k_sma`) · 1000, in m/s.
+- **M_impl:** θ = atan2(`relative_velocity_n`, v_t + `relative_velocity_t`), and M_impl = [[1, 0, 0], [0, cos θ, −sin θ], [0, sin θ, cos θ]].
+  - The script reimplements this.
+  - In its selftest it must equal the tag's own `crossing_angle` and `c3_rotation` (their source text extracted from `pcv-code-v1` with `git show`, read only) to 1e-15 on every synthetic case.
+- **M_source:**
+  - pos = (1000·`t_j2k_sma` + rel_R, rel_T, rel_N) in m;
+  - vel = (0, v_t, 0) + (`relative_velocity_r`, `_t`, `_n`) in m/s;
+  - R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R;
+  - M_source = [R T N], the chaser's axes as columns.
+- **The angle of the rotation Q = M_implᵀ · M_source,** computed in a form that stays accurate at small angles:
+  - cos φ = (trace Q − 1)/2;
+  - sin φ = |(Q₃₂ − Q₂₃, Q₁₃ − Q₃₁, Q₂₁ − Q₁₂)| / 2;
+  - **φ = atan2(sin φ, cos φ)**, in radians.
+- **The first-order tilt:** eps = √(rel_T² + rel_N²) / (1000·`t_j2k_sma`), in radians.
+- **Excluded and counted, per split:** rows with a non-finite value in a read column; rows with `t_j2k_sma` ≤ 0; rows with |pos × vel| = 0.
+
+**Reported, per split** (train, test):
+- n read, n used, and the exclusions;
+- the percentiles **50, 90, 99, 99.9 and the maximum** of φ, and of eps;
+- the **number of CDMs with φ above 1e-4, 1e-3 and 1e-2 rad**.
+
+Counts are per CDM, not per event.
+
+**What it does and does not measure:**
+- It measures **only the difference between the two rotations.** Both share the circular-target approximations (target velocity (0, v_t, 0), target at radius a_t).
+- It says nothing about how much either rotation changes a Pc, because no covariance is read.
+
+**Selftest, required before the run** (synthetic only):
+- **Setup:** a circular target orbit, and a circular chaser orbit with a known inclination and RAAN difference. The chaser is placed at a chosen offset from the target: a chosen angle along its own orbit from the line where the two planes meet, and a chosen difference in radius. The relative state is built from the inertial states and expressed in the target's RTN axes.
+- **The exact angle:** the angle between M_impl and the true rotation A_tᵀ·A_c (both RTN frames built from the inertial states), computed by an independent route (`scipy.spatial.transform.Rotation`).
+- **Pass condition:** the script's φ must equal that exact angle **within 1e-9 rad**, on every case.
+- **Closed-form cases:**
+  - a coplanar offset of d metres along T, where φ = atan(d / (1000·a));
+  - a purely radial offset, where φ = 0.
+- **Mutation:** transposing M_source must make the selftest fail.
+
+The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the sample sizes go in the results entry.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
