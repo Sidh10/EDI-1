@@ -4702,6 +4702,44 @@ The input-only sign check passes reading A (s = +1). On synthetic orbits, readin
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
 
 
+### 2026-10-26 — AMENDMENT to the Pc validation pre-registration: C3a designated the documented convention (Sidh)
+
+**Status:** AMENDMENT decided by Sidh on 2026-10-26, recorded by Claude Code. Insertion only.
+- **The pre-registration is not edited.** That is the 2026-10-14 reconstruction, the 2026-10-24 confirmation (`d181408`) with its convention section, and the 2026-10-25 entry (`1ecbc11`).
+- **The validation YAML is not changed.** `config/experiments/pc_validation.yaml` on `pc-validation` keeps canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`, as in `f71cf0d`.
+- **No real-data run has occurred.** No `pc-validate` step has run on any real event, real CDM or E3's sample.
+
+**The amendment:**
+1. **C3a is designated the documented convention.** It is the convention for the comparison with the reported risk.
+2. **C0 is retained as the engine baseline,** and for continuity with E3 and E14, whose labels and comparisons use the C0 input assembly.
+3. **C3b is retained in the run** as a **"contradicted by source" control.** It is **reported without any rule**: no flag, no finding and no threshold attach to its result.
+4. **C3c is not added.** It is not run.
+5. **C1 and C4 are unchanged.** C1 stays the negative control, under its insensitivity rule and its +0.602 expectation report. C4a and C4b stay reported side by side against `max_risk_estimate`, under their 10 pp rule.
+6. **The existing 10 pp flag rule applies to C3a.** If C3a changes overall within-0.5 agreement, in either set, by more than 10 percentage points relative to C0, it is reported as a finding, and E3's partial-hold disposition and E14 are flagged for Sidh's review.
+
+**What the designation rests on:**
+- **The ESA Space Debris Support reply of 2026-10-26** (second-reply entry, `605270b`; "ESA Space Debris Office, personal communication, 26 October 2026"). It confirms:
+  - each covariance is in its own object's RTN frame;
+  - the relative values are chaser − target;
+  - chaser = Object2 and target = Object1, as per CCSDS.
+- **It does not rest on any validation result,** because none exists. The input-only sign check (`0a2bcb8`) is consistent with C3a, but it is not the basis of the designation.
+
+**Disclosure, repeated:**
+- **E3's 65.0% within ±0.5 log10** (56.8% excluding floor-to-floor) **was already known when the convention list was drafted,** and when this amendment was decided.
+- The list and this designation are therefore not blind to the outcome they might move.
+- What limits that exposure: the designation follows the data's source; every convention is still run and reported; and no result changes the engine, E3, E14 or any gate without a separate decision recorded by Sidh.
+
+**Not changed by this amendment:**
+- the engine;
+- the YAML, and with it the `pc-validate` guard's recorded hash;
+- the runner's code;
+- any E3, E14 or gate number.
+
+How the runner's outputs map onto this amendment (C3b's flag column, and marking C3a) is a separate matter, listed for Sidh. **No code change is made here.**
+
+**Decided by:** Sidh (2026-10-26). **Recorded by:** Claude Code.
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
