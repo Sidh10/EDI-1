@@ -4987,6 +4987,62 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-27 — RESULTS: input-only bound on the C3a position-along-R approximation (pre-registered in 18689b0)
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. **Facts only: no recommendation, no rule applied, nothing adopted, no code changed.**
+- No covariance, risk, label or E3 value was read.
+- No `pc-validate` step and no Pc engine was run.
+- Whether the implementation stands as the designated C3a is **Sidh's decision**, taken after this.
+
+**Provenance:**
+- **Pre-registration:** commit `18689b0`, pushed 2026-10-27 at about 02:45 IST, before the script existed.
+- **Script:** `E:/EDI-1/scratch/c3a_bound_check.py`, outside the repository. SHA-256 `8451dcb44ff7c37aa71bbda42f7470eab0ce0ee1e1fd7fca780df841c0c635a5`.
+- **Results file:** `E:/EDI-1/scratch/c3a_bound_results.json`, written 2026-10-27 at about 02:47 IST. SHA-256 `8ea31a8cf23524d63b839adc83bde6f25a0c5a0aa1a0d34973c2d273aa3cca6a`.
+- **Read:** only `relative_position_r`, `relative_position_t`, `relative_position_n`, `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n` and `t_j2k_sma`, from `train_data.csv` (in `train_data.zip`) and `test_data.csv`. `test_data_private.csv` was not opened.
+
+**Selftest, run before the real data** (it also runs automatically before every real run):
+- **96 inertial cases:**
+  - four inclination and RAAN pairs, target radii of 6,900 and 7,200 km;
+  - the chaser placed 0, 1e-5, 1e-4 or 1e-3 rad along its own orbit from the planes' line of intersection, with a radius difference of 0, +0.5 or −2 km;
+  - the exact angle computed by an independent route (`scipy.spatial.transform.Rotation`).
+  - **Result:** max |φ − exact| = **2.1e-16** (tolerance 1e-9).
+- **The script's M_impl equals the tag's own `c3_rotation`** (extracted read-only from `pcv-code-v1`): max difference **0** (tolerance 1e-15).
+- **Closed-form cases:**
+  - a coplanar offset d along T, against φ = atan(d/(1000·a)): max error 8.7e-19;
+  - a purely radial offset, against φ = 0: max |φ| 8.3e-17.
+- **Mutation:** transposing M_source makes the selftest fail. The inertial cases are then off by up to 2.17 rad and the radial cases by 2.73 rad; the selftest exits with code 1. The script was restored byte for byte, with the SHA-256 above.
+  - The coplanar closed-form case passes even under the transpose, because transposing a rotation about a single axis only reverses its sign, and the angle is the same.
+
+**Sample sizes:**
+- **train:** 162,634 CDMs read, 162,634 used.
+- **test:** 24,484 read, 24,484 used.
+- **Excluded:** none (0 non-finite, 0 non-positive semi-major axis, 0 zero angular momentum).
+
+**Results.** φ is the angle of M_implᵀ·M_source; eps = √(rel_T² + rel_N²)/(1000·a_t). Both in radians.
+
+| Split | Quantity | p50 | p90 | p99 | p99.9 | max |
+|---|---|---|---|---|---|---|
+| train | φ | 1.763e-3 | 5.493e-3 | 7.959e-3 | 9.069e-3 | 9.753e-3 |
+| train | eps | 1.763e-3 | 5.493e-3 | 7.959e-3 | 9.068e-3 | 9.753e-3 |
+| test | φ | 1.438e-3 | 5.063e-3 | 7.771e-3 | 8.955e-3 | 9.598e-3 |
+| test | eps | 1.438e-3 | 5.062e-3 | 7.772e-3 | 8.955e-3 | 9.595e-3 |
+
+| Split | n | φ > 1e-4 rad | φ > 1e-3 rad | φ > 1e-2 rad |
+|---|---|---|---|---|
+| train | 162,634 | 153,715 (94.5%) | 107,326 (66.0%) | 0 |
+| test | 24,484 | 22,775 (93.0%) | 14,718 (60.1%) | 0 |
+
+**In degrees:** the medians are 0.101° (train) and 0.082° (test); the maxima are 0.559° (train) and 0.550° (test).
+
+**Observed:** at every reported percentile, φ and eps agree to within 0.03% of each other. The largest relative gap is 2.7e-4, at the test maximum (9.598e-3 against 9.595e-3).
+
+**What this does not measure:**
+- the effect of either rotation on any Pc, because no covariance was read;
+- the circular-target approximations, which the two rotations share.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
