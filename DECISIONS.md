@@ -4740,6 +4740,71 @@ How the runner's outputs map onto this amendment (C3b's flag column, and marking
 **Decided by:** Sidh (2026-10-26). **Recorded by:** Claude Code.
 
 
+### 2026-10-27 — ESA Space Debris Support: second and third replies, attribution agreed
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only.
+- **It supplements, and does not edit,** the 2026-10-26 entries on the first reply (`89c5971`) and the second reply (`605270b`).
+  - That second-reply entry gave the time as "before 19:56 IST (exact time not recorded)". The mail header now gives **19:31:48 IST**.
+  - It recorded the relative vector's frame as "not stated verbatim". **The third reply now states it.**
+- No `pc-validate` step or Pc engine was run, and no risk, label or E3 value was read.
+- Per Sidh's instruction for this public repository, the sender's name, employer and email address are not written here. The signatory's name is replaced by "[name withheld]".
+
+**Timeline** (times from the mail headers, UTC timestamps converted to IST):
+
+| When (IST) | Message |
+|---|---|
+| 2026-10-24 13:14:57 | Sidh's question on the frames of the `t_*`, `c_*` and `relative_*` fields |
+| 2026-10-26 14:28:52 | Reply 1 (already recorded, `89c5971`; its "(target - chaser)" later corrected by the sender) |
+| 2026-10-26 17:00:36 | Sidh's follow-up on frames and sign |
+| 2026-10-26 19:31:48 | **Reply 2** |
+| 2026-10-26 20:00:25 | Sidh's note proposing the attribution and asking to confirm the relative-vector frame |
+| 2026-10-26 20:45:39 | **Reply 3** |
+
+**Reply 2, verbatim** (2026-10-26 19:31:48 IST):
+
+> Dear Siddharth, 1. They are each given in the objects respective RTN frame, as per CCSDS 2. My mistake, you are correct that it should be chaser-target, again as per CCSDS (chaser being object2, target being object1). Yes feel free to cite this clarification. Best regards, [name withheld]
+
+**Reply 3, verbatim** (2026-10-26 20:45:39 IST):
+
+> Dear Siddharth, Your proposed attribution sounds good to me, thank you! Correct, this is in the Object1's RTN frame as per CCSDS Of course we'd be happy if you shared the final paper, feel free to reach out to this inbox again for this.
+
+**Status as a source:** personal communication from the dataset provider's support channel.
+- **Agreed attribution:** "ESA Space Debris Office, personal communication, 26 October 2026" (proposed by Sidh, accepted in reply 3).
+- **The name:** permission to use the sender's name was **not** given, so it stays withheld.
+- **The final paper** may be sent to the same inbox when it is final (reply 3).
+
+**What the replies establish** (verified from the data's source):
+- **target = Object1 and chaser = Object2** (reply 2);
+- each covariance (`t_*`, `c_*`) is in **that object's own RTN frame** (reply 2, item 1);
+- the relative values are **chaser − target** (reply 2, item 2);
+- the relative values are **expressed in Object1's, i.e. the target's, RTN frame** (reply 3, consistent with CCSDS 508.0-B-1, Table 3-2, p. 3-3, and Annex E, §E1, p. E-1);
+- **the first reply's "(target - chaser)" was corrected by the sender** ("My mistake", reply 2).
+
+**Premise status, updated.** This supersedes, for interpretation only, the tables in the `89c5971` and `605270b` entries. Neither those entries nor the pre-registration is edited.
+
+| Premise or reading | Evidence | Status |
+|---|---|---|
+| P1: each covariance in its own object-centred RTN frame | reply 2, item 1 | **confirmed by the data's source** |
+| P2: the dataset follows the CCSDS conventions | replies 2 and 3 ("as per CCSDS") | **confirmed by the data's source** |
+| P3: target = CCSDS Object1 | reply 2 ("target being object1") | **confirmed by the data's source** |
+| Frame of the relative vector: Object1's (target's) RTN | reply 3 | **confirmed by the data's source** |
+| C3a, reading A: chaser − target, in the target's RTN frame | replies 2 and 3; consistent with the input-only sign check (`0a2bcb8`) | **the documented convention** |
+| C3b: target − chaser, in the target's frame (s = −1) | replies 2 and 3; **the input-only sign check** (results entry 2026-10-26, `0a2bcb8`: median abs e 1.489 train, 1.557 test) | **contradicted** by the source and by the sign check |
+| Reading B: target − chaser, in the chaser's frame (chaser = Object1) | reply 2 (chaser = Object2; chaser − target); reply 3 (Object1's frame) | **excluded** |
+| The sign check cannot separate readings A and B (`d3fd812`) | reading B is excluded | **moot** |
+
+**The engine differs from the documented convention:**
+- The Pc engine sums the two covariances directly, with **no inter-object frame rotation**.
+- See `src/kelvins_conformal/labelnoise/pc_foster.py`:
+  - the module docstring, lines 19–20: "Each object's covariance is taken in a common RTN frame and summed directly (no inter-object frame rotation). This is the standard first-order treatment.";
+  - the code, lines 266–276, ending in `cov = (cov_t + cov_c) * float(covariance_scale)`.
+- Under the documented convention, the chaser's covariance is in the chaser's own RTN frame. The engine (convention C0) therefore **differs from the documented convention**, by omitting the rotation of the chaser covariance into the target's frame.
+
+**Effect on E3 and E14: unmeasured.** Both **stand as recorded**. Nothing is re-run, and no E3, E14 or gate number changes.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
