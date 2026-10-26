@@ -4875,6 +4875,52 @@ All other rows stand as in `fd1ce8a`.
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-27 — C3a: the source's specification compared with the implementation (facts only)
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. **Facts only: no code changed, no test added, nothing run, nothing adopted.**
+- **The implementation compared:** `src/kelvins_conformal/models/pc_validation_runner.py` at tag `pcv-code-v1` (commit `4a65ccb`, branch `pc-validation`), read with `git show`. Line numbers refer to that file at that commit.
+- **The engine:** `src/kelvins_conformal/labelnoise/pc_foster.py`, byte-identical on both branches.
+
+**Basis marks:**
+- **[S]** given by the data's source: ESA replies 2 and 3 (`fd1ce8a`, `af4847b`), and CCSDS 508.0-B-1 as they cite it;
+- **[D]** follows from the definitions (CCSDS S7: R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R);
+- **[A]** an approximation.
+
+**Units** (raw documentation, `data/raw/raw_data/raw_data_2015-2019.txt`):
+- `relative_position_*` in m (lines 44–46);
+- `relative_velocity_*` in m/s (lines 47–49);
+- `x_j2k_sma` in km (line 88);
+- μ = 398600.4418 km³/s² (validation YAML).
+
+| # | Specification | Basis | Implementation (line) | Result |
+|---|---|---|---|---|
+| 1 | Target covariance in the target's RTN frame, as given | [S] | `t_*` untouched; only `c_*` is rewritten (322, 331) | Same |
+| 2 | Chaser covariance in the chaser's RTN frame, rotated into the target's | [S]; the rotation [D] | `rot @ C_c @ rot.T` written to `c_*` (331) | Same |
+| 3 | Relative position and velocity = chaser − target, in the target's RTN frame | [S] | C3a `sign = +1` (311); chaser velocity = v_t + v_rel (299). The engine receives the relative fields unchanged | Same |
+| 4 | Target velocity (0, v_t, 0), with v_t = √(μ/`t_j2k_sma`) | **[A] circular target** | `sqrt(mu / t_j2k_sma) * 1000`, km/s → m/s (296) | Same; units consistent |
+| 5 | Chaser position = **(1000·a_t + rel_R, rel_T, rel_N), in metres** | rel [S]; the target at (a_t, 0, 0) is **[A]** (r ≈ a_t) | **Not computed.** The chaser is taken as lying along the target's R axis: **[A] position along R**. `relative_position_*` is not read | **Difference** |
+| 6 | Chaser velocity = (0, v_t, 0) + v_rel, in the target's RTN axes | v_rel [S]; (0, v_t, 0) [A] | Only the T and N components are used (297–299); `relative_velocity_r` is not read | **Difference, with no effect while position ∥ R** (N = R × v does not depend on v_R); second order otherwise |
+| 7 | Chaser axes by definition | [D] | Closed form: R_c = target R; T_c = (0, cos θ, sin θ); N_c = (0, −sin θ, cos θ); θ = atan2(v_cN, v_cT) (299, 312–313) | **Algebraically identical when position ∥ R.** Otherwise R_c does not tilt with the offset: the same difference as row 5, of order ‖offset‖/a_t (1.4e-4 for a 1 km offset on synthetic orbits, `a482fc5`) |
+| 8 | Rotation M with the chaser's axes as its columns | [D] | `rot` columns are R_c, T_c, N_c (313); it maps chaser-RTN to target-RTN components (305–306) | Same direction; no transpose |
+| 9 | Rotated covariance = M·C_c·Mᵀ | [D] | `rot @ C_c @ rot.T` (331) | Same |
+| 10 | Combined = C_t + M·C_c·Mᵀ | [D] from [S] | Written back as sigmas and correlations (281–286); the engine rebuilds and sums them (`pc_foster.py` 266–276); `covariance_scale` 1.0 (332) | Same, up to rounding in the round trip |
+
+**Unit correction (row 5):**
+- The source formula as first written in Sidh's brief, "(a_t + rel_R, rel_T, rel_N)", **omitted the unit conversion**: a_t is in km (line 88) and rel_R is in m (line 45).
+- The consistent form, in metres, is **(1000·a_t + rel_R, rel_T, rel_N)**.
+
+**Fields read for C3a:**
+- **By the implementation:** `c_sigma_r`, `c_sigma_t`, `c_sigma_n`, `c_ct_r`, `c_cn_r`, `c_cn_t`, `t_j2k_sma`, `relative_velocity_t`, `relative_velocity_n`.
+- **Also needed by the source's specification:** `relative_velocity_r`, `relative_position_r`, `relative_position_t`, `relative_position_n`.
+
+**Summary of differences:**
+- **None** in rotation direction, transpose, sign or units.
+- **The one substantive difference** (rows 5–7): the implementation rotates about the target's R axis only, using the [A] position-along-R approximation. The source builds the chaser's axes from the offset position.
+- Both share the [A] circular-target approximations (rows 4–5).
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
