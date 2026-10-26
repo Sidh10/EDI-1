@@ -4500,6 +4500,67 @@ Committed as `f71cf0d` on `pc-validation`, YAML only. The YAML's SHA-256 in git'
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
 
 
+### 2026-10-26 — PRE-REGISTRATION: input-only check of the relative-velocity sign against the chaser's own orbit
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-26 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- No script exists at the time of this commit.
+- The check is descriptive. It **reports both signs, adopts nothing, and changes no pre-registered rule.** That includes the convention set C0–C4b, C3a and C3b, and the Pc validation YAML.
+- It runs no `pc-validate` step and no Pc engine. It reads no risk, label or E3 value.
+
+**Question.** Which sign s makes the implied chaser speed consistent with the chaser's own orbit?
+- **s = +1:** chaser velocity = target velocity + v_rel, i.e. the relative vector is chaser − target. This is the C3a reading, and CCSDS S6 if target = Object1.
+- **s = −1:** chaser velocity = target velocity − v_rel, i.e. the relative vector is target − chaser. This is the C3b reading, and the 2026-10-26 ESA reply.
+
+**Data read**, with only these columns (pandas `usecols`):
+- **Files:** `data/raw/kelvins_competition_data/train_data.zip` (`train_data.csv`; 162,634 CDMs per the E1 record) and `test_data.csv` (24,484 CDMs).
+- **Not opened:** `test_data_private.csv`, the label file holding the 2,167 test target CDMs (Sidh's decision, 2026-10-26).
+- **Columns:** `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`, `t_j2k_sma`, `c_j2k_sma`, `t_j2k_ecc`. Nothing else.
+- **Eccentricity fields that exist:** `t_j2k_ecc` and `c_j2k_ecc`, both documented as "x_ecc: eccentricity" (documentation line 86, no unit). Only `t_j2k_ecc` is read.
+- **Units, from the raw documentation** (`data/raw/raw_data/raw_data_2015-2019.txt`):
+  - `relative_velocity_*` in **m/s** (lines 47–49), converted to km/s by dividing by 1,000;
+  - `x_j2k_sma` in **km** (line 88);
+  - eccentricity dimensionless (line 86).
+
+**Method**, per CDM:
+- **Target velocity** in its own RTN frame: (0, v_t, 0), with v_t = √(μ / t_j2k_sma) and μ = 398600.4418 km³/s².
+- **Implied chaser speed:** v_s = |(0, v_t, 0) + s · v_rel|, where v_rel = (relative_velocity_r, _t, _n) / 1000.
+- **Expected chaser speed** from vis-viva at the target's radius: v_exp = √(μ · (2/r − 1/c_j2k_sma)), with r ≈ t_j2k_sma.
+- **Relative speed error:** e_s = (v_s − v_exp) / v_exp.
+- **Excluded and counted, per split:** rows with any non-finite value in a read column; rows with t_j2k_sma ≤ 0 or c_j2k_sma ≤ 0; rows with 2/r − 1/c_j2k_sma ≤ 0.
+
+**Reported**, for each split (train, test) and for each subset (**all CDMs**; **t_j2k_ecc < 0.05**):
+- per sign: n, the **median |e_s|**, the share with |e_s| ≤ 0.05, the share with |e_s| ≤ 0.10, and (descriptively) the median signed e_s;
+- the **share of CDMs where the two signs differ by more than 10% of v_exp**, i.e. |v₊₁ − v₋₁| > 0.10 · v_exp.
+
+Counts are per CDM, not per event. An event contributes all its CDMs.
+
+**Wording rule for the results entry** (fixed now so the wording cannot follow the numbers):
+- In a cell where **neither** sign has median |e_s| ≤ 0.10, the entry says "both signs fit badly".
+- In a cell where **fewer than half** the CDMs have the two signs differing by more than 10% of v_exp, it says "the sign is not distinguishable in this cell".
+- Otherwise it reports the numbers without characterising them.
+- No recommendation is made.
+
+**Approximations, stated in advance:**
+- the target is near-circular, with its velocity along T at the circular speed;
+- the target's radius is approximated by its semi-major axis, r ≈ a_t;
+- the chaser is at the target's position, since the miss distance is far smaller than r;
+- the relative velocity's components are taken as an inertial velocity difference expressed in the target's RTN axes.
+
+**Eccentric targets add noise**, both through the target's radial velocity and through r ≠ a_t. The dataset includes Cluster-II, in a highly eccentric orbit (documentation line 4). The t_j2k_ecc < 0.05 subset is reported for that reason.
+
+**What the check can and cannot bear on:**
+- It bears on the **direction of the relative velocity** (the C3a/C3b sign) through the chaser's speed.
+- It says nothing about the covariance frames (P1). It bears on which object is Object1 (P3) only through that sign.
+
+**Before the run:**
+- a synthetic test: two circular orbits with a known inclination and RAAN difference, the target's RTN frame built by definition, and the true relative velocity under each sign convention. The check must select the true sign in both;
+- one mutation, a sign flip in the script, must make that test fail.
+
+The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the sample sizes go in the results entry.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
