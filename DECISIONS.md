@@ -4398,6 +4398,872 @@ target CDMs and all 162,634 training CDMs (confirmed 2026-10-24).
 **Confirmed by:** Sidh (2026-10-24). **Recorded by:** Claude Code.
 
 
+### 2026-10-25 — Pc validation: YAML syntax defect and its fix; "accept 13" clarified; missing-value policy and seed streams set; the three implementation constants
+
+**Status:** RECORDED by Claude Code on 2026-10-25 at Sidh's instruction. Insertion only; no earlier entry is edited.
+- The 2026-10-14 reconstruction and the 2026-10-24 confirmation (`d181408`) stand as written, except as stated in (c).
+- No validation step has run on any real event, real CDM or E3's sample. No `pcv_*` table exists.
+
+#### (a) YAML syntax defect, 8d322fd to 002d783
+- **Defect.** In `config/experiments/pc_validation.yaml`, the keys `dropped:` and `material_change_pp:` were indented as members of the `conventions:` list, which is invalid YAML.
+  - The file failed to parse at both commits that carried it: `8d322fd` (reconstruction, parse error at line 73) and `d181408` (confirmation, parse error at line 105).
+  - No code read the file before `002d783`, so no result depended on it.
+- **Fix in `002d783`** (branch `pc-validation`): the two keys were lifted to top level and renamed `conventions_dropped:` and `conventions_material_change_pp:`. Two comment lines record the fix. The runner reads the new names.
+- **Verified**, by comparing the committed blobs of `d181408` and `002d783` line by line, byte for byte:
+  - blob SHA-256: `d181408` `cff62633969105dbee01e9e2b800dc2d5b77161dd38db25d3995372e009d77a1` (6,236 bytes); `002d783` `6c96025912c8fe69317b88f7423c88f46a79fc52b0cea4271a9f675a9e647c89` (6,464 bytes);
+  - 106 of 108 lines unchanged and in order, including both moved C2 lines (`    - id: C2` and its `reason:` line), which are byte-identical;
+  - **the two key lines are not byte-identical:** their key name and indentation changed. Every byte after each key is identical, so the value `10.0`, its alignment and its comment are unchanged, and `dropped:` still carries no inline value;
+  - the only other added lines are the two comment lines;
+  - **no value changed.**
+
+#### (b) "accept 13" clarified (Sidh, 2026-10-25)
+- Sidh's 2026-10-24 brief opened with "accept 13". The `d181408` entry read that as accepting **item 13** (the mechanics) as drafted.
+- **Sidh's clarification: "accept 13" meant all 13 recommendations in the 2026-10-24 table.**
+- Read against that table (the 13-row checklist resolution table in the 2026-10-24 confirmation entry), the clarification **changes no row.** Each row already records the resolution in the same brief, including:
+  - the amendments to items 6, 7 and 9;
+  - the replacement of item 11;
+  - the deferral of item 10.
+
+#### (c) Missing-value policy and seed streams (Sidh, 2026-10-25), set before any real-data run
+Committed as `f71cf0d` on `pc-validation`, YAML only. The YAML's SHA-256 in git's canonical LF form (the committed blob) is `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+- **`agreement.missing_independent_value_policy: exclude`**, replacing the OPEN `null`.
+  - An event with no valid M1 value (non-convergence) or no valid M3 value ("not informative") is excluded from that method's agreement fractions.
+  - **Engine evaluation errors still count as disagreements.**
+  - Excluded events are **listed per stratum** (`list_excluded_events_per_stratum: true`).
+  - A stratum is classed **"not informative"** if more than 10% of its events lack an M1 or an M3 value (`not_informative_if_frac_missing_above: 0.10`).
+- **Seed streams.** Each event's seed is `seed + seed_offset + sample index`.
+  - M2 gets its own stream: `m2.seed_offset: 1000000`, which exceeds any sample index, so no M2 seed equals any M3 seed.
+  - `m3.seed_offset: 0` restates M3's existing rule (42 + sample index).
+- This closes the OPEN item in the 2026-10-24 confirmation entry. **Neither decision was taken after seeing any validation result.** No step had run on real data, and none has since.
+
+#### (d) The three implementation constants fixed in d181408
+- **μ = 398600.4418 km³/s²** (Earth's GM, WGS-84/EGM96 value).
+  - Used only for C3a/C3b's circular-orbit target speed, √(μ/a_t).
+  - **Reason:** it is the standard value for Earth-orbit work. The published alternatives differ from it by about 1e-8 relative, far below the error of the circular-orbit approximation itself, so the choice cannot move a result.
+- **M1 peak-search grid: 2,001 points** (midpoints in t over (−π/2, π/2), spacing π/2001 ≈ 1.6e-3 rad).
+  - Used only to locate the integrand's maximum. That maximum is factored out in log space and passed to quad as a breakpoint.
+  - **Reason:** it does not set M1's accuracy, which comes from quad's `epsrel` 1e-10. It only has to land near the peak so that the scaled integrand neither overflows nor underflows. 2,001 evaluations per event is cheap.
+  - A peak much narrower than the spacing could be missed. That would need a hard-body radius far larger than the covariance's scale, and none of the analytic tests reached it.
+- **M3 draw chunk: 1e6.**
+  - **Reason, memory:** a chunk holds about six float64 arrays of that length, roughly 50 MB at peak, well inside the commit limit whose exhaustion caused the earlier suite failures.
+  - **Reason, structure:** it equals `n_samples`, so the base run is a single chunk.
+  - **It is fixed, not free:** the chunk size decides how the generator's draws are split between the radius and angle variates, so changing it changes M3's numbers. Fixing it in advance makes M3 reproducible from (seed, n, chunk).
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-25).
+
+
+### 2026-10-26 — ESA Space Debris Support reply on dataset frames
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only.
+- The 2026-10-14 reconstruction, the 2026-10-24 confirmation and its convention section are **not edited**. The pre-registered conventions (C0, C1, C3a, C3b, C4a, C4b) all stay in the set, and none is adopted.
+- No engine run, validation step or data read was made for this entry.
+
+**The reply, verbatim:**
+
+> Dear Siddharth, The target/chaser values do indeed correspond to Object1/2, which are otherwise defined as per the CCSDS standard, with covariances in RTN. As such the relative values are defined as (target - chaser). Best regards, [name withheld]
+
+- **Sender:** "Space Debris Support", signed by an individual staff member. The signatory's first name is **withheld here** because this repository is public (Sidh's decision, 2026-10-26). The quote is otherwise verbatim. The unredacted text is held outside the repository.
+- **Received:** 2026-10-26, about 14:29 IST.
+- **In reply to** Sidh's question about the frames of the `t_*`, `c_*` and `relative_*` fields.
+- **Status as a source:** a personal communication, not published documentation. **Permission to cite it has not yet been requested.**
+
+**What it establishes**, as a statement from the dataset provider's support channel:
+- the target/chaser values correspond to CCSDS Object1/Object2, which are "otherwise defined as per the CCSDS standard";
+- the covariances are in RTN.
+
+**What it does not establish:**
+- whether each covariance is in its **own object-centred** RTN frame, or both are in a **common** frame;
+- the **order** of Object1/2 against target/chaser. It says the values "correspond to Object1/2", not which object is which.
+
+**Tension, recorded and not resolved:**
+- CCSDS 508.0-B-1 (Annex E, §E1, p. E-1; source S6 in the 2026-10-24 convention section) defines RELATIVE_POSITION/RELATIVE_VELOCITY as "Object2's position/velocity relative to Object1's". **If target = Object1, that is chaser − target.**
+- The reply states that "the relative values are defined as (target - chaser)".
+- Both can hold only if target = Object2, or if the dataset's relative state departs from CCSDS. Which, if either, is the case is not settled here.
+
+**Premise status for the convention section** (C3's premises in the 2026-10-24 confirmation entry; that section is not edited):
+
+| Premise or reading | Status in the 2026-10-24 section | What the reply says | Status after the reply |
+|---|---|---|---|
+| P1: each covariance in its own object-centred RTN frame | not verified for the dataset (CCSDS has no sentence explicitly centring Object2's covariance on Object2) | "with covariances in RTN"; the centre is not stated | **not verified** |
+| P2: the dataset follows the CCSDS conventions | not verified | "otherwise defined as per the CCSDS standard" | **asserted by the provider in a personal communication**; not in published documentation |
+| P3: target = CCSDS Object1 | not verified | "The target/chaser values do indeed correspond to Object1/2" | **correspondence asserted; the order is not established** |
+| C3a reading: relative = chaser − target | follows from CCSDS S6 if P3 holds | contradicted: "(target - chaser)" | **in tension**: CCSDS S6 with P3 against the reply |
+| C3b reading: relative = target − chaser | kept as the alternative (D44–49 says only "between chaser & target") | stated: "(target - chaser)" | **supported by the reply**; in tension with CCSDS S6 if P3 holds |
+
+**Consequences:** none adopted. No engine, E3, E14 or pre-registered rule changes.
+
+**Release note:** this entry quotes a personal communication.
+- The repository should stay private, or the sender be redacted, before any public release.
+- **The repository was found to be public** on 2026-10-26, before this entry was pushed (github.com/Sidh10/EDI-1 shows the "Public" label). The signatory's name was therefore withheld from this entry (Sidh's decision).
+- Permission to cite has not been requested.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
+### 2026-10-26 — PRE-REGISTRATION: input-only check of the relative-velocity sign against the chaser's own orbit
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-26 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- No script exists at the time of this commit.
+- The check is descriptive. It **reports both signs, adopts nothing, and changes no pre-registered rule.** That includes the convention set C0–C4b, C3a and C3b, and the Pc validation YAML.
+- It runs no `pc-validate` step and no Pc engine. It reads no risk, label or E3 value.
+
+**Question.** Which sign s makes the implied chaser speed consistent with the chaser's own orbit?
+- **s = +1:** chaser velocity = target velocity + v_rel, i.e. the relative vector is chaser − target. This is the C3a reading, and CCSDS S6 if target = Object1.
+- **s = −1:** chaser velocity = target velocity − v_rel, i.e. the relative vector is target − chaser. This is the C3b reading, and the 2026-10-26 ESA reply.
+
+**Data read**, with only these columns (pandas `usecols`):
+- **Files:** `data/raw/kelvins_competition_data/train_data.zip` (`train_data.csv`; 162,634 CDMs per the E1 record) and `test_data.csv` (24,484 CDMs).
+- **Not opened:** `test_data_private.csv`, the label file holding the 2,167 test target CDMs (Sidh's decision, 2026-10-26).
+- **Columns:** `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`, `t_j2k_sma`, `c_j2k_sma`, `t_j2k_ecc`. Nothing else.
+- **Eccentricity fields that exist:** `t_j2k_ecc` and `c_j2k_ecc`, both documented as "x_ecc: eccentricity" (documentation line 86, no unit). Only `t_j2k_ecc` is read.
+- **Units, from the raw documentation** (`data/raw/raw_data/raw_data_2015-2019.txt`):
+  - `relative_velocity_*` in **m/s** (lines 47–49), converted to km/s by dividing by 1,000;
+  - `x_j2k_sma` in **km** (line 88);
+  - eccentricity dimensionless (line 86).
+
+**Method**, per CDM:
+- **Target velocity** in its own RTN frame: (0, v_t, 0), with v_t = √(μ / t_j2k_sma) and μ = 398600.4418 km³/s².
+- **Implied chaser speed:** v_s = |(0, v_t, 0) + s · v_rel|, where v_rel = (relative_velocity_r, _t, _n) / 1000.
+- **Expected chaser speed** from vis-viva at the target's radius: v_exp = √(μ · (2/r − 1/c_j2k_sma)), with r ≈ t_j2k_sma.
+- **Relative speed error:** e_s = (v_s − v_exp) / v_exp.
+- **Excluded and counted, per split:** rows with any non-finite value in a read column; rows with t_j2k_sma ≤ 0 or c_j2k_sma ≤ 0; rows with 2/r − 1/c_j2k_sma ≤ 0.
+
+**Reported**, for each split (train, test) and for each subset (**all CDMs**; **t_j2k_ecc < 0.05**):
+- per sign: n, the **median |e_s|**, the share with |e_s| ≤ 0.05, the share with |e_s| ≤ 0.10, and (descriptively) the median signed e_s;
+- the **share of CDMs where the two signs differ by more than 10% of v_exp**, i.e. |v₊₁ − v₋₁| > 0.10 · v_exp.
+
+Counts are per CDM, not per event. An event contributes all its CDMs.
+
+**Wording rule for the results entry** (fixed now so the wording cannot follow the numbers):
+- In a cell where **neither** sign has median |e_s| ≤ 0.10, the entry says "both signs fit badly".
+- In a cell where **fewer than half** the CDMs have the two signs differing by more than 10% of v_exp, it says "the sign is not distinguishable in this cell".
+- Otherwise it reports the numbers without characterising them.
+- No recommendation is made.
+
+**Approximations, stated in advance:**
+- the target is near-circular, with its velocity along T at the circular speed;
+- the target's radius is approximated by its semi-major axis, r ≈ a_t;
+- the chaser is at the target's position, since the miss distance is far smaller than r;
+- the relative velocity's components are taken as an inertial velocity difference expressed in the target's RTN axes.
+
+**Eccentric targets add noise**, both through the target's radial velocity and through r ≠ a_t. The dataset includes Cluster-II, in a highly eccentric orbit (documentation line 4). The t_j2k_ecc < 0.05 subset is reported for that reason.
+
+**What the check can and cannot bear on:**
+- It bears on the **direction of the relative velocity** (the C3a/C3b sign) through the chaser's speed.
+- It says nothing about the covariance frames (P1). It bears on which object is Object1 (P3) only through that sign.
+
+**Before the run:**
+- a synthetic test: two circular orbits with a known inclination and RAAN difference, the target's RTN frame built by definition, and the true relative velocity under each sign convention. The check must select the true sign in both;
+- one mutation, a sign flip in the script, must make that test fail.
+
+The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the sample sizes go in the results entry.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
+### 2026-10-26 — RESULTS: input-only relative-velocity sign check (pre-registered in a591d1a)
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only. **Facts only: no recommendation, nothing adopted, no pre-registered rule changed.**
+- The tension recorded in the 2026-10-26 ESA-reply entry stays recorded and is **not resolved here**.
+- No `pc-validate` step or Pc engine was run, and no risk, label or E3 value was read.
+
+**Provenance:**
+- **Pre-registration:** commit `a591d1a`, pushed 2026-10-26 at about 17:20 IST, before the script existed.
+- **Script:** `E:/EDI-1/scratch/frame_sign_check.py`, outside the repository. SHA-256 `21c6220591c8c25c0b242042fdc96bc0f372145f20bea9da78266b8bb2da523a`.
+- **Results file:** `E:/EDI-1/scratch/frame_sign_results.json`, written 2026-10-26 17:21:38 IST. SHA-256 `9f30759151aec2657f5fe1941a4cd23243cc43e925ad28acbfd55c17568c5841`.
+- **Read:** only `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`, `t_j2k_sma`, `c_j2k_sma` and `t_j2k_ecc`, from `train_data.csv` (in `train_data.zip`) and `test_data.csv`. `test_data_private.csv` was not opened.
+
+**Synthetic test, run before the real data** (it also runs automatically before every real run):
+- **Setup:** 400 target/chaser pairs on circular target orbits with known inclination and RAAN, including four fixed pairs. Each chaser passes through the target's position, on a circular orbit or one with e = 0.05. The target's RTN frame is built by definition, and the true relative velocity is stored under each sign convention.
+- **Result:** in all four runs the true sign gives median |e| ≈ 1.2e-16, the other sign about 1.09–1.10, and the true sign is selected.
+- **Mutation:** flipping the sign applied to v_rel (`sv = s * v_rel` → `sv = -s * v_rel`) makes all four runs fail (exit code 1). The script was restored byte for byte, with the SHA-256 above.
+
+**Sample sizes:**
+- **train:** 162,634 CDMs read, 162,634 used.
+- **test:** 24,484 read, 24,484 used.
+- **Excluded:** none (0 non-finite, 0 non-positive semi-major axis, 0 non-positive vis-viva energy).
+- **The t_j2k_ecc < 0.05 subset is identical to the full set** in both splits: every CDM read has t_j2k_ecc < 0.05. Its row of the table therefore adds no information.
+
+**Results** (e_s = (implied chaser speed − vis-viva speed) / vis-viva speed):
+
+| Split, subset | n | s | median abs e_s | share within 5% | share within 10% | median signed e_s | signs differ by more than 10% of v_exp |
+|---|---|---|---|---|---|---|---|
+| train, all | 162,634 | +1 (chaser − target) | 0.000860 | 1.000 | 1.000 | −0.000623 | 0.943 |
+| train, all | 162,634 | −1 (target − chaser) | 1.489 | 0.038 | 0.057 | +1.489 | 0.943 |
+| test, all | 24,484 | +1 (chaser − target) | 0.000962 | 1.000 | 1.000 | −0.000691 | 0.944 |
+| test, all | 24,484 | −1 (target − chaser) | 1.557 | 0.037 | 0.056 | +1.557 | 0.944 |
+| train / test, t_j2k_ecc < 0.05 | same as "all" | | | | | | |
+
+"Share within 5%" for s = +1 is 1.000 exactly: every used CDM is within 5%.
+
+**Pre-registered wording rule applied:** no cell meets either condition. In every cell s = +1 has median |e| ≤ 0.10, and in every cell more than half the CDMs (0.943 and 0.944) have signs differing by more than 10% of v_exp. So, by the rule, the numbers are reported **without characterisation**.
+
+**Limitation of the method, identified after the run**, by working through the formula and shown on synthetic orbits only (no further real data was analysed):
+- The check uses only speeds. Suppose the relative vector were instead **target − chaser, expressed in the chaser's RTN frame**. That is the CCSDS definition if target = Object2.
+- In that case |(0, v, 0) + v_rel| reproduces the other object's speed **with s = +1 as well**, to the extent the two objects' speeds are equal.
+- **On synthetic orbits through a common point,** that alternative passes the s = +1 test with median |e|:
+  - 1.2e-16 when a_c = a_t;
+  - 4.5e-3 when a_c − a_t = 50 km;
+  - 3.2e-2 when a_c − a_t = 400 km.
+- So this check, as pre-registered, **does not separate** "chaser − target in the target's RTN frame" from "target − chaser in the chaser's RTN frame" when the two orbits are similar in size.
+- It does exclude, by a wide margin, "target − chaser in the target's RTN frame" (s = −1): median error 149% (train) and 156% (test).
+- Separating the remaining two readings would need a further check, for example using c_j2k_sma − t_j2k_sma. Any such check would have to be pre-registered first. None has been run.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
+### 2026-10-26 — Relative-vector sign: two readings the sign check cannot separate; Pc invariance under reversal; the evidence on each side
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only. **Facts only: the tension is not resolved, nothing is adopted, and no pre-registered rule changes.**
+- No `pc-validate` step was run. The Pc engine and M1 were run on synthetic inputs only.
+
+**1. The sign-check limitation** (results entry of 2026-10-26, commit `0a2bcb8`). Two readings of the stored relative vector are each consistent with CCSDS 508.0-B-1, for opposite Object1 assignments:
+- **Reading A:** chaser − target, expressed in the **target's** RTN frame. This is CCSDS RELATIVE_* (Object2 relative to Object1, in Object1's RTN frame) if **target = Object1**.
+- **Reading B:** target − chaser, expressed in the **chaser's** RTN frame. This is the same CCSDS definition if **chaser = Object1**.
+
+The input-only sign check passes reading A (s = +1). On synthetic orbits, reading B also passes s = +1 to within the difference of the two orbits' sizes: median |e| 1.2e-16 at equal semi-major axes, 4.5e-3 at 50 km apart, 3.2e-2 at 400 km apart. **The check does not separate A from B.** It does exclude, by a wide margin, the reading "target − chaser in the target's frame" (s = −1; median |e| 1.489 train, 1.557 test).
+
+**2. Reversal invariance of the 2D Pc** (synthetic only):
+- **Script:** `E:/EDI-1/scratch/reversal_invariance_check.py`, SHA-256 `a2a84be1864f693dbf57ca96bd28bd4897dbde32b6a7da9847c0143be56625ce`.
+- **Methods:**
+  - the engine is `labelnoise/pc_foster.py`, unchanged (byte-identical on `phase5/e15-decision-cost` and `pc-validation`), on its 200 × 360 grid, using `log10_pc_unfloored`;
+  - M1 is `pc_independent.py` exported from tag `pcv-code-v1` (blob `1e5bd364`, SHA-256 `a7b213b4…6f26f40`).
+- **Cases:** 300 random cases with anisotropic target and chaser covariances (up to 10× between axes, random correlations), offsets of 0 to about 6σ, and HBR from 1.00 to 98.15 m (two decades). Engine log10 Pc ranges from −14.9 to 0.0.
+- **Result:** reversing the sign of both the relative position and the relative velocity changes log10 Pc by at most **8.9e-16 (engine)** and **0 (M1)**.
+- **What a reversal does to the projection plane:**
+  - the encounter plane is the same set of points, because its normal ±v defines the same plane;
+  - in the engine's basis, axis1 = r×v/|r×v| is unchanged and axis2 = v̂×axis1 changes sign. In M1's basis, the miss-direction axis changes sign and the other axis is unchanged;
+  - either way the projected miss vector and the projected covariance become the **mirror image** of the original (one in-plane axis reflected). The hard-body disk is centred on the origin and mirror-symmetric, so Pc is unchanged.
+- **The requested mutation (reverse the position only) did not make the test fail** (max |Δ| = 0 for both methods). This is exact, not chance: with the velocity fixed, reversing r flips both in-plane axes, so the miss vector and the projected covariance come out identical. A 2D Pc is invariant to it as well.
+- **An alternative mutation** (flip only the R components of the position and velocity, a reflection that does not also reflect the covariance) makes the test fail: max |Δ| = 8.43 for both methods.
+
+**3. Where the sign matters:**
+- **Under C0 the sign does not affect the Pc** (item 2): the engine sums the two covariances and projects, and a reversal leaves Pc unchanged.
+- **The sign enters C3** through the RTN rotation. C3's crossing angle is computed from v_t + s · v_rel, so s = +1 (C3a) and s = −1 (C3b) give different rotations of the chaser covariance.
+- **Readings A and B also differ in which object's frame the vector is expressed in, and so in which covariance would be rotated.** The pre-registered C3a and C3b both rotate the chaser's covariance into the target's frame.
+
+**4. The evidence on each side, quoted** (not resolved here):
+- **Kelvins paper** (Uriot et al., arXiv:2008.03069v2, §3, p. 4; K3 in the 2026-10-24 convention section): "This involved transforming absolute time stamps and position/velocity values in relative values, respectively, in terms of time to TCA and state with respect to the target." Read literally, a state "with respect to the target" has the target as its origin. That matches reading A's direction.
+- **ESA Space Debris Support reply** (2026-10-26 entry; personal communication):
+  - "The target/chaser values do indeed correspond to Object1/2, which are otherwise defined as per the CCSDS standard, with covariances in RTN." If "target/chaser … Object1/2" is read in order (target = Object1), this matches reading A.
+  - "As such the relative values are defined as (target - chaser)." Read literally, this matches reading B's direction (or the excluded s = −1 reading if the frame is the target's).
+- The two sentences of the reply point to different readings under CCSDS if "Object1/2" is read in order. **This entry does not choose between them.**
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
+### 2026-10-26 — ESA Space Debris Support second reply and permission to cite
+
+**Status:** RECORDED by Claude Code on 2026-10-26 at Sidh's instruction. Insertion only.
+- The earlier entries are **not edited**: the 2026-10-26 ESA-reply entry (`89c5971`), the sign-check pre-registration and results (`a591d1a`, `0a2bcb8`), and the readings entry (`d3fd812`).
+- No `pc-validate` step or Pc engine was run, and no risk, label or E3 value was read.
+
+**The reply, verbatim** (the signatory's name withheld):
+
+> Dear Siddharth, 1. They are each given in the objects respective RTN frame, as per CCSDS 2. My mistake, you are correct that it should be chaser-target, again as per CCSDS (chaser being object2, target being object1). Yes feel free to cite this clarification. Best regards, [name withheld]
+
+- **Received:** 2026-10-26, before 19:56 IST (exact time not recorded).
+- **In reply to** Sidh's follow-up question on the frames and the sign.
+- **Status as a source:** personal communication from the dataset provider's support channel.
+- **Permission:** granted to cite the clarification ("Yes feel free to cite this clarification"). Permission to use the signatory's name was **not** given, so the name stays withheld.
+- **Suggested citation:** "ESA Space Debris Office, personal communication, 26 October 2026".
+
+**What it establishes:**
+- Each object's covariance (`t_*`, `c_*`) is given in **that object's own RTN frame** ("each given in the objects respective RTN frame, as per CCSDS").
+- The relative values are **chaser − target** ("it should be chaser-target, again as per CCSDS").
+- **chaser = Object2, target = Object1** ("chaser being object2, target being object1").
+- **The first reply's "(target - chaser)" was corrected by the sender** ("My mistake").
+
+**Not stated verbatim:** the frame in which the relative vector's components are expressed.
+- It is implied by "as per CCSDS".
+- The CCSDS text puts it in Object1's RTN frame, i.e. the target's: CCSDS 508.0-B-1, Table 3-2, p. 3-3 (S3), and Annex E, §E1, p. E-1 (S6).
+
+**Premise status, updated** (supersedes, for interpretation only, the table in the 2026-10-26 ESA-reply entry; neither the earlier entries nor the pre-registration is edited):
+
+| Premise or reading | Evidence | Status |
+|---|---|---|
+| P1: each covariance in its own object-centred RTN frame | this reply, item 1 | **confirmed by the data's source** |
+| P2: the dataset follows the CCSDS conventions | this reply ("as per CCSDS", twice); the first reply | **confirmed by the data's source** |
+| P3: target = CCSDS Object1 | this reply ("target being object1") | **confirmed by the data's source** |
+| C3a, reading A: chaser − target, target's RTN frame | this reply (sign, roles); CCSDS S3/S6 (frame); consistent with the input-only sign check (`0a2bcb8`) | **the documented convention** |
+| C3b: target − chaser, target's frame (s = −1) | this reply; **the input-only sign check** (results entry 2026-10-26, `0a2bcb8`: median abs e 1.489 train, 1.557 test) | **contradicted** by the source and by the sign check |
+| Reading B: target − chaser, chaser's frame (chaser = Object1) | this reply: chaser = Object2, relative = chaser − target | **excluded by the reply** |
+| The sign check cannot separate readings A and B (`d3fd812`) | reading B is excluded by the source | **moot** |
+
+**The engine differs from the documented convention:**
+- The Pc engine sums the two covariances directly, with **no inter-object frame rotation**.
+- See `src/kelvins_conformal/labelnoise/pc_foster.py`:
+  - the module docstring, lines 19–20: "Each object's covariance is taken in a common RTN frame and summed directly (no inter-object frame rotation). This is the standard first-order treatment.";
+  - the code, lines 266–276, ending in `cov = (cov_t + cov_c) * float(covariance_scale)`.
+- Under the documented convention, the chaser's covariance is in the chaser's own RTN frame. The engine (convention C0) therefore **differs from the documented convention**, by omitting the rotation of the chaser covariance into the target's frame.
+
+**Effect on E3 and E14: unmeasured.** Both **stand as recorded**. Nothing is re-run, and no E3, E14 or gate number changes.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-26).
+
+
+### 2026-10-26 — AMENDMENT to the Pc validation pre-registration: C3a designated the documented convention (Sidh)
+
+**Status:** AMENDMENT decided by Sidh on 2026-10-26, recorded by Claude Code. Insertion only.
+- **The pre-registration is not edited.** That is the 2026-10-14 reconstruction, the 2026-10-24 confirmation (`d181408`) with its convention section, and the 2026-10-25 entry (`1ecbc11`).
+- **The validation YAML is not changed.** `config/experiments/pc_validation.yaml` on `pc-validation` keeps canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`, as in `f71cf0d`.
+- **No real-data run has occurred.** No `pc-validate` step has run on any real event, real CDM or E3's sample.
+
+**The amendment:**
+1. **C3a is designated the documented convention.** It is the convention for the comparison with the reported risk.
+2. **C0 is retained as the engine baseline,** and for continuity with E3 and E14, whose labels and comparisons use the C0 input assembly.
+3. **C3b is retained in the run** as a **"contradicted by source" control.** It is **reported without any rule**: no flag, no finding and no threshold attach to its result.
+4. **C3c is not added.** It is not run.
+5. **C1 and C4 are unchanged.** C1 stays the negative control, under its insensitivity rule and its +0.602 expectation report. C4a and C4b stay reported side by side against `max_risk_estimate`, under their 10 pp rule.
+6. **The existing 10 pp flag rule applies to C3a.** If C3a changes overall within-0.5 agreement, in either set, by more than 10 percentage points relative to C0, it is reported as a finding, and E3's partial-hold disposition and E14 are flagged for Sidh's review.
+
+**What the designation rests on:**
+- **The ESA Space Debris Support reply of 2026-10-26** (second-reply entry, `605270b`; "ESA Space Debris Office, personal communication, 26 October 2026"). It confirms:
+  - each covariance is in its own object's RTN frame;
+  - the relative values are chaser − target;
+  - chaser = Object2 and target = Object1, as per CCSDS.
+- **It does not rest on any validation result,** because none exists. The input-only sign check (`0a2bcb8`) is consistent with C3a, but it is not the basis of the designation.
+
+**Disclosure, repeated:**
+- **E3's 65.0% within ±0.5 log10** (56.8% excluding floor-to-floor) **was already known when the convention list was drafted,** and when this amendment was decided.
+- The list and this designation are therefore not blind to the outcome they might move.
+- What limits that exposure: the designation follows the data's source; every convention is still run and reported; and no result changes the engine, E3, E14 or any gate without a separate decision recorded by Sidh.
+
+**Not changed by this amendment:**
+- the engine;
+- the YAML, and with it the `pc-validate` guard's recorded hash;
+- the runner's code;
+- any E3, E14 or gate number.
+
+How the runner's outputs map onto this amendment (C3b's flag column, and marking C3a) is a separate matter, listed for Sidh. **No code change is made here.**
+
+**Decided by:** Sidh (2026-10-26). **Recorded by:** Claude Code.
+
+
+### 2026-10-27 — ESA Space Debris Support: second and third replies, attribution agreed
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only.
+- **It supplements, and does not edit,** the 2026-10-26 entries on the first reply (`89c5971`) and the second reply (`605270b`).
+  - That second-reply entry gave the time as "before 19:56 IST (exact time not recorded)". The mail header now gives **19:31:48 IST**.
+  - It recorded the relative vector's frame as "not stated verbatim". **The third reply now states it.**
+- No `pc-validate` step or Pc engine was run, and no risk, label or E3 value was read.
+- Per Sidh's instruction for this public repository, the sender's name, employer and email address are not written here. The signatory's name is replaced by "[name withheld]".
+
+**Timeline** (times from the mail headers, UTC timestamps converted to IST):
+
+| When (IST) | Message |
+|---|---|
+| 2026-10-24 13:14:57 | Sidh's question on the frames of the `t_*`, `c_*` and `relative_*` fields |
+| 2026-10-26 14:28:52 | Reply 1 (already recorded, `89c5971`; its "(target - chaser)" later corrected by the sender) |
+| 2026-10-26 17:00:36 | Sidh's follow-up on frames and sign |
+| 2026-10-26 19:31:48 | **Reply 2** |
+| 2026-10-26 20:00:25 | Sidh's note proposing the attribution and asking to confirm the relative-vector frame |
+| 2026-10-26 20:45:39 | **Reply 3** |
+
+**Reply 2, verbatim** (2026-10-26 19:31:48 IST):
+
+> Dear Siddharth, 1. They are each given in the objects respective RTN frame, as per CCSDS 2. My mistake, you are correct that it should be chaser-target, again as per CCSDS (chaser being object2, target being object1). Yes feel free to cite this clarification. Best regards, [name withheld]
+
+**Reply 3, verbatim** (2026-10-26 20:45:39 IST):
+
+> Dear Siddharth, Your proposed attribution sounds good to me, thank you! Correct, this is in the Object1's RTN frame as per CCSDS Of course we'd be happy if you shared the final paper, feel free to reach out to this inbox again for this.
+
+**Status as a source:** personal communication from the dataset provider's support channel.
+- **Agreed attribution:** "ESA Space Debris Office, personal communication, 26 October 2026" (proposed by Sidh, accepted in reply 3).
+- **The name:** permission to use the sender's name was **not** given, so it stays withheld.
+- **The final paper** may be sent to the same inbox when it is final (reply 3).
+
+**What the replies establish** (verified from the data's source):
+- **target = Object1 and chaser = Object2** (reply 2);
+- each covariance (`t_*`, `c_*`) is in **that object's own RTN frame** (reply 2, item 1);
+- the relative values are **chaser − target** (reply 2, item 2);
+- the relative values are **expressed in Object1's, i.e. the target's, RTN frame** (reply 3, consistent with CCSDS 508.0-B-1, Table 3-2, p. 3-3, and Annex E, §E1, p. E-1);
+- **the first reply's "(target - chaser)" was corrected by the sender** ("My mistake", reply 2).
+
+**Premise status, updated.** This supersedes, for interpretation only, the tables in the `89c5971` and `605270b` entries. Neither those entries nor the pre-registration is edited.
+
+| Premise or reading | Evidence | Status |
+|---|---|---|
+| P1: each covariance in its own object-centred RTN frame | reply 2, item 1 | **confirmed by the data's source** |
+| P2: the dataset follows the CCSDS conventions | replies 2 and 3 ("as per CCSDS") | **confirmed by the data's source** |
+| P3: target = CCSDS Object1 | reply 2 ("target being object1") | **confirmed by the data's source** |
+| Frame of the relative vector: Object1's (target's) RTN | reply 3 | **confirmed by the data's source** |
+| C3a, reading A: chaser − target, in the target's RTN frame | replies 2 and 3; consistent with the input-only sign check (`0a2bcb8`) | **the documented convention** |
+| C3b: target − chaser, in the target's frame (s = −1) | replies 2 and 3; **the input-only sign check** (results entry 2026-10-26, `0a2bcb8`: median abs e 1.489 train, 1.557 test) | **contradicted** by the source and by the sign check |
+| Reading B: target − chaser, in the chaser's frame (chaser = Object1) | reply 2 (chaser = Object2; chaser − target); reply 3 (Object1's frame) | **excluded** |
+| The sign check cannot separate readings A and B (`d3fd812`) | reading B is excluded | **moot** |
+
+**The engine differs from the documented convention:**
+- The Pc engine sums the two covariances directly, with **no inter-object frame rotation**.
+- See `src/kelvins_conformal/labelnoise/pc_foster.py`:
+  - the module docstring, lines 19–20: "Each object's covariance is taken in a common RTN frame and summed directly (no inter-object frame rotation). This is the standard first-order treatment.";
+  - the code, lines 266–276, ending in `cov = (cov_t + cov_c) * float(covariance_scale)`.
+- Under the documented convention, the chaser's covariance is in the chaser's own RTN frame. The engine (convention C0) therefore **differs from the documented convention**, by omitting the rotation of the chaser covariance into the target's frame.
+
+**Effect on E3 and E14: unmeasured.** Both **stand as recorded**. Nothing is re-run, and no E3, E14 or gate number changes.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
+### 2026-10-27 — AMENDMENT to the Pc validation pre-registration, restated: C3a designated the documented convention (Sidh); basis updated to ESA replies 2 and 3
+
+**Status:** AMENDMENT decided by Sidh, restated on 2026-10-27, recorded by Claude Code. Insertion only.
+- **The designation is the same as in the 2026-10-26 amendment entry (`fb4f957`).** It is restated here in full so its basis can name both replies. It adds no rule and removes none.
+- **The pre-registration is not edited:** the 2026-10-14 reconstruction, the 2026-10-24 confirmation (`d181408`) with its convention section, and the 2026-10-25 entry (`1ecbc11`).
+- **The validation YAML is not changed.** `config/experiments/pc_validation.yaml` on `pc-validation` keeps canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+- **No real-data run has occurred.** No `pc-validate` step has run on any real event, real CDM or E3's sample.
+
+**The amendment:**
+1. **C3a is designated the documented convention.** It is the convention for the comparison with the reported risk.
+2. **C0 is retained as the engine baseline,** and for continuity with E3 and E14.
+3. **C3b is retained in the run** as a **"contradicted by source" control.** It is **reported without any rule**: no flag, no finding and no threshold attach to it.
+4. **C3c is not added.**
+5. **C1 and C4 are unchanged.**
+6. **The existing 10 pp flag rule applies to C3a.**
+
+**What the designation rests on:**
+- **The ESA Space Debris Support replies of 2026-10-26.** Attribution: "ESA Space Debris Office, personal communication, 26 October 2026". The replies are recorded in `605270b` and `fd1ce8a`.
+  - **Reply 2:** each covariance is in its own object's RTN frame; the relative values are chaser − target; chaser = Object2 and target = Object1.
+  - **Reply 3:** the relative values are in Object1's RTN frame.
+- **It does not rest on any validation result,** because none exists. The input-only sign check (`0a2bcb8`) is consistent with C3a, but it is not the basis.
+
+**Disclosure:**
+- **E3's 65.0% within ±0.5 log10 was already known when the convention list was drafted,** and when this amendment was decided and restated.
+- **No real-data run has occurred.**
+
+**Not changed:** the engine, the YAML, the runner's code, and any E3, E14 or gate number.
+
+**Decided by:** Sidh (2026-10-26; restated 2026-10-27). **Recorded by:** Claude Code.
+
+
+### 2026-10-27 — ESA Space Debris Support: third reply, exact times
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. No earlier entry is edited.
+- **This overlaps the 2026-10-27 entry `fd1ce8a`**, which already recorded reply 3, the timeline and the attribution.
+- It is entered as instructed, and it **corrects one detail of `fd1ce8a`:** that entry quoted reply 3 without its closing signature line. The verbatim text, with the name withheld, ends with "[name withheld]" (below).
+- The sender's name, employer and email address are not written here.
+
+**Reply 3, verbatim** (2026-10-26 20:45:39 IST; signatory's name withheld):
+
+> Dear Siddharth, Your proposed attribution sounds good to me, thank you! Correct, this is in the Object1's RTN frame as per CCSDS Of course we'd be happy if you shared the final paper, feel free to reach out to this inbox again for this. [name withheld]
+
+**Exact times** (from the mail headers, UTC converted to IST):
+- Sidh's email: 13:14:57, 24 Oct 2026.
+- Reply 1: 14:28:52, 26 Oct.
+- Sidh's follow-up: 17:00:36, 26 Oct.
+- Reply 2: 19:31:48, 26 Oct.
+- Sidh's note proposing the attribution and asking to confirm the relative-vector frame: 20:00:25, 26 Oct.
+- Reply 3: 20:45:39, 26 Oct.
+
+These supply the reply-2 time recorded as "not recorded" in the 2026-10-26 entry (`605270b`), which is not edited.
+
+**Recorded:**
+- **Agreed attribution:** "ESA Space Debris Office, personal communication, 26 October 2026".
+- **The name** stays withheld.
+- **The sender welcomes the final paper,** to be sent to the same inbox when final.
+
+**Establishes** (verified from the data's source): the relative vector is expressed in **Object1's (the target's) RTN frame**.
+
+**Premise table, updated** (earlier entries not edited):
+
+| Premise | Status |
+|---|---|
+| Frame of the relative vector: Object1's (target's) RTN | **confirmed by the data's source** (reply 3) |
+
+All other rows stand as in `fd1ce8a`.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
+### 2026-10-27 — C3a: the source's specification compared with the implementation (facts only)
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. **Facts only: no code changed, no test added, nothing run, nothing adopted.**
+- **The implementation compared:** `src/kelvins_conformal/models/pc_validation_runner.py` at tag `pcv-code-v1` (commit `4a65ccb`, branch `pc-validation`), read with `git show`. Line numbers refer to that file at that commit.
+- **The engine:** `src/kelvins_conformal/labelnoise/pc_foster.py`, byte-identical on both branches.
+
+**Basis marks:**
+- **[S]** given by the data's source: ESA replies 2 and 3 (`fd1ce8a`, `af4847b`), and CCSDS 508.0-B-1 as they cite it;
+- **[D]** follows from the definitions (CCSDS S7: R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R);
+- **[A]** an approximation.
+
+**Units** (raw documentation, `data/raw/raw_data/raw_data_2015-2019.txt`):
+- `relative_position_*` in m (lines 44–46);
+- `relative_velocity_*` in m/s (lines 47–49);
+- `x_j2k_sma` in km (line 88);
+- μ = 398600.4418 km³/s² (validation YAML).
+
+| # | Specification | Basis | Implementation (line) | Result |
+|---|---|---|---|---|
+| 1 | Target covariance in the target's RTN frame, as given | [S] | `t_*` untouched; only `c_*` is rewritten (322, 331) | Same |
+| 2 | Chaser covariance in the chaser's RTN frame, rotated into the target's | [S]; the rotation [D] | `rot @ C_c @ rot.T` written to `c_*` (331) | Same |
+| 3 | Relative position and velocity = chaser − target, in the target's RTN frame | [S] | C3a `sign = +1` (311); chaser velocity = v_t + v_rel (299). The engine receives the relative fields unchanged | Same |
+| 4 | Target velocity (0, v_t, 0), with v_t = √(μ/`t_j2k_sma`) | **[A] circular target** | `sqrt(mu / t_j2k_sma) * 1000`, km/s → m/s (296) | Same; units consistent |
+| 5 | Chaser position = **(1000·a_t + rel_R, rel_T, rel_N), in metres** | rel [S]; the target at (a_t, 0, 0) is **[A]** (r ≈ a_t) | **Not computed.** The chaser is taken as lying along the target's R axis: **[A] position along R**. `relative_position_*` is not read | **Difference** |
+| 6 | Chaser velocity = (0, v_t, 0) + v_rel, in the target's RTN axes | v_rel [S]; (0, v_t, 0) [A] | Only the T and N components are used (297–299); `relative_velocity_r` is not read | **Difference, with no effect while position ∥ R** (N = R × v does not depend on v_R); second order otherwise |
+| 7 | Chaser axes by definition | [D] | Closed form: R_c = target R; T_c = (0, cos θ, sin θ); N_c = (0, −sin θ, cos θ); θ = atan2(v_cN, v_cT) (299, 312–313) | **Algebraically identical when position ∥ R.** Otherwise R_c does not tilt with the offset: the same difference as row 5, of order ‖offset‖/a_t (1.4e-4 for a 1 km offset on synthetic orbits, `a482fc5`) |
+| 8 | Rotation M with the chaser's axes as its columns | [D] | `rot` columns are R_c, T_c, N_c (313); it maps chaser-RTN to target-RTN components (305–306) | Same direction; no transpose |
+| 9 | Rotated covariance = M·C_c·Mᵀ | [D] | `rot @ C_c @ rot.T` (331) | Same |
+| 10 | Combined = C_t + M·C_c·Mᵀ | [D] from [S] | Written back as sigmas and correlations (281–286); the engine rebuilds and sums them (`pc_foster.py` 266–276); `covariance_scale` 1.0 (332) | Same, up to rounding in the round trip |
+
+**Unit correction (row 5):**
+- The source formula as first written in Sidh's brief, "(a_t + rel_R, rel_T, rel_N)", **omitted the unit conversion**: a_t is in km (line 88) and rel_R is in m (line 45).
+- The consistent form, in metres, is **(1000·a_t + rel_R, rel_T, rel_N)**.
+
+**Fields read for C3a:**
+- **By the implementation:** `c_sigma_r`, `c_sigma_t`, `c_sigma_n`, `c_ct_r`, `c_cn_r`, `c_cn_t`, `t_j2k_sma`, `relative_velocity_t`, `relative_velocity_n`.
+- **Also needed by the source's specification:** `relative_velocity_r`, `relative_position_r`, `relative_position_t`, `relative_position_n`.
+
+**Summary of differences:**
+- **None** in rotation direction, transpose, sign or units.
+- **The one substantive difference** (rows 5–7): the implementation rotates about the target's R axis only, using the [A] position-along-R approximation. The source builds the chaser's axes from the offset position.
+- Both share the [A] circular-target approximations (rows 4–5).
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
+### 2026-10-27 — PRE-REGISTRATION: input-only bound on the C3a position-along-R approximation
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-27 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- **No script exists at the time of this commit.**
+- **No covariance, risk, label or E3 value is read.** No `pc-validate` step and no Pc engine is run.
+- The result is **reported without any rule**. Sidh decides afterwards whether the implementation stands as the designated C3a.
+- Because only inputs are read, that decision **cannot depend on the outcome of the comparison with the reported risk.**
+
+**Question.** How large is the difference between the two rotations?
+- **The implemented C3a rotation:** about the target's R axis, from `relative_velocity_t`, `relative_velocity_n` and the circular speed. This is `pc_validation_runner.py` at tag `pcv-code-v1`, lines 289–314.
+- **The rotation from the source's formulation** (C3a comparison entry, `3a5ce30`):
+  - chaser position (1000·`t_j2k_sma` + rel_R, rel_T, rel_N) in m;
+  - chaser velocity (0, v_t, 0) + v_rel in m/s;
+  - chaser axes by definition: R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R.
+
+**Data read**, with only these columns (pandas `usecols`):
+- **Files:** `data/raw/kelvins_competition_data/train_data.zip` (`train_data.csv`) and `test_data.csv`. **Not opened:** `test_data_private.csv`, the label file (as in the 2026-10-26 sign check).
+- **Columns:** `relative_position_r`, `relative_position_t`, `relative_position_n`, `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`, `t_j2k_sma`. Nothing else.
+- **Units, from the raw documentation** (`data/raw/raw_data/raw_data_2015-2019.txt`):
+  - `relative_position_*` in **m** (lines 44–46);
+  - `relative_velocity_*` in **m/s** (lines 47–49);
+  - `x_j2k_sma` in **km** (line 88).
+- μ = 398600.4418 km³/s².
+
+**Method**, per CDM (all in the target's RTN axes):
+- **Circular speed:** v_t = √(μ / `t_j2k_sma`) · 1000, in m/s.
+- **M_impl:** θ = atan2(`relative_velocity_n`, v_t + `relative_velocity_t`), and M_impl = [[1, 0, 0], [0, cos θ, −sin θ], [0, sin θ, cos θ]].
+  - The script reimplements this.
+  - In its selftest it must equal the tag's own `crossing_angle` and `c3_rotation` (their source text extracted from `pcv-code-v1` with `git show`, read only) to 1e-15 on every synthetic case.
+- **M_source:**
+  - pos = (1000·`t_j2k_sma` + rel_R, rel_T, rel_N) in m;
+  - vel = (0, v_t, 0) + (`relative_velocity_r`, `_t`, `_n`) in m/s;
+  - R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R;
+  - M_source = [R T N], the chaser's axes as columns.
+- **The angle of the rotation Q = M_implᵀ · M_source,** computed in a form that stays accurate at small angles:
+  - cos φ = (trace Q − 1)/2;
+  - sin φ = |(Q₃₂ − Q₂₃, Q₁₃ − Q₃₁, Q₂₁ − Q₁₂)| / 2;
+  - **φ = atan2(sin φ, cos φ)**, in radians.
+- **The first-order tilt:** eps = √(rel_T² + rel_N²) / (1000·`t_j2k_sma`), in radians.
+- **Excluded and counted, per split:** rows with a non-finite value in a read column; rows with `t_j2k_sma` ≤ 0; rows with |pos × vel| = 0.
+
+**Reported, per split** (train, test):
+- n read, n used, and the exclusions;
+- the percentiles **50, 90, 99, 99.9 and the maximum** of φ, and of eps;
+- the **number of CDMs with φ above 1e-4, 1e-3 and 1e-2 rad**.
+
+Counts are per CDM, not per event.
+
+**What it does and does not measure:**
+- It measures **only the difference between the two rotations.** Both share the circular-target approximations (target velocity (0, v_t, 0), target at radius a_t).
+- It says nothing about how much either rotation changes a Pc, because no covariance is read.
+
+**Selftest, required before the run** (synthetic only):
+- **Setup:** a circular target orbit, and a circular chaser orbit with a known inclination and RAAN difference. The chaser is placed at a chosen offset from the target: a chosen angle along its own orbit from the line where the two planes meet, and a chosen difference in radius. The relative state is built from the inertial states and expressed in the target's RTN axes.
+- **The exact angle:** the angle between M_impl and the true rotation A_tᵀ·A_c (both RTN frames built from the inertial states), computed by an independent route (`scipy.spatial.transform.Rotation`).
+- **Pass condition:** the script's φ must equal that exact angle **within 1e-9 rad**, on every case.
+- **Closed-form cases:**
+  - a coplanar offset of d metres along T, where φ = atan(d / (1000·a));
+  - a purely radial offset, where φ = 0.
+- **Mutation:** transposing M_source must make the selftest fail.
+
+The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the sample sizes go in the results entry.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
+### 2026-10-27 — RESULTS: input-only bound on the C3a position-along-R approximation (pre-registered in 18689b0)
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. **Facts only: no recommendation, no rule applied, nothing adopted, no code changed.**
+- No covariance, risk, label or E3 value was read.
+- No `pc-validate` step and no Pc engine was run.
+- Whether the implementation stands as the designated C3a is **Sidh's decision**, taken after this.
+
+**Provenance:**
+- **Pre-registration:** commit `18689b0`, pushed 2026-10-27 at about 02:45 IST, before the script existed.
+- **Script:** `E:/EDI-1/scratch/c3a_bound_check.py`, outside the repository. SHA-256 `8451dcb44ff7c37aa71bbda42f7470eab0ce0ee1e1fd7fca780df841c0c635a5`.
+- **Results file:** `E:/EDI-1/scratch/c3a_bound_results.json`, written 2026-10-27 at about 02:47 IST. SHA-256 `8ea31a8cf23524d63b839adc83bde6f25a0c5a0aa1a0d34973c2d273aa3cca6a`.
+- **Read:** only `relative_position_r`, `relative_position_t`, `relative_position_n`, `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n` and `t_j2k_sma`, from `train_data.csv` (in `train_data.zip`) and `test_data.csv`. `test_data_private.csv` was not opened.
+
+**Selftest, run before the real data** (it also runs automatically before every real run):
+- **96 inertial cases:**
+  - four inclination and RAAN pairs, target radii of 6,900 and 7,200 km;
+  - the chaser placed 0, 1e-5, 1e-4 or 1e-3 rad along its own orbit from the planes' line of intersection, with a radius difference of 0, +0.5 or −2 km;
+  - the exact angle computed by an independent route (`scipy.spatial.transform.Rotation`).
+  - **Result:** max |φ − exact| = **2.1e-16** (tolerance 1e-9).
+- **The script's M_impl equals the tag's own `c3_rotation`** (extracted read-only from `pcv-code-v1`): max difference **0** (tolerance 1e-15).
+- **Closed-form cases:**
+  - a coplanar offset d along T, against φ = atan(d/(1000·a)): max error 8.7e-19;
+  - a purely radial offset, against φ = 0: max |φ| 8.3e-17.
+- **Mutation:** transposing M_source makes the selftest fail. The inertial cases are then off by up to 2.17 rad and the radial cases by 2.73 rad; the selftest exits with code 1. The script was restored byte for byte, with the SHA-256 above.
+  - The coplanar closed-form case passes even under the transpose, because transposing a rotation about a single axis only reverses its sign, and the angle is the same.
+
+**Sample sizes:**
+- **train:** 162,634 CDMs read, 162,634 used.
+- **test:** 24,484 read, 24,484 used.
+- **Excluded:** none (0 non-finite, 0 non-positive semi-major axis, 0 zero angular momentum).
+
+**Results.** φ is the angle of M_implᵀ·M_source; eps = √(rel_T² + rel_N²)/(1000·a_t). Both in radians.
+
+| Split | Quantity | p50 | p90 | p99 | p99.9 | max |
+|---|---|---|---|---|---|---|
+| train | φ | 1.763e-3 | 5.493e-3 | 7.959e-3 | 9.069e-3 | 9.753e-3 |
+| train | eps | 1.763e-3 | 5.493e-3 | 7.959e-3 | 9.068e-3 | 9.753e-3 |
+| test | φ | 1.438e-3 | 5.063e-3 | 7.771e-3 | 8.955e-3 | 9.598e-3 |
+| test | eps | 1.438e-3 | 5.062e-3 | 7.772e-3 | 8.955e-3 | 9.595e-3 |
+
+| Split | n | φ > 1e-4 rad | φ > 1e-3 rad | φ > 1e-2 rad |
+|---|---|---|---|---|
+| train | 162,634 | 153,715 (94.5%) | 107,326 (66.0%) | 0 |
+| test | 24,484 | 22,775 (93.0%) | 14,718 (60.1%) | 0 |
+
+**In degrees:** the medians are 0.101° (train) and 0.082° (test); the maxima are 0.559° (train) and 0.550° (test).
+
+**Observed:** at every reported percentile, φ and eps agree to within 0.03% of each other. The largest relative gap is 2.7e-4, at the test maximum (9.598e-3 against 9.595e-3).
+
+**What this does not measure:**
+- the effect of either rotation on any Pc, because no covariance was read;
+- the circular-target approximations, which the two rotations share.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
+### 2026-10-27 — PRE-REGISTRATION: C3a variant sensitivity, input-only
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-27 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- **No script exists at the time of this commit.**
+- **Read:** the position-covariance sigma and correlation fields of both objects, the relative state and `t_j2k_sma`. **Not read:** any risk, label or E3 value; `test_data_private.csv` is not opened.
+- **No `pc-validate` step is run and the Pc engine is not run.** No function of `pc_foster.py` is called; its projection is reimplemented (below).
+- The decision rule below is **fixed now, before any result exists.** Applying it here only says which branch holds; nothing is implemented in this step.
+
+**Question.** How much does the choice between the two C3a rotations change the combined position covariance as seen in the encounter plane?
+- **M_impl:** the implemented C3a rotation, about the target's R axis (`pc_validation_runner.py` at tag `pcv-code-v1`, lines 289–314).
+- **M_source:** the source's formulation (`3a5ce30`; the angle between the two was bounded in `5a9756e`):
+  - chaser position (1000·`t_j2k_sma` + rel_R, rel_T, rel_N) in m;
+  - chaser velocity (0, v_t, 0) + v_rel in m/s, with v_t = √(μ/`t_j2k_sma`)·1000;
+  - axes R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R, as the columns of M_source.
+
+**Data read**, with only these columns (pandas `usecols`):
+- **Files:** the same as the previous check (`18689b0`): `data/raw/kelvins_competition_data/train_data.zip` (`train_data.csv`) and `test_data.csv`.
+- **Columns (19):**
+  - `t_sigma_r`, `t_sigma_t`, `t_sigma_n`, `t_ct_r`, `t_cn_r`, `t_cn_t`;
+  - `c_sigma_r`, `c_sigma_t`, `c_sigma_n`, `c_ct_r`, `c_cn_r`, `c_cn_t`;
+  - `relative_position_r`, `relative_position_t`, `relative_position_n`;
+  - `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`;
+  - `t_j2k_sma`.
+- **Units:** as in `18689b0` (relative position in m, relative velocity in m/s, `t_j2k_sma` in km); μ = 398600.4418 km³/s².
+
+**Method**, per CDM, all in the target's RTN axes:
+- **Covariances:** C_t from the `t_*` fields and C_c from the `c_*` fields, built as `position_covariance_rtn` builds them (`pc_foster.py` lines 49–66): diagonal sigma², off-diagonals correlation·sigma·sigma, with `x_ct_r` as (T, R), `x_cn_r` as (N, R) and `x_cn_t` as (N, T).
+- **M_impl and M_source:** as in `18689b0`. In the selftest, M_impl must equal the tag's own `c3_rotation` (extracted read-only with `git show`, as before) to 1e-15.
+- **Combined covariances:** Sigma_impl = C_t + M_impl·C_c·M_implᵀ and Sigma_src = C_t + M_source·C_c·M_sourceᵀ.
+  - These are computed directly as 3×3 matrices. The runner's write-back as sigmas and correlations, rebuilt by the engine, is not reproduced; it differs only by rounding.
+- **Encounter-plane projection,** reimplemented from the engine's `bplane_projection` (`pc_foster.py` lines 69–92):
+  - r = relative position, v = relative velocity;
+  - axis1 = (r×v)/|r×v|, axis2 = v̂×axis1;
+  - the engine's fallback when r×v = 0 (seed (1, 0, 0), or (0, 1, 0) if |seed·v̂| > 0.9, made orthogonal to v̂) is reproduced, and such rows are counted;
+  - P = [axis1; axis2] (2×3), and Sigma2D = P·Sigma·Pᵀ for both Sigma_impl and Sigma_src, with the same P.
+  - **The in-plane basis does not affect the reported quantities:** the determinant and eigenvalues of a 2×2 matrix are unchanged by a rotation of its orthonormal basis, so only the plane matters. The plane depends only on v, which both variants share.
+- **Quantities:**
+  - q = 0.5·log10(det Sigma2D_impl / det Sigma2D_src);
+  - ρ = log10(λmin_impl / λmin_src), the log ratio of the smaller eigenvalues of the two 2×2 matrices;
+  - the chaser ratio `c_sigma_t` / `c_sigma_r`.
+- **Excluded and counted, per split:**
+  - a non-finite value in any read column;
+  - `t_j2k_sma` ≤ 0;
+  - |pos×vel| = 0 for the chaser state of M_source;
+  - zero relative velocity (encounter plane undefined, as in the engine);
+  - det Sigma2D ≤ 0, or λmin ≤ 0, in either variant (a covariance that is not positive definite in the plane).
+
+**Reported, per split** (train, test). Counts are per CDM, not per event; percentiles use numpy's default (linear) method.
+- n read, n used, each exclusion count, and the number of rows that used the r×v = 0 fallback;
+- the percentiles **50, 90, 99, 99.9 and the maximum** of |q| and of |ρ|;
+- the **number of CDMs with |q| above 0.01, 0.05 and 0.1**;
+- the **median and 90th percentile of `c_sigma_t` / `c_sigma_r`**, over the rows used.
+
+**What it does and does not measure:**
+- **q is a proxy for the effect on Pc.** Pc also depends on the direction of the miss vector relative to the axes of Sigma2D, and on the hard-body radius, neither of which q captures.
+- No risk, label or E3 value is read, and the engine is not run.
+- Both variants share the circular-target approximations (target velocity (0, v_t, 0), target at radius a_t).
+
+**Decision rule, fixed in advance** (Sidh's, from the brief):
+- **If the 99th percentile of |q| is below 0.05 in both splits:** the implemented C3a stands as the designated convention, with this bound documented.
+- **Otherwise:** the source formulation becomes the designated C3a, and the implementation is kept as a labelled approximation. This is done through a dated amendment, a code change, tests and a new tag, all before any real-data run.
+- The results entry states which branch holds. **It implements nothing.**
+
+**Selftest, required before the run** (synthetic only):
+- **Analytic case:**
+  - a diagonal chaser covariance diag(σ_R², σ_T², σ_N²) with σ_R ≠ σ_T, and a zero target covariance;
+  - two rotations about N, by θ1 and θ2, used in place of M_impl and M_source;
+  - relative velocity along T and relative position in the R–N plane, so the encounter plane is the R–N plane, perpendicular to T;
+  - there det Sigma2D = σ_N²·(σ_R²·cos²θ + σ_T²·sin²θ), so q is known in closed form, and so is λmin = min(σ_N², σ_R²·cos²θ + σ_T²·sin²θ);
+  - **pass:** the script's q and ρ within **1e-9** of the closed form on every case, and **q = 0 exactly when θ1 = θ2.**
+- **M_source against the exact rotation:**
+  - the synthetic circular-orbit cases of `18689b0` (target and chaser orbits with known inclination and RAAN, the relative state built from the inertial states);
+  - **pass:** M_source within 1e-9 of the exact A_tᵀ·A_c, element by element;
+  - **pass:** q computed with M_source within 1e-9 of q computed with A_tᵀ·A_c, for a full (non-diagonal) synthetic chaser covariance.
+- **The projection:** on random synthetic r and v, plus an r ∥ v case, P must be orthonormal (P·Pᵀ = I to 1e-12) and perpendicular to v (|P·v̂| ≤ 1e-12).
+- **Mutation:** transposing M_source must make the selftest fail.
+  - The analytic case alone cannot catch it: transposing a rotation about one axis only reverses the sign of θ, and the closed form depends on cos² and sin².
+  - The exact-rotation cases must catch it.
+
+The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sample sizes and the branch of the rule that applies go in the results entry.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
+### 2026-10-27 — RESULTS: C3a variant sensitivity, input-only (pre-registered in 1201af5)
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. **Facts, and which branch of the pre-registered rule holds. Nothing is implemented, no code in the repository is changed, and nothing is amended here.**
+- **Read:** only the 19 pre-registered columns. **Not read:** any risk, label or E3 value; `test_data_private.csv` was not opened.
+- **No `pc-validate` step and no Pc engine was run.** No function of `pc_foster.py` was called.
+
+**Provenance:**
+- **Pre-registration:** commit `1201af5`, committed and pushed 2026-10-27 at 15:31 IST, before the script existed.
+- **Script:** `E:/EDI-1/scratch/c3a_sensitivity_check.py`, outside the repository. SHA-256 `dfa801c0286859c0b5a4768dd2822d129eda3cb64a7a64e1f094f5b099648032`.
+- **Real run:** 2026-10-27, 15:33:33 to 15:33:50 IST. The selftest ran first in the same process and passed.
+- **Results file:** `E:/EDI-1/scratch/c3a_sensitivity_results.json`. SHA-256 `b1c45b5f01fef877ef46736e73dbe2faabc1bc0974e81fd9edc76e0f402d61bf`.
+- **Files:** `train_data.csv` (in `train_data.zip`) and `test_data.csv`, the same as in `18689b0`.
+
+**Selftest** (synthetic only):
+- **Analytic case:**
+  - 1,176 cases: four diagonal chaser covariances, a zero target covariance, θ1 and θ2 from seven angles each, three relative positions in the R–N plane (one parallel to v, using the fallback), and two along-T velocities;
+  - max |q − closed form| = **4.4e-14**, and max |ρ − closed form| = **8.8e-14** (tolerance 1e-9);
+  - **q = 0 exactly** on every case with θ1 = θ2.
+- **Exact rotation:**
+  - the 96 synthetic orbit cases of `18689b0`, 8 of them through the r×v = 0 fallback;
+  - max |M_source − A_tᵀ·A_c| = **5.6e-16**, and max |q(M_source) − q(exact)| = **1.2e-14**, for a full (non-diagonal) chaser covariance (tolerance 1e-9);
+  - **M_impl equals the tag's `c3_rotation`** (extracted read-only from `pcv-code-v1`): max difference **0** (tolerance 1e-15).
+- **Projection:**
+  - 1,004 cases, 4 of them through the fallback;
+  - max |P·Pᵀ − I| = 6.7e-16, and max |P·v̂| = 2.2e-16 (tolerance 1e-12);
+  - the hand case r = R, v = T gives the axes (N, R) exactly.
+- **One correction to the test input before any real data was read:**
+  - On the first selftest run, the projection part failed. Its "r ∥ v" input was r = 3·v. In floating point, 3·v is not exactly parallel to v, so r×v was rounding noise rather than 0, the fallback did not trigger, and the axes came from noise.
+  - The engine (`pc_foster.py` line 82) also tests for exactly 0, so it behaves the same way.
+  - The input was changed to r = 2·v. Scaling by a power of 2 is exact, so the cross product is exactly 0 and the case tests the fallback as intended.
+  - **No tolerance or criterion was changed.**
+- **Mutation** (`E:/EDI-1/scratch/mutate_c3a_sensitivity.py`, SHA-256 `a094ae010d53a4007301cb9693b9a0087829465004ae13da0d65383efdd7757c`): **transposing M_source makes the selftest fail** (exit code 1).
+  - In the exact-rotation cases, max |M_source − A_tᵀ·A_c| = 1.77 and max |q(M_source) − q(exact)| = 0.52.
+  - The analytic case still passes under the transpose, as the pre-registration stated it would.
+  - The script was restored byte for byte, with the SHA-256 above.
+
+**Sample sizes:**
+- **train:** 162,634 CDMs read, **162,623** used. 11 were excluded for a non-finite value in a read column.
+- **test:** 24,484 read, **24,478** used. 6 were excluded for a non-finite value.
+- **No other exclusions:** 0 non-positive `t_j2k_sma`, 0 zero angular momentum, 0 zero relative velocity, and 0 rows not positive definite in the plane.
+- **Fallback:** 0 used rows needed the r×v = 0 fallback.
+
+**Results.** q = 0.5·log10(det Sigma2D_impl / det Sigma2D_src); ρ = log10(λmin_impl / λmin_src).
+
+| Split | Quantity | p50 | p90 | p99 | p99.9 | max |
+|---|---|---|---|---|---|---|
+| train | abs(q) | 7.02e-6 | 2.42e-4 | **0.1016** | 0.910 | 1.182 |
+| train | abs(ρ) | 8.39e-6 | 4.81e-4 | 0.2032 | 1.819 | 2.364 |
+| test | abs(q) | 6.87e-6 | 2.98e-4 | **0.1073** | 0.900 | 1.030 |
+| test | abs(ρ) | 8.29e-6 | 6.00e-4 | 0.2146 | 1.801 | 2.061 |
+
+| Split | n used | abs(q) > 0.01 | abs(q) > 0.05 | abs(q) > 0.1 |
+|---|---|---|---|---|
+| train | 162,623 | 3,420 (2.10%) | 2,099 (1.29%) | 1,636 (1.01%) |
+| test | 24,478 | 641 (2.62%) | 367 (1.50%) | 251 (1.03%) |
+
+**Chaser `c_sigma_t` / `c_sigma_r`**, over the rows used:
+- **train:** median **53.1**, 90th percentile **247.9**;
+- **test:** median **75.9**, 90th percentile **271.6**.
+
+**Which branch of the rule holds:**
+- The 99th percentile of |q| is **0.1016 (train) and 0.1073 (test)**. Both are above 0.05, so the condition "below 0.05 in both splits" fails.
+- **The second branch holds:** the source formulation becomes the designated C3a, with the implementation kept as a labelled approximation, through a dated amendment, a code change, tests and a new tag, all before any real-data run.
+- **None of that is done here.** No amendment, code change, test or tag is made in this entry.
+
+**What this does and does not measure:**
+- **q is a proxy for the effect on Pc.** Pc also depends on the direction of the miss vector relative to the axes of Sigma2D, and on the hard-body radius; q captures neither.
+- No Pc was computed, and the effect on any Pc, risk, label or E3/E14 result is not measured.
+- Counts are per CDM, not per event.
+
+**Diagnostic, NOT pre-registered,** recorded for transparency only; it does not enter the rule.
+- **Script:** `E:/EDI-1/scratch/c3a_sensitivity_diag.py`, SHA-256 `b3d141f4de3bea6b41f68b3074f548ea8e26af1710d27214d84cfe0ad40f92ec`. It reads the same 19 columns and takes φ from the `18689b0` script.
+- **In the rows with |q| > 0.1:**
+  - ρ = 2q to within 3.2e-4 (train) and 2.2e-4 (test), so the change is almost entirely in the smaller in-plane eigenvalue;
+  - the median of φ·`c_sigma_t`/`c_sigma_r` is **2.32 (train) and 2.40 (test)**, against 0.069 and 0.087 in the rows with |q| ≤ 0.01;
+  - the median `c_sigma_t`/`c_sigma_r` is about 365 (train) and 368 (test), against about 52 and 74;
+  - **q > 0 in 98.8% (train) and 100% (test)** of these rows: the implemented rotation gives the larger projected determinant.
+- **Across all rows used,** the Spearman correlation of |q| with φ·`c_sigma_t`/`c_sigma_r` is 0.44 (train) and 0.49 (test).
+- **Observed:** a tilt φ below 0.01 rad matters where the chaser covariance is long along T, because φ·σ_T then becomes comparable to σ_R or larger, and it leaks into the thin direction in the plane. This observation explains the size of q. It is not a further result.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
+### 2026-10-27 — AMENDMENT to the Pc validation pre-registration: C3a: second branch of the sensitivity rule
+
+**Status:** AMENDMENT, recorded by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only.
+- **No earlier entry is edited**, and the validation YAML (`config/experiments/pc_validation.yaml`) is **not edited on either branch.**
+- **Pushed before any code change.** No real-data step has been run under this amendment or before it: no `pc-validate` step on real events, and no Pc engine on real data.
+
+**The rule, fixed before the check** (pre-registration `1201af5`, 2026-10-27):
+- If the 99th percentile of |q| is below 0.05 in both splits, the implemented C3a stands as the designated convention.
+- Otherwise, the source formulation becomes the designated C3a, and the implementation is kept as a labelled approximation, through a dated amendment, a code change, tests and a new tag, all before any real-data run.
+- Here q = 0.5·log10(det Sigma2D_impl / det Sigma2D_src), the combined position covariance projected onto the encounter plane.
+
+**Outcome** (results entry `ea82d8c`; script `E:/EDI-1/scratch/c3a_sensitivity_check.py`, SHA-256 `dfa801c0286859c0b5a4768dd2822d129eda3cb64a7a64e1f094f5b099648032`):
+- the 99th percentile of |q| is **0.1016 (train, n = 162,623)** and **0.1073 (test, n = 24,478)**;
+- both are above 0.05, so **the second branch holds.**
+
+**Basis of the designation:**
+- It follows from a rule **fixed before the check** and applied to **input-only data**: the sigma and correlation fields, the relative state and `t_j2k_sma`.
+- No risk, label or E3 value was read, and no Pc was computed.
+- It therefore **cannot depend on agreement with the reported risk.**
+
+**The conventions from this amendment on:**
+- **C3a, the designated convention: the source formulation.** Per CDM, in the target's RTN axes, with v_t = √(μ/`t_j2k_sma`)·1000 m/s:
+  - chaser position **(1000·`t_j2k_sma` + rel_R, rel_T, rel_N)** in m;
+  - chaser velocity **(0, v_t, 0) + v_rel** in m/s;
+  - chaser axes **R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R**;
+  - **M** with the chaser's axes as its columns;
+  - **combined = C_t + M·C_c·Mᵀ.**
+  - **The unit conversion 1000·a_t (km to m) is part of the specification** (`3a5ce30`, unit correction).
+  - Relative position and velocity are read as chaser − target, in the target's RTN frame (ESA replies 2 and 3).
+- **C3a_R: the previous implementation, retained as a labelled approximation.**
+  - It is the rotation about the target's R axis by atan2(v_rel_N, v_t + v_rel_T), as in `pc_validation_runner.py` at tag `pcv-code-v1`, lines 289–314.
+  - It is **reported without the 10 pp flag rule.**
+- **C3b: a control, reported without any rule.**
+  - Its computation is **unchanged**: the C3a_R construction with the relative velocity read as target − chaser.
+  - It is not rebuilt on the source formulation.
+- **The 10 pp flag rule** (`conventions_material_change_pp`) **applies to C3a.**
+  - C0, C1 (the negative control, under its own insensitivity rule), C3a_R and C3b are never flagged.
+- **C0, C1 and C4 (C4a, C4b) are unchanged.** This includes C4's flag rule.
+
+**How the YAML relates to this amendment** (the YAML is not edited):
+- **The conventions list** (C0, C1, C3a, C3b, C4a, C4b) does not contain C3a_R. **The runner adds C3a_R in code, immediately after C3a,** under this amendment.
+- **The YAML's description of C3a** ("rotated into the target RTN frame about R by the crossing angle, circular-orbit approximation") describes **what is now C3a_R**. This amendment supersedes it.
+- **The comment on `conventions_material_change_pp`** ("conventions other than C1") is superseded by the flag rule above. **The value 10.0 is unchanged.**
+- **The YAML's canonical SHA-256 is unchanged:** `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+
+**Order of work:**
+- **The code change precedes any real-data run.** It is made on `pc-validation`, tests first, after this entry is merged there, and tagged `pcv-code-v2`.
+- **The guard of `kc pc-validate` will additionally require this entry's heading,** and that of the 2026-10-26 C3a designation amendment (`fb4f957`), in DECISIONS.md at the `--prereg-commit`.
+
+**Not measured:** the effect of the C3a designation, and of C3a against C0, on E3 and E14 **remains unmeasured.**
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
