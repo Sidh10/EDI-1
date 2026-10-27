@@ -27,6 +27,12 @@ if this holds for BOTH M1 and M3; an engine evaluation error counts as a disagre
 Missing-value policy (Sidh, 2026-10-25): an event with no valid M1 or M3 value is excluded from that
 method's fractions and listed in pcv_excluded.csv; a stratum where more than 10% of events lack an M1
 or an M3 value is classed "not informative".
+
+Conventions (amendment of 2026-10-27, DECISIONS.md "C3a: second branch of the sensitivity rule"): C3a
+is the source formulation (the chaser's axes built from its offset state); C3a_R, the C3a of tag
+pcv-code-v1 (a rotation about R), is run alongside it as a labelled approximation. C3a_R is the one
+convention not listed in the YAML, which is not edited: ``convention_ids`` adds it in code. The 10 pp
+E3/E14 flag applies to C3a, C4a and C4b only; C0, C1, C3a_R and C3b are reported without it.
 """
 
 from __future__ import annotations
@@ -52,6 +58,9 @@ STEPS: tuple[str, ...] = ("sample", "self-convergence", "gate", "compare", "m2",
 MISSING_POLICIES: tuple[str, ...] = ("exclude", "count_as_disagreement")
 SETS: tuple[str, ...] = ("official", "e3")
 _COV_KEYS = ("sigma_r", "sigma_t", "sigma_n", "ct_r", "cn_r", "cn_t")
+# The conventions under the E3/E14 flag rule (conventions_material_change_pp), per the amendment of
+# 2026-10-27: C3a and, unchanged, C4a / C4b. C0, C1, C3a_R and C3b are never flagged.
+FLAG_RULE_CONVENTIONS: tuple[str, ...] = ("C3a", "C4a", "C4b")
 
 
 class OpenDecisionError(RuntimeError):
@@ -291,7 +300,8 @@ def crossing_angle(row: dict, *, sign: float, mu_km3_s2: float) -> float:
 
     Target velocity in its own RTN is (0, v_t, 0) with v_t = sqrt(mu / a_t) (``t_j2k_sma`` in km,
     converted to m/s to match the relative velocity). The chaser velocity is v_t + sign * v_rel, where
-    sign = +1 reads the relative velocity as chaser - target (C3a) and -1 as target - chaser (C3b).
+    sign = +1 reads the relative velocity as chaser - target (C3a_R) and -1 as target - chaser (C3b).
+    Used by C3a_R and C3b only; C3a is the source formulation (``c3a_source_rotation``).
     """
     v_t = math.sqrt(mu_km3_s2 / float(row["t_j2k_sma"])) * 1000.0
     v_rel_t = float(row["relative_velocity_t"])
@@ -299,16 +309,42 @@ def crossing_angle(row: dict, *, sign: float, mu_km3_s2: float) -> float:
     return math.atan2(sign * v_rel_n, v_t + sign * v_rel_t)
 
 
+def c3a_source_rotation(row: dict, *, mu_km3_s2: float) -> np.ndarray:
+    """C3a (amendment of 2026-10-27): the chaser's RTN axes, built from its state, as columns.
+
+    In the target's RTN axes, with the target circular at radius a_t (``t_j2k_sma``, km):
+    chaser position (1000 a_t + rel_R, rel_T, rel_N) m and velocity (0, v_t, 0) + v_rel m/s, with the
+    relative state read as chaser - target; then R = pos/|pos|, N = pos x vel/|pos x vel|, T = N x R.
+    Exact for a circular target, whatever the chaser's offset or orbit.
+    """
+    a_t = float(row["t_j2k_sma"])
+    v_t = math.sqrt(mu_km3_s2 / a_t) * 1000.0
+    pos = np.array([1000.0 * a_t + float(row["relative_position_r"]),
+                    float(row["relative_position_t"]), float(row["relative_position_n"])])
+    vel = np.array([float(row["relative_velocity_r"]), v_t + float(row["relative_velocity_t"]),
+                    float(row["relative_velocity_n"])])
+    h = np.cross(pos, vel)
+    h_norm = float(np.linalg.norm(h))
+    if h_norm == 0.0:
+        raise ValueError("C3a: chaser position parallel to its velocity, so its N axis is undefined")
+    r_hat = pos / np.linalg.norm(pos)
+    n_hat = h / h_norm
+    return np.column_stack([r_hat, np.cross(n_hat, r_hat), n_hat])
+
+
 def c3_rotation(row: dict, conv_id: str, *, mu_km3_s2: float) -> np.ndarray:
-    """C3's rotation: the chaser's RTN axes as columns, in target RTN components (a rotation about R).
+    """C3's rotation: the chaser's RTN axes as columns, in target RTN components.
 
     A vector with chaser-RTN components x has target-RTN components ``rot @ x``, so a chaser covariance
-    C becomes ``rot @ C @ rot.T``. Exact for circular orbits at a common position; an approximation
-    otherwise (see ``crossing_angle``).
+    C becomes ``rot @ C @ rot.T``. C3a is the source formulation (``c3a_source_rotation``). C3a_R (the
+    labelled approximation, the C3a of tag pcv-code-v1) and C3b are rotations about R: exact for
+    circular orbits at a common position, an approximation otherwise (see ``crossing_angle``).
     """
-    if conv_id not in ("C3a", "C3b"):
-        raise ValueError(f"c3_rotation applies to C3a / C3b, not {conv_id!r}")
-    th = crossing_angle(row, sign=1.0 if conv_id == "C3a" else -1.0, mu_km3_s2=mu_km3_s2)
+    if conv_id == "C3a":
+        return c3a_source_rotation(row, mu_km3_s2=mu_km3_s2)
+    if conv_id not in ("C3a_R", "C3b"):
+        raise ValueError(f"c3_rotation applies to C3a / C3a_R / C3b, not {conv_id!r}")
+    th = crossing_angle(row, sign=1.0 if conv_id == "C3a_R" else -1.0, mu_km3_s2=mu_km3_s2)
     c, s = math.cos(th), math.sin(th)
     rot = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])   # chaser RTN axes in target RTN
     return rot
@@ -326,7 +362,7 @@ def apply_convention(row: dict, conv_id: str, *, mu_km3_s2: float):
         new["t_span"] = 2.0 * float(row["t_span"])
         new["c_span"] = 2.0 * float(row["c_span"])
         return new, 1.0
-    if conv_id in ("C3a", "C3b"):
+    if conv_id in ("C3a", "C3a_R", "C3b"):
         rot = c3_rotation(row, conv_id, mu_km3_s2=mu_km3_s2)
         _write_cov(new, "c", rot @ _cov_from_row(row, "c") @ rot.T)
         return new, 1.0
@@ -336,6 +372,30 @@ def apply_convention(row: dict, conv_id: str, *, mu_km3_s2: float):
             return None
         return new, (k if conv_id == "C4a" else k * k)
     raise ValueError(f"unknown convention {conv_id!r}")
+
+
+def convention_ids(pcv: dict) -> list[str]:
+    """The conventions run: the YAML's list, with C3a_R added immediately after C3a.
+
+    C3a_R is not in the pre-registered YAML, which is not edited; the amendment of 2026-10-27 (DECISIONS.md,
+    "C3a: second branch of the sensitivity rule") adds it here, in code.
+    """
+    ids: list[str] = []
+    for c in pcv["conventions"]:
+        ids.append(c["id"])
+        if c["id"] == "C3a":
+            ids.append("C3a_R")
+    return ids
+
+
+def finding_flags(summary: pd.DataFrame, *, threshold_pp: float) -> pd.Series:
+    """The E3/E14 finding flag: overall agreement (stratum ALL) moved by more than ``threshold_pp`` vs C0.
+
+    Applies to FLAG_RULE_CONVENTIONS only (amendment of 2026-10-27): C3a and, unchanged, C4a / C4b.
+    C0, C1 (governed by its insensitivity rule), C3a_R and C3b are reported without this rule.
+    """
+    return ((summary["stratum"] == "ALL") & summary["convention"].isin(FLAG_RULE_CONVENTIONS)
+            & (summary["change_vs_c0_pp"].abs() > threshold_pp))
 
 
 def c1_expectation_report(dlog10, expected: float) -> dict:
@@ -589,7 +649,7 @@ def step_conventions(cfg: Config, pcv: dict) -> list[str]:
     nr, na = int(eng["n_radial"]), int(eng["n_angular"])
     mu = float(pcv["constants"]["mu_earth_km3_s2"])
     tol = float(pcv["reported_tolerance"])
-    convs = [c["id"] for c in pcv["conventions"]]
+    convs = convention_ids(pcv)
     recs = []
     for set_name in _sets(pcv):
         for row in _sample_rows(cfg, set_name).to_dict("records"):
@@ -625,8 +685,7 @@ def step_conventions(cfg: Config, pcv: dict) -> list[str]:
     thr = float(pcv["conventions_material_change_pp"])
     c1 = next(c for c in pcv["conventions"] if c["id"] == "C1")
     is_all = summ["stratum"] == "ALL"
-    summ["finding_flag_e3_e14"] = (is_all & ~summ["convention"].isin(["C0", "C1"])
-                                   & (summ["change_vs_c0_pp"].abs() > thr))
+    summ["finding_flag_e3_e14"] = finding_flags(summ, threshold_pp=thr)
     summ["c1_insensitive_to_hbr"] = np.where(
         is_all & (summ["convention"] == "C1"),
         summ["change_vs_c0_pp"].abs() < float(c1["insensitivity_threshold_pp"]), None)
