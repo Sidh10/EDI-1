@@ -355,10 +355,21 @@ def _git_test(repo, *args):
     return out.stdout.decode("ascii", "replace").strip()
 
 
-DECISIONS_WITH_HEADING = """# Decisions (synthetic test repository)
+# The three headings the guard requires (amendment of 2026-10-27): the confirmation entry (d181408), the
+# C3a designation amendment (as introduced in fb4f957) and the second-branch amendment (8d64986).
+CONFIRMATION_LINE = "### 2026-10-24 — PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation — test copy"
+DESIGNATION_LINE = ("### 2026-10-26 — AMENDMENT to the Pc validation pre-registration: C3a designated the "
+                    "documented convention (Sidh)")
+SECOND_BRANCH_LINE = ("### 2026-10-27 — AMENDMENT to the Pc validation pre-registration: C3a: second branch of "
+                      "the sensitivity rule")
+REQUIRED_LINES = (CONFIRMATION_LINE, DESIGNATION_LINE, SECOND_BRANCH_LINE)
 
-### 2026-10-24 — PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation — test copy
-"""
+
+def decisions_with(lines):
+    return "# Decisions (synthetic test repository)" + "".join(chr(10) * 2 + ln + chr(10) + "text" for ln in lines) + chr(10)
+
+
+DECISIONS_WITH_HEADING = decisions_with(REQUIRED_LINES)
 DECISIONS_WITHOUT_HEADING = """# Decisions (synthetic test repository)
 
 ### 2026-10-24 — some other entry
@@ -494,6 +505,46 @@ def test_guard_refuses_when_decisions_lacks_the_confirmation_heading(tmp_path):
     repo, sha, yp = make_prereg_repo(tmp_path / "repo", pcv, decisions=DECISIONS_WITHOUT_HEADING)
     with pytest.raises(pvr.PreregGuardError, match="confirmation heading"):
         pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
+
+
+def test_guard_passes_with_the_confirmation_and_both_c3a_amendment_headings(tmp_path):
+    pcv, _ = pvr.load_pcv_config()
+    repo, sha, yp = make_prereg_repo(tmp_path / "repo", pcv, decisions=decisions_with(REQUIRED_LINES))
+    assert pvr.verify_prereg(sha, yaml_path=yp, repo=repo)["prereg_commit"] == sha
+
+
+@pytest.mark.parametrize("missing,match", [(CONFIRMATION_LINE, "confirmation heading"),
+                                           (DESIGNATION_LINE, "C3a designation amendment"),
+                                           (SECOND_BRANCH_LINE, "second-branch amendment")],
+                         ids=["confirmation", "c3a-designation", "second-branch"])
+def test_guard_refuses_when_any_required_heading_is_missing(tmp_path, missing, match):
+    pcv, _ = pvr.load_pcv_config()
+    lines = [ln for ln in REQUIRED_LINES if ln != missing]
+    repo, sha, yp = make_prereg_repo(tmp_path / "repo", pcv, decisions=decisions_with(lines))
+    with pytest.raises(pvr.PreregGuardError, match=match):
+        pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
+
+
+def test_guard_amendment_headings_must_be_heading_lines_not_mentions(tmp_path):
+    # Quoting a heading inside body text does not satisfy the guard; it must be the entry's own heading.
+    pcv, _ = pvr.load_pcv_config()
+    body = decisions_with([CONFIRMATION_LINE, DESIGNATION_LINE]) + "see " + SECOND_BRANCH_LINE[4:] + chr(10)
+    repo, sha, yp = make_prereg_repo(tmp_path / "repo", pcv, decisions=body)
+    with pytest.raises(pvr.PreregGuardError, match="second-branch amendment"):
+        pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
+
+
+def test_the_required_amendment_headings_are_those_in_the_repository():
+    # Guards against a typo that would make the guard refuse every real run.
+    from kelvins_conformal.config import REPO_ROOT
+
+    lines = {ln.rstrip() for ln in (REPO_ROOT / "DECISIONS.md").read_text(encoding="utf-8").splitlines()}
+    assert DESIGNATION_LINE in lines and SECOND_BRANCH_LINE in lines
+    assert pvr.C3A_DESIGNATION_HEADING == DESIGNATION_LINE
+    assert pvr.C3A_SECOND_BRANCH_HEADING == SECOND_BRANCH_LINE
+    got = subprocess.run(["git", "show", "fb4f957", "--", "DECISIONS.md"], cwd=REPO_ROOT, capture_output=True)
+    if got.returncode == 0:                         # the designation heading as introduced in fb4f957
+        assert ("+" + DESIGNATION_LINE) in got.stdout.decode("utf-8").splitlines()
 
 
 def test_guard_refuses_an_unknown_commit(guard_repo):
