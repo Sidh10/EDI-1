@@ -74,6 +74,15 @@ class PreregGuardError(RuntimeError):
 # The heading of the 2026-10-24 confirmation entry; the guard requires it in DECISIONS.md at the
 # pre-registration commit.
 PREREG_HEADING = "PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation"
+# The amendments the guard also requires at the pre-registration commit (amendment of 2026-10-27), as
+# whole heading lines: the C3a designation (introduced in fb4f957) and the second branch of the C3a
+# sensitivity rule (8d64986).
+C3A_DESIGNATION_HEADING = ("### 2026-10-26 — AMENDMENT to the Pc validation pre-registration: C3a designated "
+                           "the documented convention (Sidh)")
+C3A_SECOND_BRANCH_HEADING = ("### 2026-10-27 — AMENDMENT to the Pc validation pre-registration: C3a: second "
+                             "branch of the sensitivity rule")
+AMENDMENT_HEADINGS: dict[str, str] = {C3A_DESIGNATION_HEADING: "the C3a designation amendment (2026-10-26)",
+                                      C3A_SECOND_BRANCH_HEADING: "the C3a second-branch amendment (2026-10-27)"}
 PCV_CONFIG_REPO_PATH = "config/experiments/pc_validation.yaml"
 _CRLF, _LF = bytes((13, 10)), bytes((10,))
 
@@ -119,8 +128,9 @@ def verify_prereg(prereg_commit: str | None, *, yaml_path: str | Path | None = N
     """Refuse unless the pre-registration is verifiable; every step reads real data or its products.
 
     Requires (1) ``prereg_commit`` given and a commit; (2) an ancestor of HEAD; (3) DECISIONS.md at that
-    commit containing the confirmation heading; (4) the canonical SHA-256 of the validation YAML in use
-    equal to that of the YAML committed at that commit. Returns what was verified, for provenance.
+    commit containing the confirmation heading and, as heading lines, both C3a amendments
+    (``AMENDMENT_HEADINGS``; amendment of 2026-10-27); (4) the canonical SHA-256 of the validation YAML
+    in use equal to that of the YAML committed at that commit. Returns what was verified, for provenance.
     """
     repo = Path(repo)
     if not prereg_commit:
@@ -133,6 +143,11 @@ def verify_prereg(prereg_commit: str | None, *, yaml_path: str | Path | None = N
     if dec.returncode != 0 or PREREG_HEADING.encode("utf-8") not in dec.stdout:
         raise PreregGuardError(f"DECISIONS.md at {sha[:12]} does not contain the confirmation heading "
                                f"{PREREG_HEADING!r}")
+    headings = {ln.rstrip() for ln in dec.stdout.decode("utf-8", "replace").splitlines()}
+    missing = [h for h in AMENDMENT_HEADINGS if h not in headings]
+    if missing:
+        raise PreregGuardError(f"DECISIONS.md at {sha[:12]} lacks the heading of "
+                               + "; ".join(f"{AMENDMENT_HEADINGS[h]}: {h!r}" for h in missing))
     blob = _git(repo, "show", f"{sha}:{PCV_CONFIG_REPO_PATH}")
     if blob.returncode != 0:
         raise PreregGuardError(f"{PCV_CONFIG_REPO_PATH} does not exist at {sha[:12]}")
