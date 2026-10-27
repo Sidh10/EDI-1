@@ -8,6 +8,7 @@ errors as disagreements, and the OPEN missing-value policy), and the convention 
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 
 import numpy as np
@@ -185,20 +186,82 @@ def test_c1_doubles_the_hard_body_radius():
 def test_c3_rotation_preserves_the_chaser_covariance_spectrum_and_is_signed():
     row = _row(v=(30.0, -900.0, 2500.0))
     a, _ = pvr.apply_convention(row, "C3a", mu_km3_s2=398600.4418)
+    ar, _ = pvr.apply_convention(row, "C3a_R", mu_km3_s2=398600.4418)
     b, _ = pvr.apply_convention(row, "C3b", mu_km3_s2=398600.4418)
     ev0 = np.sort(np.linalg.eigvalsh(_chaser_cov(row)))
-    for new in (a, b):
+    for new in (a, ar, b):
         assert np.sort(np.linalg.eigvalsh(_chaser_cov(new))) == pytest.approx(ev0, rel=1e-9)
-        assert new["c_sigma_r"] == pytest.approx(row["c_sigma_r"], rel=1e-12)   # rotation is about R
-    assert not np.allclose(_chaser_cov(a), _chaser_cov(b))                      # opposite crossing angles
-    for k in ("t_sigma_r", "t_sigma_t", "t_sigma_n", "t_ct_r", "t_cn_r", "t_cn_t", "relative_position_r"):
-        assert a[k] == row[k]                                                   # target and geometry untouched
+        for k in ("t_sigma_r", "t_sigma_t", "t_sigma_n", "t_ct_r", "t_cn_r", "t_cn_t",
+                  "relative_position_r", "relative_position_t", "relative_position_n",
+                  "relative_velocity_r", "relative_velocity_t", "relative_velocity_n"):
+            assert new[k] == row[k]                                             # target and geometry untouched
+    for new in (ar, b):
+        assert new["c_sigma_r"] == pytest.approx(row["c_sigma_r"], rel=1e-12)  # C3a_R, C3b: about R
+    assert a["c_sigma_r"] != pytest.approx(row["c_sigma_r"], rel=1e-12)        # C3a: R tilts with the offset
+    assert not np.allclose(_chaser_cov(ar), _chaser_cov(b))                     # opposite crossing angles
 
 
 def test_c3_with_no_normal_relative_velocity_is_no_rotation():
     row = _row(v=(30.0, -900.0, 0.0))
+    new, _ = pvr.apply_convention(row, "C3a_R", mu_km3_s2=398600.4418)
+    assert _chaser_cov(new) == pytest.approx(_chaser_cov(row), rel=1e-12)
+    # C3a: no rotation only when the offset is also purely radial (the chaser's axes then coincide).
+    for k, x in zip(("relative_position_t", "relative_position_n"), (0.0, 0.0), strict=True):
+        row[k] = x
     new, _ = pvr.apply_convention(row, "C3a", mu_km3_s2=398600.4418)
     assert _chaser_cov(new) == pytest.approx(_chaser_cov(row), rel=1e-12)
+
+
+def test_c3a_uses_the_offset_position_in_metres_with_a_t_converted_from_km():
+    # Source formulation: chaser position (1000 a_t + rel_R, rel_T, rel_N) m. A 7 km along-T offset at
+    # a_t = 7000 km tilts the chaser's R by atan(7000 / 7e6) about N; reading a_t as metres would give
+    # atan(7000 / 7000) = 45 deg instead.
+    row = _row(v=(0.0, 0.0, 0.0))
+    row.update({"relative_position_r": 0.0, "relative_position_t": 7000.0, "relative_position_n": 0.0})
+    m = pvr.c3_rotation(row, "C3a", mu_km3_s2=398600.4418)
+    phi = math.atan(7000.0 / 7.0e6)
+    assert m == pytest.approx(np.array([[math.cos(phi), -math.sin(phi), 0.0],
+                                        [math.sin(phi), math.cos(phi), 0.0],
+                                        [0.0, 0.0, 1.0]]), abs=1e-12)
+
+
+def test_c3_rotation_refuses_an_unknown_convention():
+    with pytest.raises(ValueError):
+        pvr.c3_rotation(_row(), "C3c", mu_km3_s2=398600.4418)
+
+
+def test_convention_list_is_the_yaml_list_with_c3a_r_added_after_c3a():
+    pcv, _ = pvr.load_pcv_config()
+    assert [c["id"] for c in pcv["conventions"]] == ["C0", "C1", "C3a", "C3b", "C4a", "C4b"]   # YAML unedited
+    assert pvr.convention_ids(pcv) == ["C0", "C1", "C3a", "C3a_R", "C3b", "C4a", "C4b"]
+
+
+# --- the E3/E14 flag rule (amendment of 2026-10-27) --------------------------------------------------
+def _summary(change_pp):
+    convs = ["C0", "C1", "C3a", "C3a_R", "C3b", "C4a", "C4b"]
+    rows = [{"convention": c, "stratum": st, "change_vs_c0_pp": (0.0 if c == "C0" else change_pp)}
+            for c in convs for st in ("ALL", "(-6, 0]")]
+    return pd.DataFrame(rows)
+
+
+@pytest.mark.parametrize("change_pp", [15.0, -15.0, 100.0])
+def test_flag_rule_flags_c3a_and_c4_only_when_agreement_moves_more_than_10_pp(change_pp):
+    s = _summary(change_pp)
+    flags = pvr.finding_flags(s, threshold_pp=10.0)
+    flagged = set(s.loc[flags, "convention"])
+    assert flagged == {"C3a", "C4a", "C4b"}                    # C4a/C4b rule unchanged
+    assert not flags[s["stratum"] != "ALL"].any()              # overall agreement only
+
+
+@pytest.mark.parametrize("change_pp", [10.0, -10.0, 9.99, 0.0])
+def test_flag_rule_does_not_flag_at_or_below_10_pp(change_pp):
+    assert not pvr.finding_flags(_summary(change_pp), threshold_pp=10.0).any()
+
+
+@pytest.mark.parametrize("conv", ["C3a_R", "C3b", "C0", "C1"])
+def test_flag_rule_never_flags_c3a_r_c3b_c0_or_c1(conv):
+    s = _summary(1000.0)
+    assert not pvr.finding_flags(s, threshold_pp=10.0)[s["convention"] == conv].any()
 
 
 def test_c4_scales_variance_or_sigma_and_skips_nonpositive_k():
@@ -369,7 +432,8 @@ def test_steps_run_end_to_end_on_synthetic_cdms_through_the_guard(synthetic_run)
     ind = pd.read_csv(tables / "pcv_independent.csv")
     assert len(m2) == 27 and set(m2["m2_seed"]).isdisjoint(set(ind["m3_seed"]))
     summ = pd.read_csv(tables / "pcv_convention_summary.csv")
-    assert set(summ["convention"]) == {"C0", "C1", "C3a", "C3b", "C4a", "C4b"}
+    assert set(summ["convention"]) == {"C0", "C1", "C3a", "C3a_R", "C3b", "C4a", "C4b"}
+    assert not summ.loc[summ["convention"].isin(["C0", "C1", "C3a_R", "C3b"]), "finding_flag_e3_e14"].any()
     assert len(pd.read_csv(tables / "pcv_c1_expectation.csv")) == 10
     for step in pvr.STEPS:
         prov = json.loads((tables / f"pcv_provenance_{step.replace('-', '_')}.json").read_text(encoding="utf-8"))

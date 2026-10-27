@@ -10,6 +10,10 @@ from the relative velocity and the circular speed sqrt(mu / a_t).
   velocity read as chaser - target, and C3b with it read as target - chaser).
 * Variants that break the circular-orbit premise (eccentric chaser; eccentric target; a 1 km offset
   between the two positions): the deviation is REPORTED, with no pass/fail.
+* Amendment of 2026-10-27 (DECISIONS.md, "C3a: second branch of the sensitivity rule"): C3a is the
+  source formulation, which builds the chaser's axes from its offset position. For exactly circular
+  orbits 1 km apart it must match the exact rotation to 1e-9; at 10 and 100 km the deviation is
+  REPORTED without a threshold. C3a_R (and C3b) must equal the rotation of tag pcv-code-v1.
 """
 
 from __future__ import annotations
@@ -116,6 +120,110 @@ def test_c3_reading_the_relative_velocity_with_the_wrong_sign_is_not_exact():
     # (guards against a test that would pass for either sign).
     _, row_b, exact, _ = build(CASES[0])
     assert np.max(np.abs(pvr.c3_rotation(row_b, "C3a", mu_km3_s2=MU) - exact)) > 1e-2
+
+
+# --- C3a = the source formulation; C3a_R = the rotation about R (amendment of 2026-10-27) -------------
+OFFSETS_KM = (1.0, 10.0, 100.0)
+
+
+def build_offset(case, d_km):
+    """Both orbits exactly circular at radius A_KM; the chaser d_km (chord) ahead along its own orbit
+    from the line where the planes meet. Returns (row, exact rotation, chaser covariance)."""
+    n_t, n_c = plane_normal(case[0], case[1]), plane_normal(case[2], case[3])
+    r_hat = np.cross(n_t, n_c)
+    r_hat /= np.linalg.norm(r_hat)
+    r_t = A_KM * r_hat
+    v_t = math.sqrt(MU / A_KM) * np.cross(n_t, r_hat)
+    delta = 2.0 * math.asin(d_km / (2.0 * A_KM))
+    u = math.cos(delta) * r_hat + math.sin(delta) * np.cross(n_c, r_hat)
+    r_c = A_KM * u
+    v_c = math.sqrt(MU / A_KM) * np.cross(n_c, u)
+    a_mat_t, a_mat_c = rtn_axes(r_t, v_t), rtn_axes(r_c, v_c)
+    rel_p = a_mat_t.T @ (r_c - r_t) * 1000.0                 # chaser - target, target RTN, m
+    rel_v = a_mat_t.T @ (v_c - v_t) * 1000.0                 # m/s
+    row = {f"relative_position_{a}": float(x) for a, x in zip("rtn", rel_p, strict=True)}
+    row.update({f"relative_velocity_{a}": float(x) for a, x in zip("rtn", rel_v, strict=True)})
+    row.update({f"c_{k}": x for k, x in zip(KEYS, CHASER_COV, strict=True)})
+    row["t_j2k_sma"] = A_KM
+    return row, a_mat_t.T @ a_mat_c, cov_of(row)
+
+
+@pytest.mark.parametrize("case", CASES)
+def test_c3a_source_formulation_is_exact_for_circular_orbits_1_km_apart(case):
+    row, exact, cov = build_offset(case, 1.0)
+    assert np.linalg.norm([row[f"relative_position_{a}"] for a in "rtn"]) == pytest.approx(1000.0, rel=1e-9)
+    rot = pvr.c3_rotation(row, "C3a", mu_km3_s2=MU)
+    assert np.max(np.abs(rot - exact)) <= 1e-9
+    new, scale = pvr.apply_convention(row, "C3a", mu_km3_s2=MU)
+    ref = exact @ cov @ exact.T
+    assert scale == 1.0 and np.max(np.abs(cov_of(new) - ref)) <= 1e-9 * np.max(np.abs(ref))
+
+
+@pytest.mark.parametrize("d_km", OFFSETS_KM[1:])
+def test_c3a_source_formulation_deviation_at_larger_offsets_is_reported(d_km, record_property):
+    """REPORTED, no threshold: max |M - exact| for C3a, and for C3a_R alongside, per geometry case."""
+    worst = 0.0
+    for case in CASES:
+        row, exact, _ = build_offset(case, d_km)
+        dev = float(np.max(np.abs(pvr.c3_rotation(row, "C3a", mu_km3_s2=MU) - exact)))
+        dev_r = float(np.max(np.abs(pvr.c3_rotation(row, "C3a_R", mu_km3_s2=MU) - exact)))
+        worst = max(worst, dev)
+        print(f"[C3a offset] {d_km:g} km | case {case} | C3a max|M - exact| = {dev:.3e} | "
+              f"C3a_R max|M - exact| = {dev_r:.3e}")
+    record_property("c3a_max_abs_deviation", worst)
+    assert math.isfinite(worst)
+
+
+@pytest.mark.parametrize("case", CASES)
+def test_c3a_and_c3a_r_differ_when_the_chaser_is_offset(case):
+    row, _, _ = build_offset(case, 1.0)
+    a = pvr.c3_rotation(row, "C3a", mu_km3_s2=MU)
+    r = pvr.c3_rotation(row, "C3a_R", mu_km3_s2=MU)
+    assert np.max(np.abs(a - r)) > 1e-5                       # tilt of order 1 km / 7000 km = 1.4e-4
+
+
+def _c3_rotation_at_pcv_code_v1(row, sign):
+    """Frozen copy of crossing_angle + c3_rotation at tag pcv-code-v1 (runner lines 289-314)."""
+    v_t = math.sqrt(MU / float(row["t_j2k_sma"])) * 1000.0
+    th = math.atan2(sign * float(row["relative_velocity_n"]), v_t + sign * float(row["relative_velocity_t"]))
+    c, s = math.cos(th), math.sin(th)
+    return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
+
+
+def _synthetic_rows(n=200, seed=7):
+    rng = np.random.default_rng(seed)
+    rows = [build_offset(case, d)[0] for case in CASES for d in OFFSETS_KM]
+    for _ in range(n):
+        d = {f"relative_velocity_{a}": float(x) for a, x in zip("rtn", rng.normal(0.0, 6000.0, 3), strict=True)}
+        d.update({f"relative_position_{a}": float(x) for a, x in zip("rtn", rng.normal(0.0, 2000.0, 3), strict=True)})
+        d["t_j2k_sma"] = float(rng.uniform(6700.0, 7600.0))
+        rows.append(d)
+    return rows
+
+
+def test_c3a_r_and_c3b_equal_the_pcv_code_v1_rotation():
+    for row in _synthetic_rows():
+        assert np.array_equal(pvr.c3_rotation(row, "C3a_R", mu_km3_s2=MU), _c3_rotation_at_pcv_code_v1(row, 1.0))
+        assert np.array_equal(pvr.c3_rotation(row, "C3b", mu_km3_s2=MU), _c3_rotation_at_pcv_code_v1(row, -1.0))
+
+
+def test_c3a_r_and_c3b_equal_the_functions_read_from_tag_pcv_code_v1():
+    import ast
+    import subprocess
+
+    from kelvins_conformal.config import REPO_ROOT
+
+    got = subprocess.run(["git", "show", "pcv-code-v1:src/kelvins_conformal/models/pc_validation_runner.py"],
+                         cwd=REPO_ROOT, capture_output=True)
+    if got.returncode != 0:
+        pytest.skip("tag pcv-code-v1 is not available in this clone; the frozen-copy test above still runs")
+    ns = {"math": math, "np": np}
+    for node in ast.parse(got.stdout.decode("utf-8")).body:
+        if isinstance(node, ast.FunctionDef) and node.name in ("crossing_angle", "c3_rotation"):
+            exec(compile(ast.Module(body=[node], type_ignores=[]), "pcv-code-v1", "exec"), ns)
+    for row in _synthetic_rows():
+        assert np.array_equal(pvr.c3_rotation(row, "C3a_R", mu_km3_s2=MU), ns["c3_rotation"](row, "C3a", mu_km3_s2=MU))
+        assert np.array_equal(pvr.c3_rotation(row, "C3b", mu_km3_s2=MU), ns["c3_rotation"](row, "C3b", mu_km3_s2=MU))
 
 
 VARIANTS = [
