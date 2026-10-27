@@ -5127,6 +5127,89 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sa
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-27 — RESULTS: C3a variant sensitivity, input-only (pre-registered in 1201af5)
+
+**Status:** RECORDED by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only. **Facts, and which branch of the pre-registered rule holds. Nothing is implemented, no code in the repository is changed, and nothing is amended here.**
+- **Read:** only the 19 pre-registered columns. **Not read:** any risk, label or E3 value; `test_data_private.csv` was not opened.
+- **No `pc-validate` step and no Pc engine was run.** No function of `pc_foster.py` was called.
+
+**Provenance:**
+- **Pre-registration:** commit `1201af5`, committed and pushed 2026-10-27 at 15:31 IST, before the script existed.
+- **Script:** `E:/EDI-1/scratch/c3a_sensitivity_check.py`, outside the repository. SHA-256 `dfa801c0286859c0b5a4768dd2822d129eda3cb64a7a64e1f094f5b099648032`.
+- **Real run:** 2026-10-27, 15:33:33 to 15:33:50 IST. The selftest ran first in the same process and passed.
+- **Results file:** `E:/EDI-1/scratch/c3a_sensitivity_results.json`. SHA-256 `b1c45b5f01fef877ef46736e73dbe2faabc1bc0974e81fd9edc76e0f402d61bf`.
+- **Files:** `train_data.csv` (in `train_data.zip`) and `test_data.csv`, the same as in `18689b0`.
+
+**Selftest** (synthetic only):
+- **Analytic case:**
+  - 1,176 cases: four diagonal chaser covariances, a zero target covariance, θ1 and θ2 from seven angles each, three relative positions in the R–N plane (one parallel to v, using the fallback), and two along-T velocities;
+  - max |q − closed form| = **4.4e-14**, and max |ρ − closed form| = **8.8e-14** (tolerance 1e-9);
+  - **q = 0 exactly** on every case with θ1 = θ2.
+- **Exact rotation:**
+  - the 96 synthetic orbit cases of `18689b0`, 8 of them through the r×v = 0 fallback;
+  - max |M_source − A_tᵀ·A_c| = **5.6e-16**, and max |q(M_source) − q(exact)| = **1.2e-14**, for a full (non-diagonal) chaser covariance (tolerance 1e-9);
+  - **M_impl equals the tag's `c3_rotation`** (extracted read-only from `pcv-code-v1`): max difference **0** (tolerance 1e-15).
+- **Projection:**
+  - 1,004 cases, 4 of them through the fallback;
+  - max |P·Pᵀ − I| = 6.7e-16, and max |P·v̂| = 2.2e-16 (tolerance 1e-12);
+  - the hand case r = R, v = T gives the axes (N, R) exactly.
+- **One correction to the test input before any real data was read:**
+  - On the first selftest run, the projection part failed. Its "r ∥ v" input was r = 3·v. In floating point, 3·v is not exactly parallel to v, so r×v was rounding noise rather than 0, the fallback did not trigger, and the axes came from noise.
+  - The engine (`pc_foster.py` line 82) also tests for exactly 0, so it behaves the same way.
+  - The input was changed to r = 2·v. Scaling by a power of 2 is exact, so the cross product is exactly 0 and the case tests the fallback as intended.
+  - **No tolerance or criterion was changed.**
+- **Mutation** (`E:/EDI-1/scratch/mutate_c3a_sensitivity.py`, SHA-256 `a094ae010d53a4007301cb9693b9a0087829465004ae13da0d65383efdd7757c`): **transposing M_source makes the selftest fail** (exit code 1).
+  - In the exact-rotation cases, max |M_source − A_tᵀ·A_c| = 1.77 and max |q(M_source) − q(exact)| = 0.52.
+  - The analytic case still passes under the transpose, as the pre-registration stated it would.
+  - The script was restored byte for byte, with the SHA-256 above.
+
+**Sample sizes:**
+- **train:** 162,634 CDMs read, **162,623** used. 11 were excluded for a non-finite value in a read column.
+- **test:** 24,484 read, **24,478** used. 6 were excluded for a non-finite value.
+- **No other exclusions:** 0 non-positive `t_j2k_sma`, 0 zero angular momentum, 0 zero relative velocity, and 0 rows not positive definite in the plane.
+- **Fallback:** 0 used rows needed the r×v = 0 fallback.
+
+**Results.** q = 0.5·log10(det Sigma2D_impl / det Sigma2D_src); ρ = log10(λmin_impl / λmin_src).
+
+| Split | Quantity | p50 | p90 | p99 | p99.9 | max |
+|---|---|---|---|---|---|---|
+| train | abs(q) | 7.02e-6 | 2.42e-4 | **0.1016** | 0.910 | 1.182 |
+| train | abs(ρ) | 8.39e-6 | 4.81e-4 | 0.2032 | 1.819 | 2.364 |
+| test | abs(q) | 6.87e-6 | 2.98e-4 | **0.1073** | 0.900 | 1.030 |
+| test | abs(ρ) | 8.29e-6 | 6.00e-4 | 0.2146 | 1.801 | 2.061 |
+
+| Split | n used | abs(q) > 0.01 | abs(q) > 0.05 | abs(q) > 0.1 |
+|---|---|---|---|---|
+| train | 162,623 | 3,420 (2.10%) | 2,099 (1.29%) | 1,636 (1.01%) |
+| test | 24,478 | 641 (2.62%) | 367 (1.50%) | 251 (1.03%) |
+
+**Chaser `c_sigma_t` / `c_sigma_r`**, over the rows used:
+- **train:** median **53.1**, 90th percentile **247.9**;
+- **test:** median **75.9**, 90th percentile **271.6**.
+
+**Which branch of the rule holds:**
+- The 99th percentile of |q| is **0.1016 (train) and 0.1073 (test)**. Both are above 0.05, so the condition "below 0.05 in both splits" fails.
+- **The second branch holds:** the source formulation becomes the designated C3a, with the implementation kept as a labelled approximation, through a dated amendment, a code change, tests and a new tag, all before any real-data run.
+- **None of that is done here.** No amendment, code change, test or tag is made in this entry.
+
+**What this does and does not measure:**
+- **q is a proxy for the effect on Pc.** Pc also depends on the direction of the miss vector relative to the axes of Sigma2D, and on the hard-body radius; q captures neither.
+- No Pc was computed, and the effect on any Pc, risk, label or E3/E14 result is not measured.
+- Counts are per CDM, not per event.
+
+**Diagnostic, NOT pre-registered,** recorded for transparency only; it does not enter the rule.
+- **Script:** `E:/EDI-1/scratch/c3a_sensitivity_diag.py`, SHA-256 `b3d141f4de3bea6b41f68b3074f548ea8e26af1710d27214d84cfe0ad40f92ec`. It reads the same 19 columns and takes φ from the `18689b0` script.
+- **In the rows with |q| > 0.1:**
+  - ρ = 2q to within 3.2e-4 (train) and 2.2e-4 (test), so the change is almost entirely in the smaller in-plane eigenvalue;
+  - the median of φ·`c_sigma_t`/`c_sigma_r` is **2.32 (train) and 2.40 (test)**, against 0.069 and 0.087 in the rows with |q| ≤ 0.01;
+  - the median `c_sigma_t`/`c_sigma_r` is about 365 (train) and 368 (test), against about 52 and 74;
+  - **q > 0 in 98.8% (train) and 100% (test)** of these rows: the implemented rotation gives the larger projected determinant.
+- **Across all rows used,** the Spearman correlation of |q| with φ·`c_sigma_t`/`c_sigma_r` is 0.44 (train) and 0.49 (test).
+- **Observed:** a tilt φ below 0.01 rad matters where the chaser covariance is long along T, because φ·σ_T then becomes comparable to σ_R or larger, and it leaks into the thin direction in the plane. This observation explains the size of q. It is not a further result.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
