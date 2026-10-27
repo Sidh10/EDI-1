@@ -5210,6 +5210,60 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sa
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-27 — AMENDMENT to the Pc validation pre-registration: C3a: second branch of the sensitivity rule
+
+**Status:** AMENDMENT, recorded by Claude Code on 2026-10-27 at Sidh's instruction. Insertion only.
+- **No earlier entry is edited**, and the validation YAML (`config/experiments/pc_validation.yaml`) is **not edited on either branch.**
+- **Pushed before any code change.** No real-data step has been run under this amendment or before it: no `pc-validate` step on real events, and no Pc engine on real data.
+
+**The rule, fixed before the check** (pre-registration `1201af5`, 2026-10-27):
+- If the 99th percentile of |q| is below 0.05 in both splits, the implemented C3a stands as the designated convention.
+- Otherwise, the source formulation becomes the designated C3a, and the implementation is kept as a labelled approximation, through a dated amendment, a code change, tests and a new tag, all before any real-data run.
+- Here q = 0.5·log10(det Sigma2D_impl / det Sigma2D_src), the combined position covariance projected onto the encounter plane.
+
+**Outcome** (results entry `ea82d8c`; script `E:/EDI-1/scratch/c3a_sensitivity_check.py`, SHA-256 `dfa801c0286859c0b5a4768dd2822d129eda3cb64a7a64e1f094f5b099648032`):
+- the 99th percentile of |q| is **0.1016 (train, n = 162,623)** and **0.1073 (test, n = 24,478)**;
+- both are above 0.05, so **the second branch holds.**
+
+**Basis of the designation:**
+- It follows from a rule **fixed before the check** and applied to **input-only data**: the sigma and correlation fields, the relative state and `t_j2k_sma`.
+- No risk, label or E3 value was read, and no Pc was computed.
+- It therefore **cannot depend on agreement with the reported risk.**
+
+**The conventions from this amendment on:**
+- **C3a, the designated convention: the source formulation.** Per CDM, in the target's RTN axes, with v_t = √(μ/`t_j2k_sma`)·1000 m/s:
+  - chaser position **(1000·`t_j2k_sma` + rel_R, rel_T, rel_N)** in m;
+  - chaser velocity **(0, v_t, 0) + v_rel** in m/s;
+  - chaser axes **R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R**;
+  - **M** with the chaser's axes as its columns;
+  - **combined = C_t + M·C_c·Mᵀ.**
+  - **The unit conversion 1000·a_t (km to m) is part of the specification** (`3a5ce30`, unit correction).
+  - Relative position and velocity are read as chaser − target, in the target's RTN frame (ESA replies 2 and 3).
+- **C3a_R: the previous implementation, retained as a labelled approximation.**
+  - It is the rotation about the target's R axis by atan2(v_rel_N, v_t + v_rel_T), as in `pc_validation_runner.py` at tag `pcv-code-v1`, lines 289–314.
+  - It is **reported without the 10 pp flag rule.**
+- **C3b: a control, reported without any rule.**
+  - Its computation is **unchanged**: the C3a_R construction with the relative velocity read as target − chaser.
+  - It is not rebuilt on the source formulation.
+- **The 10 pp flag rule** (`conventions_material_change_pp`) **applies to C3a.**
+  - C0, C1 (the negative control, under its own insensitivity rule), C3a_R and C3b are never flagged.
+- **C0, C1 and C4 (C4a, C4b) are unchanged.** This includes C4's flag rule.
+
+**How the YAML relates to this amendment** (the YAML is not edited):
+- **The conventions list** (C0, C1, C3a, C3b, C4a, C4b) does not contain C3a_R. **The runner adds C3a_R in code, immediately after C3a,** under this amendment.
+- **The YAML's description of C3a** ("rotated into the target RTN frame about R by the crossing angle, circular-orbit approximation") describes **what is now C3a_R**. This amendment supersedes it.
+- **The comment on `conventions_material_change_pp`** ("conventions other than C1") is superseded by the flag rule above. **The value 10.0 is unchanged.**
+- **The YAML's canonical SHA-256 is unchanged:** `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+
+**Order of work:**
+- **The code change precedes any real-data run.** It is made on `pc-validation`, tests first, after this entry is merged there, and tagged `pcv-code-v2`.
+- **The guard of `kc pc-validate` will additionally require this entry's heading,** and that of the 2026-10-26 C3a designation amendment (`fb4f957`), in DECISIONS.md at the `--prereg-commit`.
+
+**Not measured:** the effect of the C3a designation, and of C3a against C0, on E3 and E14 **remains unmeasured.**
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
