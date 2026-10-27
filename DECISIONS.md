@@ -5043,6 +5043,90 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256 and the
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-27 — PRE-REGISTRATION: C3a variant sensitivity, input-only
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-27 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- **No script exists at the time of this commit.**
+- **Read:** the position-covariance sigma and correlation fields of both objects, the relative state and `t_j2k_sma`. **Not read:** any risk, label or E3 value; `test_data_private.csv` is not opened.
+- **No `pc-validate` step is run and the Pc engine is not run.** No function of `pc_foster.py` is called; its projection is reimplemented (below).
+- The decision rule below is **fixed now, before any result exists.** Applying it here only says which branch holds; nothing is implemented in this step.
+
+**Question.** How much does the choice between the two C3a rotations change the combined position covariance as seen in the encounter plane?
+- **M_impl:** the implemented C3a rotation, about the target's R axis (`pc_validation_runner.py` at tag `pcv-code-v1`, lines 289–314).
+- **M_source:** the source's formulation (`3a5ce30`; the angle between the two was bounded in `5a9756e`):
+  - chaser position (1000·`t_j2k_sma` + rel_R, rel_T, rel_N) in m;
+  - chaser velocity (0, v_t, 0) + v_rel in m/s, with v_t = √(μ/`t_j2k_sma`)·1000;
+  - axes R = pos/|pos|, N = pos×vel/|pos×vel|, T = N×R, as the columns of M_source.
+
+**Data read**, with only these columns (pandas `usecols`):
+- **Files:** the same as the previous check (`18689b0`): `data/raw/kelvins_competition_data/train_data.zip` (`train_data.csv`) and `test_data.csv`.
+- **Columns (19):**
+  - `t_sigma_r`, `t_sigma_t`, `t_sigma_n`, `t_ct_r`, `t_cn_r`, `t_cn_t`;
+  - `c_sigma_r`, `c_sigma_t`, `c_sigma_n`, `c_ct_r`, `c_cn_r`, `c_cn_t`;
+  - `relative_position_r`, `relative_position_t`, `relative_position_n`;
+  - `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`;
+  - `t_j2k_sma`.
+- **Units:** as in `18689b0` (relative position in m, relative velocity in m/s, `t_j2k_sma` in km); μ = 398600.4418 km³/s².
+
+**Method**, per CDM, all in the target's RTN axes:
+- **Covariances:** C_t from the `t_*` fields and C_c from the `c_*` fields, built as `position_covariance_rtn` builds them (`pc_foster.py` lines 49–66): diagonal sigma², off-diagonals correlation·sigma·sigma, with `x_ct_r` as (T, R), `x_cn_r` as (N, R) and `x_cn_t` as (N, T).
+- **M_impl and M_source:** as in `18689b0`. In the selftest, M_impl must equal the tag's own `c3_rotation` (extracted read-only with `git show`, as before) to 1e-15.
+- **Combined covariances:** Sigma_impl = C_t + M_impl·C_c·M_implᵀ and Sigma_src = C_t + M_source·C_c·M_sourceᵀ.
+  - These are computed directly as 3×3 matrices. The runner's write-back as sigmas and correlations, rebuilt by the engine, is not reproduced; it differs only by rounding.
+- **Encounter-plane projection,** reimplemented from the engine's `bplane_projection` (`pc_foster.py` lines 69–92):
+  - r = relative position, v = relative velocity;
+  - axis1 = (r×v)/|r×v|, axis2 = v̂×axis1;
+  - the engine's fallback when r×v = 0 (seed (1, 0, 0), or (0, 1, 0) if |seed·v̂| > 0.9, made orthogonal to v̂) is reproduced, and such rows are counted;
+  - P = [axis1; axis2] (2×3), and Sigma2D = P·Sigma·Pᵀ for both Sigma_impl and Sigma_src, with the same P.
+  - **The in-plane basis does not affect the reported quantities:** the determinant and eigenvalues of a 2×2 matrix are unchanged by a rotation of its orthonormal basis, so only the plane matters. The plane depends only on v, which both variants share.
+- **Quantities:**
+  - q = 0.5·log10(det Sigma2D_impl / det Sigma2D_src);
+  - ρ = log10(λmin_impl / λmin_src), the log ratio of the smaller eigenvalues of the two 2×2 matrices;
+  - the chaser ratio `c_sigma_t` / `c_sigma_r`.
+- **Excluded and counted, per split:**
+  - a non-finite value in any read column;
+  - `t_j2k_sma` ≤ 0;
+  - |pos×vel| = 0 for the chaser state of M_source;
+  - zero relative velocity (encounter plane undefined, as in the engine);
+  - det Sigma2D ≤ 0, or λmin ≤ 0, in either variant (a covariance that is not positive definite in the plane).
+
+**Reported, per split** (train, test). Counts are per CDM, not per event; percentiles use numpy's default (linear) method.
+- n read, n used, each exclusion count, and the number of rows that used the r×v = 0 fallback;
+- the percentiles **50, 90, 99, 99.9 and the maximum** of |q| and of |ρ|;
+- the **number of CDMs with |q| above 0.01, 0.05 and 0.1**;
+- the **median and 90th percentile of `c_sigma_t` / `c_sigma_r`**, over the rows used.
+
+**What it does and does not measure:**
+- **q is a proxy for the effect on Pc.** Pc also depends on the direction of the miss vector relative to the axes of Sigma2D, and on the hard-body radius, neither of which q captures.
+- No risk, label or E3 value is read, and the engine is not run.
+- Both variants share the circular-target approximations (target velocity (0, v_t, 0), target at radius a_t).
+
+**Decision rule, fixed in advance** (Sidh's, from the brief):
+- **If the 99th percentile of |q| is below 0.05 in both splits:** the implemented C3a stands as the designated convention, with this bound documented.
+- **Otherwise:** the source formulation becomes the designated C3a, and the implementation is kept as a labelled approximation. This is done through a dated amendment, a code change, tests and a new tag, all before any real-data run.
+- The results entry states which branch holds. **It implements nothing.**
+
+**Selftest, required before the run** (synthetic only):
+- **Analytic case:**
+  - a diagonal chaser covariance diag(σ_R², σ_T², σ_N²) with σ_R ≠ σ_T, and a zero target covariance;
+  - two rotations about N, by θ1 and θ2, used in place of M_impl and M_source;
+  - relative velocity along T and relative position in the R–N plane, so the encounter plane is the R–N plane, perpendicular to T;
+  - there det Sigma2D = σ_N²·(σ_R²·cos²θ + σ_T²·sin²θ), so q is known in closed form, and so is λmin = min(σ_N², σ_R²·cos²θ + σ_T²·sin²θ);
+  - **pass:** the script's q and ρ within **1e-9** of the closed form on every case, and **q = 0 exactly when θ1 = θ2.**
+- **M_source against the exact rotation:**
+  - the synthetic circular-orbit cases of `18689b0` (target and chaser orbits with known inclination and RAAN, the relative state built from the inertial states);
+  - **pass:** M_source within 1e-9 of the exact A_tᵀ·A_c, element by element;
+  - **pass:** q computed with M_source within 1e-9 of q computed with A_tᵀ·A_c, for a full (non-diagonal) synthetic chaser covariance.
+- **The projection:** on random synthetic r and v, plus an r ∥ v case, P must be orthonormal (P·Pᵀ = I to 1e-12) and perpendicular to v (|P·v̂| ≤ 1e-12).
+- **Mutation:** transposing M_source must make the selftest fail.
+  - The analytic case alone cannot catch it: transposing a rotation about one axis only reverses the sign of θ, and the closed form depends on cos² and sin².
+  - The exact-rotation cases must catch it.
+
+The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sample sizes and the branch of the rule that applies go in the results entry.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
