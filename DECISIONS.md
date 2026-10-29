@@ -5301,6 +5301,106 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sa
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
 
 
+### 2026-10-30 — RESULTS: Pc validation, first real-data stage (sample, self-convergence, gate; authorised in 59340f2)
+
+**Status:** RECORDED by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only. **Facts only: no recommendation, no comparison of the engine with the independent methods, and nothing read against E3 or E14.**
+- **Run:** only `sample`, `self-convergence` and `gate`. **Not run:** `compare`, `m2`, `conventions`.
+- **Interpretation is Sidh's.**
+
+**Run identity:**
+- **Run id:** `pcv-stage1-2026-10-30T03:09:21+05:30`, the start of the `sample` step.
+- **Code:** tag `pcv-code-v2`, commit `e82322e46626212195fabfd3ef1632a473872527`, checked out detached; tree clean.
+- **Pre-registration:** `--prereg-commit c3d364b`; the guard accepted it for all three steps.
+- **Validation YAML:** canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+- **Base config hash:** `00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5`.
+- **Inputs checked beforehand:**
+  - `reports/tables/e3_full_comparison.csv` SHA-256 `4a2863cd013e0c3e3f3cbd37c4eaeb1a400bf81f48e637b5fcc95845b4aa471a`, as expected;
+  - `data/processed/events.parquet` present, though none of the three steps reads it.
+- **Machine before the run:** commit headroom 14.43 GB of 38.18 GB; free RAM 2.52 GB of 15.71 GB.
+  - The 5-second sampler (`E:/EDI-1/logs/pcv_stage1_commit.log`, 75 samples, covering both runs) recorded a minimum headroom of **12.30 GB**.
+
+**Step timings** (wall clock; logs `E:/EDI-1/logs/pcv_<step>.log`):
+
+| Step | Start (IST) | Wall clock | Exit | Tables written |
+|---|---|---|---|---|
+| `sample` | 03:09:21 | 16 s | 0 | `pcv_sample_official.csv`, `pcv_sample_e3.csv` |
+| `self-convergence` | 03:09:37 | 35 s | 0 | `pcv_engine.csv`, `pcv_self_convergence.csv` |
+| `gate` | 03:10:12 | 101 s | 0 | `pcv_independent.csv`, `pcv_gate.csv` |
+
+- **Total:** about 2.5 minutes. Each step also wrote its `pcv_provenance_<step>.json`.
+- **The committed estimate** (`4a65ccb`, all six steps, 370 events): about 2 minutes to 1 hour (56.8 min, the worst case at 2x). Data loading was not included. The stop rule (a step over 2x that upper bound) was not approached.
+
+**Sample:**
+- **Official-test draw (270 events, all unique):** floor (== −30) 30; (−30, −15] 30; (−15, −10] 30; (−10, −6] 30; (−6, 0] 150.
+- **E3 set (100 events):** 20 in each of the five strata.
+- **SHA-256:**
+  - `pcv_sample_official.csv`: `75940f08e2d577ece44850d8de4e11cff7ab23d6910100a6834706209d0f2937`;
+  - `pcv_sample_e3.csv`: `045d30003473f155423885f88ca14cac5e72421ce9242b65b21f78709004e2b1`.
+
+**Self-convergence** (engine at 1x against 2x grid; e_s is the 95th percentile of the absolute difference; tau_s = max(0.01, 3·e_s)):
+
+| Set | Stratum | n | Non-finite pairs | e_s | tau_s |
+|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 0 | 4.710e-2 | 0.1413 |
+| official | (−30, −15] | 30 | 0 | 7.739e-6 | 0.01 |
+| official | (−15, −10] | 30 | 0 | 4.194e-7 | 0.01 |
+| official | (−10, −6] | 30 | 0 | 1.883e-7 | 0.01 |
+| official | (−6, 0] | 150 | 0 | 3.298e-7 | 0.01 |
+| e3 | floor (== −30) | 20 | 0 | 1.145e-4 | 0.01 |
+| e3 | (−30, −15] | 20 | 0 | 7.540e-7 | 0.01 |
+| e3 | (−15, −10] | 20 | 0 | 4.476e-7 | 0.01 |
+| e3 | (−10, −6] | 20 | 0 | 4.968e-8 | 0.01 |
+| e3 | (−6, 0] | 20 | 0 | 6.110e-7 | 0.01 |
+
+**Gate: M1 against M3** (`pcv_gate.csv`; threshold: median |Δlog10| ≤ 0.005):
+
+| Set | Events with both values | Without one | Median |Δlog10| | Max |Δlog10| | Outcome |
+|---|---|---|---|---|---|
+| official | 262 | 8 | 9.555e-6 | 2.393e-3 | **pass** |
+| e3 | 100 | 0 | 2.148e-5 | 2.364e-3 | **pass** |
+
+- **M1:** converged for all 370 events (`m1_ier` = 0 throughout).
+- **Assembly errors:** none.
+- **M3:** escalated to 1e7 samples for 14 events: 12 in the official floor stratum and 2 in the E3 floor stratum.
+- **Events without an independent value, per stratum:**
+  - **official floor (== −30): 8 of 30 lack an M3 value** (M3 not informative after escalation; sample indices 4, 6, 12, 16, 19, 24, 28, 29);
+  - every other stratum, in both sets: 0.
+- **"Not informative":**
+  - In the official floor stratum, 8 of 30 events (26.7%) lack an independent value. That is above the pre-registered 10% (`not_informative_if_frac_missing_above: 0.10`).
+  - The classification itself is made by the `compare` step, which was not run.
+  - No other stratum has a missing value.
+
+**Determinism:**
+- **The stage was run a second time** at the same commit, with the same `--prereg-commit`. The output went to `E:/EDI-1/runs/pcv_stage1_rerun/tables`, through a copy of `config/default.yaml` that differs only in `paths.tables_dir`, with a copy of `e3_full_comparison.csv` (same SHA-256). Timings: 14 s, 34 s, 110 s.
+- **All 7 CSV tables are byte-identical** between the two runs.
+- **The 3 provenance JSON files differ only in `base_config_hash`** (the changed `tables_dir`), `written_utc`, and the written table paths. Their commit, pre-registration commit and YAML hash are the same.
+
+**Hashes:**
+- **File:** `reports/hashes/PCV-stage1.sha256.csv`, 9 files (6 tables and 3 provenance sidecars of the first run), status `first-recorded`.
+- **Columns:** as in `E1-E3.sha256.csv`, plus `pc_validation_yaml_sha256`, `prereg_commit`, `run_id` and `step`.
+- **Written by** `E:/EDI-1/scratch/hash_pcv_stage1.py` (SHA-256 `b3f935b8a923eeb49bbab1b4fa49e9cc87cd5123fc5d80934652db839bd8341a`), outside the repository.
+
+| File | SHA-256 |
+|---|---|
+| `pcv_sample_official.csv` | `75940f08e2d577ece44850d8de4e11cff7ab23d6910100a6834706209d0f2937` |
+| `pcv_sample_e3.csv` | `045d30003473f155423885f88ca14cac5e72421ce9242b65b21f78709004e2b1` |
+| `pcv_engine.csv` | `b04dd89e584b3f7e3ca7d7923b9710c0c6d02562cb3bae3b0ec8da1087c623cf` |
+| `pcv_self_convergence.csv` | `100abf15c0aa906a5f0cff4510b2df2182dab1e12fd73ed273979f2cb36603c7` |
+| `pcv_independent.csv` | `f35b6900ec273c390ebc349a2990d01f62fb85db1979e4750498dc6d0114eedf` |
+| `pcv_gate.csv` | `195b13d94fd22d5be736bd1c7a7df29ffa355282f1f909c410c557a60452eaa0` |
+| `pcv_provenance_sample.json` | `f289b4c77bce6a4a345be672d2d1bd7d7b86cfa5ff19e880c9e50653784965bf` |
+| `pcv_provenance_self_convergence.json` | `7fb8d4104924ef4713f902ec958ca5c60145fbfb8ac223a678e3d36293ef3be5` |
+| `pcv_provenance_gate.json` | `425f893fa19c7e8b0971988bc921a252384358ae613fad48b5c2f02d10c57685` |
+
+**What the stage read** (code at `pcv-code-v2`):
+- `test_data_private.csv` (all columns) for the official-test rows, as authorised in `59340f2`;
+- `train_data.csv` (in `train_data.zip`) for the E3 rows;
+- `e3_full_comparison.csv`. Only its `event_uid`, `time_to_tca`, `stratum` and `reported` columns are used; the whole file is parsed.
+- **The reported risk** is used to stratify and to check the E3 rows (reported == risk). It is carried into the sample tables and `pcv_engine.csv` as the column `reported`. **No step compared it with anything.**
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
