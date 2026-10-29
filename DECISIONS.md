@@ -5264,6 +5264,43 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sa
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-30 — Pc validation: first real-data stage authorised
+
+**Status:** AUTHORISATION (Sidh), recorded by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only.
+- **Pushed before the run.** No `kc pc-validate` step has been run on real data before this entry.
+- **No earlier entry is edited**, and the validation YAML is not edited.
+
+**What is run:**
+- **Pre-registration commit:** `--prereg-commit c3d364b` (the merge of phase5 into `pc-validation`, which holds the confirmation entry and both C3a amendments).
+- **Code:** tag **`pcv-code-v2`** (commit `e82322e`), checked out detached.
+- **Validation YAML:** canonical SHA-256 **`7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`**, unchanged.
+- **The first stage is the steps `sample`, `self-convergence` and `gate`, in that order, and nothing else.**
+- **Not authorised by this entry:** the `compare`, `m2` and `conventions` steps.
+
+**Accepted as implemented (Sidh):**
+- **C3a_R** is implemented in code (`convention_ids`, which adds it after C3a). The YAML's C3a description text describes C3a_R. **Accepted.**
+- **C3b** stays the registered computation: the rotation about R with the relative velocity's sign reversed. **This is a note on the name only**; the computation is not changed.
+
+**Reading `test_data_private.csv`:**
+- **Sidh authorises reading `test_data_private.csv` for the pre-registered stratified sample and the validation steps only.**
+- **Why:**
+  - it holds the official-test target CDMs' inputs and their reported risk;
+  - no model is evaluated;
+  - E14 already read it.
+- **How the stage-1 steps use it** (code at `pcv-code-v2`, read with `git show`):
+  - `sample`: `official_test_target_cdms` reads all its rows and columns (schema-checked), and stratifies on `true_risk` (renamed `target_log_risk`, written to the sample table as `reported`) with E3's edges.
+  - `self-convergence` and `gate`: re-read it, to take the full rows of the 270 sampled events.
+
+**Pending, before the `conventions` step:**
+- **As stated by Sidh:** the new C3a raises an error on a row with zero chaser angular momentum or a non-finite input. This must be amended, tested and tagged before the `conventions` step.
+- **Observed on synthetic rows at `pcv-code-v2`** (Claude Code, 2026-10-30, the tag's `src` exported with `git archive`; no real data):
+  - **zero chaser angular momentum raises `ValueError`;**
+  - **a non-finite input does not raise.** NaN in a relative position, `t_j2k_sma` or a chaser sigma, or inf in a relative velocity, propagates into the rotated chaser covariance as NaN, and `engine_eval` then records the per-event error "missing required field".
+  - How the amendment should treat each case is Sidh's decision.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
