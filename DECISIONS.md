@@ -5546,6 +5546,94 @@ agreement:
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
 
 
+### 2026-10-30 — RESULTS: Pc validation, compare step (authorised in b3aef60)
+
+**Status:** RECORDED by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only. **Facts only: no interpretation, and nothing related to E3's within-tolerance fraction, to E14 or to reported risk.**
+- **Interpretation of this result is Sidh's** (decision 4 of `b3aef60`).
+- **Not run:** `m2`, `conventions`.
+- **Not changed:** code, the YAML, tags, `main`.
+
+**Run:**
+- **Command:** `kc pc-validate compare --prereg-commit c3d364b`, from tag `pcv-code-v2` (HEAD `e82322e46626212195fabfd3ef1632a473872527`), detached; tree clean.
+- **Timing:** started 2026-10-30 03:27:55 +0530, ended 03:27:59; **4 s**, exit 0 (`E:/EDI-1/logs/pcv_compare.log`).
+- **Headroom:** 14.02 GB before the start. The 5-second sampler (`E:/EDI-1/logs/pcv_stage2_commit.log`, 26 samples) recorded a minimum of 13.32 GB.
+- **The guard accepted `c3d364b`.** YAML canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`; base config hash `00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5`.
+- **Written:** `pcv_agreement.csv` (10 rows, 25 columns), `pcv_excluded.csv` (8 rows), `pcv_out_of_tolerance.csv`, and `pcv_provenance_compare.json`.
+  - `pcv_out_of_tolerance.csv` is 2 bytes, a single CRLF: **no rows and no header**, because the frame written was empty.
+
+**Results** (`pcv_agreement.csv`; policy `exclude`; engine errors count as disagreements):
+
+| Set | Stratum | Events | With M1 | With M3 | Lacking M1 or M3 | Engine errors | tau_s | vs M1: within / n | vs M3: within / n | agree_m1 | agree_m3 | Both | Classification |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 30 | 22 | 8 / 30 = 0.2667 | 0 | 0.1413 | 30 / 30 | 22 / 22 | **False** | True | False | **not informative** |
+| official | (−30, −15] | 30 | 30 | 30 | 0 / 30 | 0 | 0.01 | 30 / 30 | 30 / 30 | True | True | True | agree |
+| official | (−15, −10] | 30 | 30 | 30 | 0 / 30 | 0 | 0.01 | 30 / 30 | 30 / 30 | True | True | True | agree |
+| official | (−10, −6] | 30 | 30 | 30 | 0 / 30 | 0 | 0.01 | 30 / 30 | 30 / 30 | True | True | True | agree |
+| official | (−6, 0] | 150 | 150 | 150 | 0 / 150 | 0 | 0.01 | 150 / 150 | 150 / 150 | True | True | True | agree |
+| e3 | floor (== −30) | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−30, −15] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−15, −10] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−10, −6] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−6, 0] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+
+- **Gate outcome carried in each row:** pass (both sets).
+- **Engine errors:** none in any stratum.
+- **Out-of-tolerance events** (|d| > tau_s): **0** for M1 and for M3 in every stratum, so `pcv_out_of_tolerance.csv` is empty.
+- **Excluded events:** 8, all official floor, method M3, listed in `pcv_excluded.csv`. Sample indices 4, 6, 12, 16, 19, 24, 28, 29; each reason is "M3 not informative" at n = 1e7.
+
+**Official floor stratum, denominators stated:**
+- **The 10% rule:** 8 of 30 events lack an M1 or an M3 value. 8 / 30 = 0.26666666666666666 > 0.10, so the classification as the rule computes it is **"not informative"**.
+- **vs M1:** denominator 30 (no M1 missing); 30 within tau_s = 0.14131474565292546.
+  - median |d| 6.270981532452424e-05; **max |d| 0.1152001978480257**;
+  - **`agree_m1` = False:** the max exceeds `max_abs_any` = 0.1, so "no event lies beyond 0.1" fails.
+- **vs M3:** denominator 22 (8 excluded); 22 within tau_s.
+  - median |d| 0.0002986139894538; max |d| 0.0038119065866339;
+  - `agree_m3` = True.
+- **The one event with |d| > 0.1 against any method** (recomputed in the verification below): official floor, sample index 28, `test_858`.
+  - |engine − M1| = 0.1152; it has no M3 value.
+  - **It is not in `pcv_out_of_tolerance.csv`,** because that file lists |d| > tau_s and 0.1152 ≤ 0.1413.
+  - It is in `pcv_excluded.csv` for M3.
+  - No other event in either set has |d| > 0.1 against M1 or M3.
+
+**95% Clopper–Pearson intervals on the within-tau fractions: DESCRIPTIVE, not a criterion.** Every fraction is 1:
+- 30 / 30: [0.8843, 1];
+- 22 / 22 (official floor, M3): [0.8456, 1];
+- 150 / 150: [0.9757, 1];
+- 20 / 20: [0.8316, 1].
+
+**Independent verification** (outside the repository; does not import the runner):
+- **Script:** `E:/EDI-1/scratch/verify_pcv_compare.py`, SHA-256 `999c25bb12fed7e6b80948fbc1fd077a74743076250f7c79bc517d3c1399eaff`.
+- **What it recomputes,** from `pcv_engine.csv`, `pcv_independent.csv` and the tau_s of `pcv_self_convergence.csv`, every column of `pcv_agreement.csv`:
+  - counts, missing counts, fractions, medians, maxima;
+  - the per-method and both-method flags, the fraction lacking, the not-informative flag, the classification;
+  - the out-of-tolerance and excluded lists.
+- **Result:** **0 mismatches.** The out-of-tolerance list (0) and the excluded list (8) are equal. The same holds on the rerun's tables.
+- **The first version of the script reported 22 differences, all in the last digits of floats,** and no difference in any count, flag or classification. The cause was that version itself: it parsed the CSVs with pandas' default float parser, whereas the runner uses `float_precision="round_trip"`. With round-trip parsing, and recomputed floats passed through the writer's own `to_csv` before an exact comparison, there are 0 mismatches.
+- **Output:** `E:/EDI-1/scratch/pcv_compare_verify.json`, SHA-256 `1a9cdff2d3a8bd890d033d3aae8a4788239b91880353b72fbf771e24ee5dc1d8`.
+
+**Determinism:**
+- **Rerun:** compare ran again at the same HEAD with the same `--prereg-commit`, into `E:/EDI-1/runs/pcv_stage2_rerun/tables`, through a copy of `config/default.yaml` that differs only in `paths.tables_dir`.
+  - Its inputs were the four stage-1 tables copied from the stage-1 rerun folder, each byte-identical to the repository copy.
+  - Timing: 03:29:46 to 03:29:51 +0530, 5 s, exit 0 (`E:/EDI-1/logs/pcv_compare_rerun.log`).
+- **`pcv_agreement.csv`, `pcv_excluded.csv` and `pcv_out_of_tolerance.csv` are byte-identical** across the two runs.
+- **`pcv_provenance_compare.json` differs only in `base_config_hash`, `written_utc` and the table paths.**
+
+**Hashes:**
+- **`reports/hashes/PCV-stage2.sha256.csv`:** 4 files, status `first-recorded`, with the stage-1 columns plus `identical_across_two_runs`. Written by `E:/EDI-1/scratch/hash_pcv_stage2.py` (SHA-256 `450160982887881f0d065ea11505b36988669c5e8b24d55decda18dec3c2f1f5`).
+- **`reports/hashes/PCV-stage1.sha256.csv`:** `identical_across_two_runs` added in a separate commit (`5974a1e`). True for the 6 CSV tables and False for the 3 JSON sidecars; status unchanged.
+
+| File | SHA-256 | Identical across two runs |
+|---|---|---|
+| `pcv_agreement.csv` | `c4be913591000627a15e204135ebb4657becd0e426074e743c5bbc0e424092e3` | True |
+| `pcv_excluded.csv` | `b224de59608e78555fc82f512bb0c5cc954e17c5cd7838f2c937b769d993e737` | True |
+| `pcv_out_of_tolerance.csv` | `7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6` | True |
+| `pcv_provenance_compare.json` | `81ee55172eee98e090933bbd6d7956e878d8d2bdc97e1ca657a8446fca987a4f` | False |
+
+**Not measured:** the effect on E3 and E14 is unmeasured.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
