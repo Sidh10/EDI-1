@@ -5401,6 +5401,151 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sa
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
 
 
+### 2026-10-30 — Pc validation: compare step authorised
+
+**Status:** AUTHORISATION (Sidh), recorded by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only.
+- **Pushed BEFORE the `compare` step runs.** Every fact below was established **before compare**, from the stage-1 tables and the code and text at fixed commits.
+- **Scope:** only `kc pc-validate compare --prereg-commit c3d364b`, from tag `pcv-code-v2` (`e82322e`), detached.
+- **Not authorised:** `m2`, `conventions`, any edit to code, the YAML or tags, any C3a amendment, any merge, and anything touching `main`.
+
+**Decisions recorded by Sidh in sending this instruction:**
+1. **The pre-registered rules stand unchanged:** the 10% not-informative rule, `missing_independent_value_policy: exclude`, and the tau rule. **Nothing is revised after seeing stage 1.**
+2. **The official floor stratum will be classified by the rule exactly as the compare step computes it.** That classification is not a new decision.
+3. **Only the `compare` step is authorised now.**
+4. **Interpretation of the compare result is deferred to Sidh.**
+
+**Correction to the stage-1 results entry (`e3d0b95`):**
+- That entry, and its commit message, say "All 7 CSV tables are byte-identical". **The correct count is 6.**
+- Stage 1 wrote 6 CSV tables and 3 JSON provenance sidecars, 9 files in all. All 9 are in `reports/hashes/PCV-stage1.sha256.csv`.
+
+| File | Type | Step |
+|---|---|---|
+| `pcv_sample_official.csv` | CSV | `sample` |
+| `pcv_sample_e3.csv` | CSV | `sample` |
+| `pcv_engine.csv` | CSV | `self-convergence` |
+| `pcv_self_convergence.csv` | CSV | `self-convergence` |
+| `pcv_independent.csv` | CSV | `gate` |
+| `pcv_gate.csv` | CSV | `gate` |
+| `pcv_provenance_sample.json` | JSON | `sample` |
+| `pcv_provenance_self_convergence.json` | JSON | `self-convergence` |
+| `pcv_provenance_gate.json` | JSON | `gate` |
+
+- The rerun comparison covered all 9 files. **The 6 CSV tables are byte-identical.** The 3 JSON sidecars differ only in `base_config_hash`, `written_utc` and the table paths.
+- That is the only correction; the 9-file hash count was right.
+
+**Pre-registered draw sizes** (verbatim):
+- **The official set,** `config/experiments/pc_validation.yaml` at `c3d364b`:
+  - line 17: `  # population sizes floor 1,673; (-30,-15] 108; (-15,-10] 138; (-10,-6] 98; (-6,0] 150.`
+  - line 19: `    take_all_strata: ["(-6, 0]"]          # all 150 high-risk events`
+  - line 20: `    per_stratum_n: 30                     # floor, (-30,-15], (-15,-10], (-10,-6]`
+- **The E3 set:**
+  - YAML line 23: `  # E3's existing 100 training-pool CDMs, matched on (event_uid, time_to_tca); all 100 match`
+  - `config/default.yaml` line 225: `  n_sample_cdms: 100         # ~100 CDMs, stratified across risk levels (E3 spec)`
+  - line 226: `  n_risk_strata: 5           # stratification bins for the sample`
+  - line 231: `  # numbers of CDMs are drawn per non-empty stratum, so the sample spans the risk`
+- **The draw matches:** official 30 / 30 / 30 / 30 / 150, and E3 20 × 5.
+
+**Official floor stratum, independent methods only** (`pcv_independent.csv`; `pcv_engine.csv` not opened for this):
+- **The 8 events with no M3 value** (sample indices 4, 6, 12, 16, 19, 24, 28, 29):
+  - M1 log10 Pc min / median / max: −258939 / −52260 / −2847.4;
+  - all M1 converged;
+  - M3 not informative, escalated, n = 1e7; its relative SE at 1e7 min / median / max 0.005119 / 0.010793 / 0.023067.
+- **The 22 events with an M3 value:**
+  - M1 log10 Pc min / median / max: −91541.7 / −842.994 / −23.4397;
+  - M3 informative for all 22;
+  - 18 at n = 1e6, relative SE min / median / max 5.548e-5 / 0.001171 / 0.004873;
+  - 4 escalated to 1e7, relative SE 0.002544 / 0.003728 / 0.004806.
+- **Not recorded in the table:**
+  - the relative SE at 1e6 of escalated events (only the final value is kept);
+  - any HBR or sigma column.
+
+**Self-convergence** (`pcv_self_convergence.csv`):
+- **Included:** all events in every stratum. n_nonfinite_pairs is 0 everywhere, and e_s uses only finite pairs (runner line 211).
+- **official:** floor e_s 0.04710491521764182, tau_s 0.14131474565292546; every other stratum tau_s 0.01, with e_s:
+  - (−30, −15] 7.739e-6;
+  - (−15, −10] 4.194e-7;
+  - (−10, −6] 1.883e-7;
+  - (−6, 0] 3.298e-7.
+- **e3:** tau_s 0.01 in every stratum, with e_s floor 1.145e-4; (−30, −15] 7.540e-7; (−15, −10] 4.476e-7; (−10, −6] 4.968e-8; (−6, 0] 6.110e-7.
+- **The max grid difference is not in this table.** It was not computed, because `pcv_engine.csv` was not opened before compare.
+
+**M1 against M3 per stratum: descriptive, NOT pre-registered, no threshold applied** (`pcv_independent.csv`):
+
+| Set | Stratum | n | With both | Median abs Δ | p95 abs Δ | Max abs Δ |
+|---|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 22 | 2.9657e-4 | 1.8684e-3 | 2.3929e-3 |
+| official | (−30, −15] | 30 | 30 | 1.0577e-4 | 6.4876e-4 | 9.4767e-4 |
+| official | (−15, −10] | 30 | 30 | 7.8350e-6 | 1.5196e-4 | 4.3675e-4 |
+| official | (−10, −6] | 30 | 30 | 4.4055e-6 | 1.4158e-4 | 3.2449e-4 |
+| official | (−6, 0] | 150 | 150 | 7.3835e-6 | 1.9307e-4 | 5.7398e-4 |
+| e3 | floor (== −30) | 20 | 20 | 1.4439e-4 | 1.5374e-3 | 2.3645e-3 |
+| e3 | (−30, −15] | 20 | 20 | 4.2414e-5 | 2.4195e-4 | 4.0197e-4 |
+| e3 | (−15, −10] | 20 | 20 | 1.5765e-5 | 1.3666e-4 | 4.0636e-4 |
+| e3 | (−10, −6] | 20 | 20 | 9.4606e-6 | 5.8791e-5 | 7.1657e-5 |
+| e3 | (−6, 0] | 20 | 20 | 9.2352e-6 | 1.0210e-4 | 1.9496e-4 |
+
+- The set-level values reproduce `pcv_gate.csv`: official median 9.554863951599657e-06 on 262 events; e3 2.147582179645724e-05 on 100.
+
+**Compare semantics: code at `pcv-code-v2`** (`src/kelvins_conformal/models/pc_validation_runner.py`), verbatim:
+- **(i) Per-method fractions, lines 234–248:**
+  - `    missing = lacks & ~err                    # an engine error stays a disagreement even if the method lacks a value`
+  - `    eff[err] = math.inf                       # engine error: a disagreement (item 9 as amended)`
+  - `        keep = ~missing`
+  - `    frac = float(np.mean(e <= tau))`
+  - The agreement test is lines 250–251: `    agree = (frac >= float(agreement["min_frac_within"]) and not bool(np.any(e > float(agreement["max_abs_any"])))` and `             and med <= float(agreement["max_median_abs"]))`.
+- **(ii) Both methods, line 283:** `    agree = bool(s1["agree"] and s3["agree"])`
+  - **There is no event-level "agrees with both" fraction.** Each method is judged on its own denominator.
+  - An event with an M1 value and no M3 value is **counted in M1's fraction and excluded from M3's**, unless the engine erred on it, in which case it stays in both as a disagreement.
+- **(iii) The 10% rule, lines 282 and 284:**
+  - `    frac_lacking = float(np.mean(l1 | l3)) if err.size else math.nan`
+  - `    not_informative = bool(err.size == 0 or frac_lacking > threshold)`
+  - **The denominator is all of the stratum's events,** engine-error events included, and the test is strictly greater than 0.10.
+- **The tau source, line 602:** `        tau = float(sc.loc[(sc["set"] == set_name) & (sc["stratum"] == stratum), "tau_s"].iloc[0])`
+
+**Pre-registered text at `c3d364b`, verbatim:**
+- **(iv) YAML,** `config/experiments/pc_validation.yaml` lines 33–34 and 36–53:
+
+```
+gate_m1_m3:
+  max_median_abs_dlog10: 0.005 # step (ii): M1 vs M3 must agree, else outcome b'
+agreement:
+  tau_floor: 0.01              # tau_s = max(tau_floor, tau_mult * e_s)
+  tau_mult: 3.0                # e_s = per-stratum 95th pct of |engine(2x) - engine(1x)|
+  min_frac_within: 0.95
+  max_abs_any: 0.1
+  max_median_abs: 0.005
+  # Item 9, AMENDED (Sidh 2026-10-24): agreement requires the engine to agree with BOTH M1 and M3,
+  # and an engine evaluation error counts as a DISAGREEMENT (it is not excluded).
+  require_both_m1_m3: true
+  engine_errors_count_as_disagreement: true
+  # SET by Sidh on 2026-10-25, before any real-data run (was OPEN, null): an event with no valid
+  # independent value (M1 non-convergence, or M3 "not informative") is EXCLUDED from that method's
+  # agreement fractions. Engine evaluation errors still count as disagreements (above). Excluded
+  # events are listed per stratum. A stratum is classed "not informative" if more than 10% of its
+  # events lack an M1 or an M3 value.
+  missing_independent_value_policy: exclude
+  list_excluded_events_per_stratum: true
+  not_informative_if_frac_missing_above: 0.10
+```
+
+- **DECISIONS.md at `c3d364b`:**
+  - 2026-10-24 confirmation, item 9: "engine evaluation errors **count as disagreements**; agreement **requires both M1 and M3**";
+  - the 2026-10-14 reconstruction, section 4: "≥ 95% of the stratum's events lie within τ_s", "no event lies beyond 0.1", "the median |Δ| is ≤ 0.005", "The floor stratum is judged on unfloored values";
+  - 2026-10-25 (c): "excluded from that method's agreement fractions" and "more than 10% of its events lack an M1 or an M3 value".
+
+**Go/no-go:**
+- **The code and the pre-registered text agree on (i) to (iv).** Neither defines an event-level joint fraction for (ii); both judge each method separately and require both.
+- The engine values entering compare are the unfloored ones (`engine_log10` = `log10_pc_unfloored`, runner line 543), as the text requires.
+
+**Expected runtime:**
+- `compare` evaluates no Pc. It reads the four stage-1 tables and classifies them, so it is expected to take seconds, plus Python start-up.
+- **The committed estimate** (`4a65ccb`, all six steps) is about 2 minutes to 1 hour. The stop rule is a run over 2x the 56.8-minute upper bound.
+
+**Not measured:** the effect on E3 and E14 is unmeasured, and this step does not measure it.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
