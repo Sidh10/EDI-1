@@ -74,15 +74,19 @@ class PreregGuardError(RuntimeError):
 # The heading of the 2026-10-24 confirmation entry; the guard requires it in DECISIONS.md at the
 # pre-registration commit.
 PREREG_HEADING = "PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation"
-# The amendments the guard also requires at the pre-registration commit (amendment of 2026-10-27), as
-# whole heading lines: the C3a designation (introduced in fb4f957) and the second branch of the C3a
-# sensitivity rule (8d64986).
+# The amendments the guard also requires at the pre-registration commit, as whole heading lines: the C3a
+# designation (introduced in fb4f957), the second branch of the C3a sensitivity rule (8d64986), and, from the
+# amendment of 2026-10-31, the m2 stop entry (0c34eb5) and the m2 amendment (7d94d25).
 C3A_DESIGNATION_HEADING = ("### 2026-10-26 — AMENDMENT to the Pc validation pre-registration: C3a designated "
                            "the documented convention (Sidh)")
 C3A_SECOND_BRANCH_HEADING = ("### 2026-10-27 — AMENDMENT to the Pc validation pre-registration: C3a: second "
                              "branch of the sensitivity rule")
+M2_STOP_HEADING = "### 2026-10-30 — Pc validation: m2 stopped at pre-run check; a-priori skip defect"
+M2_AMENDMENT_HEADING = "### 2026-10-31 — Pc validation: m2 a-priori skip and non-finite M1 - amendment"
 AMENDMENT_HEADINGS: dict[str, str] = {C3A_DESIGNATION_HEADING: "the C3a designation amendment (2026-10-26)",
-                                      C3A_SECOND_BRANCH_HEADING: "the C3a second-branch amendment (2026-10-27)"}
+                                      C3A_SECOND_BRANCH_HEADING: "the C3a second-branch amendment (2026-10-27)",
+                                      M2_STOP_HEADING: "the m2 stop entry (2026-10-30)",
+                                      M2_AMENDMENT_HEADING: "the m2 amendment (2026-10-31)"}
 PCV_CONFIG_REPO_PATH = "config/experiments/pc_validation.yaml"
 _CRLF, _LF = bytes((13, 10)), bytes((10,))
 
@@ -128,8 +132,8 @@ def verify_prereg(prereg_commit: str | None, *, yaml_path: str | Path | None = N
     """Refuse unless the pre-registration is verifiable; every step reads real data or its products.
 
     Requires (1) ``prereg_commit`` given and a commit; (2) an ancestor of HEAD; (3) DECISIONS.md at that
-    commit containing the confirmation heading and, as heading lines, both C3a amendments
-    (``AMENDMENT_HEADINGS``; amendment of 2026-10-27); (4) the canonical SHA-256 of the validation YAML
+    commit containing the confirmation heading and, as heading lines, both C3a amendments, the m2 stop
+    entry and the m2 amendment (``AMENDMENT_HEADINGS``); (4) the canonical SHA-256 of the validation YAML
     in use equal to that of the YAML committed at that commit. Returns what was verified, for provenance.
     """
     repo = Path(repo)

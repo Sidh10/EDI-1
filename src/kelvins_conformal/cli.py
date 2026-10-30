@@ -388,8 +388,9 @@ def pc_validate(
     prereg_commit: str | None = typer.Option(
         None, "--prereg-commit",
         help="Commit holding the confirmed pre-registration: must be an ancestor of HEAD, its DECISIONS.md "
-             "must contain the confirmation heading and both C3a amendment headings (2026-10-26, 2026-10-27), "
-             "and the YAML in use must match the one committed there."),
+             "must contain the confirmation heading, both C3a amendment headings (2026-10-26, 2026-10-27), the "
+             "m2 stop entry and the m2 amendment headings (2026-10-30, 2026-10-31), and the YAML in use must "
+             "match the one committed there."),
 ) -> None:
     """Pc engine independent validation (REVIEWER_CHECKLIST RP4), one pre-registered step at a time.
 
