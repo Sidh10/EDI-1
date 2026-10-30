@@ -271,11 +271,13 @@ def pc_m2(g: PlaneGeometry, *, seed: int, chunk: int, cap: int, min_hits: int, m
     """M2: plain Monte Carlo hit counting (pre-registration item 8).
 
     If ``prior_log10_pc`` (the M1 estimate) implies min_hits / Pc > cap, the event is "not
-    informative (a priori)" and is not sampled. Otherwise chunks are drawn until ``min_hits`` hits or
-    ``cap`` samples; the result counts only if its relative SE <= ``max_rel_se``.
+    informative (a priori)" and is not sampled. The test is in log space, so a Pc too small for a double
+    (M1 below about -323, or -inf) is skipped like any other (amendment of 2026-10-31); a NaN M1 gives
+    no prior. Otherwise chunks are drawn until ``min_hits`` hits or ``cap`` samples; the result counts
+    only if its relative SE <= ``max_rel_se``.
     """
-    if prior_log10_pc is not None and math.isfinite(prior_log10_pc):
-        if min_hits / (10.0 ** prior_log10_pc) > cap:
+    if prior_log10_pc is not None and not math.isnan(prior_log10_pc):
+        if math.log10(min_hits) - prior_log10_pc > math.log10(cap):
             return M2Result(0, 0, math.nan, math.inf, False, "not informative (a priori)")
     rng = np.random.default_rng(seed)
     r2 = g.hbr ** 2

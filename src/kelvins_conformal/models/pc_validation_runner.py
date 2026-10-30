@@ -650,7 +650,7 @@ def step_m2(cfg: Config, pcv: dict) -> list[str]:
         g = pi.geometry_from_row(rows_by_key[(r["set"], int(r["sample_index"]))])
         res = pi.pc_m2(g, seed=m2_seed, chunk=int(c["chunk"]), cap=int(c["cap"]),
                        min_hits=int(c["min_hits_target"]), max_rel_se=float(c["max_rel_se_counted"]),
-                       prior_log10_pc=r["m1_log10"] if math.isfinite(r["m1_log10"]) else None)
+                       prior_log10_pc=r["m1_log10"] if not math.isnan(r["m1_log10"]) else None)
         cons = (pi.m2_consistent(res, r["engine_log10"], n_se=float(c["n_se"]))
                 if math.isfinite(r["engine_log10"]) else None)
         recs.append({**rec, "status": res.status, "hits": res.hits, "n": res.n, "p_hat": res.p_hat,
