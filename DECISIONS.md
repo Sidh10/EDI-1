@@ -5264,6 +5264,608 @@ The script lives in `E:/EDI-1/scratch/`, not the repository. Its SHA-256, the sa
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-27).
 
 
+### 2026-10-30 — Pc validation: first real-data stage authorised
+
+**Status:** AUTHORISATION (Sidh), recorded by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only.
+- **Pushed before the run.** No `kc pc-validate` step has been run on real data before this entry.
+- **No earlier entry is edited**, and the validation YAML is not edited.
+
+**What is run:**
+- **Pre-registration commit:** `--prereg-commit c3d364b` (the merge of phase5 into `pc-validation`, which holds the confirmation entry and both C3a amendments).
+- **Code:** tag **`pcv-code-v2`** (commit `e82322e`), checked out detached.
+- **Validation YAML:** canonical SHA-256 **`7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`**, unchanged.
+- **The first stage is the steps `sample`, `self-convergence` and `gate`, in that order, and nothing else.**
+- **Not authorised by this entry:** the `compare`, `m2` and `conventions` steps.
+
+**Accepted as implemented (Sidh):**
+- **C3a_R** is implemented in code (`convention_ids`, which adds it after C3a). The YAML's C3a description text describes C3a_R. **Accepted.**
+- **C3b** stays the registered computation: the rotation about R with the relative velocity's sign reversed. **This is a note on the name only**; the computation is not changed.
+
+**Reading `test_data_private.csv`:**
+- **Sidh authorises reading `test_data_private.csv` for the pre-registered stratified sample and the validation steps only.**
+- **Why:**
+  - it holds the official-test target CDMs' inputs and their reported risk;
+  - no model is evaluated;
+  - E14 already read it.
+- **How the stage-1 steps use it** (code at `pcv-code-v2`, read with `git show`):
+  - `sample`: `official_test_target_cdms` reads all its rows and columns (schema-checked), and stratifies on `true_risk` (renamed `target_log_risk`, written to the sample table as `reported`) with E3's edges.
+  - `self-convergence` and `gate`: re-read it, to take the full rows of the 270 sampled events.
+
+**Pending, before the `conventions` step:**
+- **As stated by Sidh:** the new C3a raises an error on a row with zero chaser angular momentum or a non-finite input. This must be amended, tested and tagged before the `conventions` step.
+- **Observed on synthetic rows at `pcv-code-v2`** (Claude Code, 2026-10-30, the tag's `src` exported with `git archive`; no real data):
+  - **zero chaser angular momentum raises `ValueError`;**
+  - **a non-finite input does not raise.** NaN in a relative position, `t_j2k_sma` or a chaser sigma, or inf in a relative velocity, propagates into the rotated chaser covariance as NaN, and `engine_eval` then records the per-event error "missing required field".
+  - How the amendment should treat each case is Sidh's decision.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
+### 2026-10-30 — RESULTS: Pc validation, first real-data stage (sample, self-convergence, gate; authorised in 59340f2)
+
+**Status:** RECORDED by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only. **Facts only: no recommendation, no comparison of the engine with the independent methods, and nothing read against E3 or E14.**
+- **Run:** only `sample`, `self-convergence` and `gate`. **Not run:** `compare`, `m2`, `conventions`.
+- **Interpretation is Sidh's.**
+
+**Run identity:**
+- **Run id:** `pcv-stage1-2026-10-30T03:09:21+05:30`, the start of the `sample` step.
+- **Code:** tag `pcv-code-v2`, commit `e82322e46626212195fabfd3ef1632a473872527`, checked out detached; tree clean.
+- **Pre-registration:** `--prereg-commit c3d364b`; the guard accepted it for all three steps.
+- **Validation YAML:** canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`.
+- **Base config hash:** `00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5`.
+- **Inputs checked beforehand:**
+  - `reports/tables/e3_full_comparison.csv` SHA-256 `4a2863cd013e0c3e3f3cbd37c4eaeb1a400bf81f48e637b5fcc95845b4aa471a`, as expected;
+  - `data/processed/events.parquet` present, though none of the three steps reads it.
+- **Machine before the run:** commit headroom 14.43 GB of 38.18 GB; free RAM 2.52 GB of 15.71 GB.
+  - The 5-second sampler (`E:/EDI-1/logs/pcv_stage1_commit.log`, 75 samples, covering both runs) recorded a minimum headroom of **12.30 GB**.
+
+**Step timings** (wall clock; logs `E:/EDI-1/logs/pcv_<step>.log`):
+
+| Step | Start (IST) | Wall clock | Exit | Tables written |
+|---|---|---|---|---|
+| `sample` | 03:09:21 | 16 s | 0 | `pcv_sample_official.csv`, `pcv_sample_e3.csv` |
+| `self-convergence` | 03:09:37 | 35 s | 0 | `pcv_engine.csv`, `pcv_self_convergence.csv` |
+| `gate` | 03:10:12 | 101 s | 0 | `pcv_independent.csv`, `pcv_gate.csv` |
+
+- **Total:** about 2.5 minutes. Each step also wrote its `pcv_provenance_<step>.json`.
+- **The committed estimate** (`4a65ccb`, all six steps, 370 events): about 2 minutes to 1 hour (56.8 min, the worst case at 2x). Data loading was not included. The stop rule (a step over 2x that upper bound) was not approached.
+
+**Sample:**
+- **Official-test draw (270 events, all unique):** floor (== −30) 30; (−30, −15] 30; (−15, −10] 30; (−10, −6] 30; (−6, 0] 150.
+- **E3 set (100 events):** 20 in each of the five strata.
+- **SHA-256:**
+  - `pcv_sample_official.csv`: `75940f08e2d577ece44850d8de4e11cff7ab23d6910100a6834706209d0f2937`;
+  - `pcv_sample_e3.csv`: `045d30003473f155423885f88ca14cac5e72421ce9242b65b21f78709004e2b1`.
+
+**Self-convergence** (engine at 1x against 2x grid; e_s is the 95th percentile of the absolute difference; tau_s = max(0.01, 3·e_s)):
+
+| Set | Stratum | n | Non-finite pairs | e_s | tau_s |
+|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 0 | 4.710e-2 | 0.1413 |
+| official | (−30, −15] | 30 | 0 | 7.739e-6 | 0.01 |
+| official | (−15, −10] | 30 | 0 | 4.194e-7 | 0.01 |
+| official | (−10, −6] | 30 | 0 | 1.883e-7 | 0.01 |
+| official | (−6, 0] | 150 | 0 | 3.298e-7 | 0.01 |
+| e3 | floor (== −30) | 20 | 0 | 1.145e-4 | 0.01 |
+| e3 | (−30, −15] | 20 | 0 | 7.540e-7 | 0.01 |
+| e3 | (−15, −10] | 20 | 0 | 4.476e-7 | 0.01 |
+| e3 | (−10, −6] | 20 | 0 | 4.968e-8 | 0.01 |
+| e3 | (−6, 0] | 20 | 0 | 6.110e-7 | 0.01 |
+
+**Gate: M1 against M3** (`pcv_gate.csv`; threshold: median |Δlog10| ≤ 0.005):
+
+| Set | Events with both values | Without one | Median |Δlog10| | Max |Δlog10| | Outcome |
+|---|---|---|---|---|---|
+| official | 262 | 8 | 9.555e-6 | 2.393e-3 | **pass** |
+| e3 | 100 | 0 | 2.148e-5 | 2.364e-3 | **pass** |
+
+- **M1:** converged for all 370 events (`m1_ier` = 0 throughout).
+- **Assembly errors:** none.
+- **M3:** escalated to 1e7 samples for 14 events: 12 in the official floor stratum and 2 in the E3 floor stratum.
+- **Events without an independent value, per stratum:**
+  - **official floor (== −30): 8 of 30 lack an M3 value** (M3 not informative after escalation; sample indices 4, 6, 12, 16, 19, 24, 28, 29);
+  - every other stratum, in both sets: 0.
+- **"Not informative":**
+  - In the official floor stratum, 8 of 30 events (26.7%) lack an independent value. That is above the pre-registered 10% (`not_informative_if_frac_missing_above: 0.10`).
+  - The classification itself is made by the `compare` step, which was not run.
+  - No other stratum has a missing value.
+
+**Determinism:**
+- **The stage was run a second time** at the same commit, with the same `--prereg-commit`. The output went to `E:/EDI-1/runs/pcv_stage1_rerun/tables`, through a copy of `config/default.yaml` that differs only in `paths.tables_dir`, with a copy of `e3_full_comparison.csv` (same SHA-256). Timings: 14 s, 34 s, 110 s.
+- **All 7 CSV tables are byte-identical** between the two runs.
+- **The 3 provenance JSON files differ only in `base_config_hash`** (the changed `tables_dir`), `written_utc`, and the written table paths. Their commit, pre-registration commit and YAML hash are the same.
+
+**Hashes:**
+- **File:** `reports/hashes/PCV-stage1.sha256.csv`, 9 files (6 tables and 3 provenance sidecars of the first run), status `first-recorded`.
+- **Columns:** as in `E1-E3.sha256.csv`, plus `pc_validation_yaml_sha256`, `prereg_commit`, `run_id` and `step`.
+- **Written by** `E:/EDI-1/scratch/hash_pcv_stage1.py` (SHA-256 `b3f935b8a923eeb49bbab1b4fa49e9cc87cd5123fc5d80934652db839bd8341a`), outside the repository.
+
+| File | SHA-256 |
+|---|---|
+| `pcv_sample_official.csv` | `75940f08e2d577ece44850d8de4e11cff7ab23d6910100a6834706209d0f2937` |
+| `pcv_sample_e3.csv` | `045d30003473f155423885f88ca14cac5e72421ce9242b65b21f78709004e2b1` |
+| `pcv_engine.csv` | `b04dd89e584b3f7e3ca7d7923b9710c0c6d02562cb3bae3b0ec8da1087c623cf` |
+| `pcv_self_convergence.csv` | `100abf15c0aa906a5f0cff4510b2df2182dab1e12fd73ed273979f2cb36603c7` |
+| `pcv_independent.csv` | `f35b6900ec273c390ebc349a2990d01f62fb85db1979e4750498dc6d0114eedf` |
+| `pcv_gate.csv` | `195b13d94fd22d5be736bd1c7a7df29ffa355282f1f909c410c557a60452eaa0` |
+| `pcv_provenance_sample.json` | `f289b4c77bce6a4a345be672d2d1bd7d7b86cfa5ff19e880c9e50653784965bf` |
+| `pcv_provenance_self_convergence.json` | `7fb8d4104924ef4713f902ec958ca5c60145fbfb8ac223a678e3d36293ef3be5` |
+| `pcv_provenance_gate.json` | `425f893fa19c7e8b0971988bc921a252384358ae613fad48b5c2f02d10c57685` |
+
+**What the stage read** (code at `pcv-code-v2`):
+- `test_data_private.csv` (all columns) for the official-test rows, as authorised in `59340f2`;
+- `train_data.csv` (in `train_data.zip`) for the E3 rows;
+- `e3_full_comparison.csv`. Only its `event_uid`, `time_to_tca`, `stratum` and `reported` columns are used; the whole file is parsed.
+- **The reported risk** is used to stratify and to check the E3 rows (reported == risk). It is carried into the sample tables and `pcv_engine.csv` as the column `reported`. **No step compared it with anything.**
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
+### 2026-10-30 — Pc validation: compare step authorised
+
+**Status:** AUTHORISATION (Sidh), recorded by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only.
+- **Pushed BEFORE the `compare` step runs.** Every fact below was established **before compare**, from the stage-1 tables and the code and text at fixed commits.
+- **Scope:** only `kc pc-validate compare --prereg-commit c3d364b`, from tag `pcv-code-v2` (`e82322e`), detached.
+- **Not authorised:** `m2`, `conventions`, any edit to code, the YAML or tags, any C3a amendment, any merge, and anything touching `main`.
+
+**Decisions recorded by Sidh in sending this instruction:**
+1. **The pre-registered rules stand unchanged:** the 10% not-informative rule, `missing_independent_value_policy: exclude`, and the tau rule. **Nothing is revised after seeing stage 1.**
+2. **The official floor stratum will be classified by the rule exactly as the compare step computes it.** That classification is not a new decision.
+3. **Only the `compare` step is authorised now.**
+4. **Interpretation of the compare result is deferred to Sidh.**
+
+**Correction to the stage-1 results entry (`e3d0b95`):**
+- That entry, and its commit message, say "All 7 CSV tables are byte-identical". **The correct count is 6.**
+- Stage 1 wrote 6 CSV tables and 3 JSON provenance sidecars, 9 files in all. All 9 are in `reports/hashes/PCV-stage1.sha256.csv`.
+
+| File | Type | Step |
+|---|---|---|
+| `pcv_sample_official.csv` | CSV | `sample` |
+| `pcv_sample_e3.csv` | CSV | `sample` |
+| `pcv_engine.csv` | CSV | `self-convergence` |
+| `pcv_self_convergence.csv` | CSV | `self-convergence` |
+| `pcv_independent.csv` | CSV | `gate` |
+| `pcv_gate.csv` | CSV | `gate` |
+| `pcv_provenance_sample.json` | JSON | `sample` |
+| `pcv_provenance_self_convergence.json` | JSON | `self-convergence` |
+| `pcv_provenance_gate.json` | JSON | `gate` |
+
+- The rerun comparison covered all 9 files. **The 6 CSV tables are byte-identical.** The 3 JSON sidecars differ only in `base_config_hash`, `written_utc` and the table paths.
+- That is the only correction; the 9-file hash count was right.
+
+**Pre-registered draw sizes** (verbatim):
+- **The official set,** `config/experiments/pc_validation.yaml` at `c3d364b`:
+  - line 17: `  # population sizes floor 1,673; (-30,-15] 108; (-15,-10] 138; (-10,-6] 98; (-6,0] 150.`
+  - line 19: `    take_all_strata: ["(-6, 0]"]          # all 150 high-risk events`
+  - line 20: `    per_stratum_n: 30                     # floor, (-30,-15], (-15,-10], (-10,-6]`
+- **The E3 set:**
+  - YAML line 23: `  # E3's existing 100 training-pool CDMs, matched on (event_uid, time_to_tca); all 100 match`
+  - `config/default.yaml` line 225: `  n_sample_cdms: 100         # ~100 CDMs, stratified across risk levels (E3 spec)`
+  - line 226: `  n_risk_strata: 5           # stratification bins for the sample`
+  - line 231: `  # numbers of CDMs are drawn per non-empty stratum, so the sample spans the risk`
+- **The draw matches:** official 30 / 30 / 30 / 30 / 150, and E3 20 × 5.
+
+**Official floor stratum, independent methods only** (`pcv_independent.csv`; `pcv_engine.csv` not opened for this):
+- **The 8 events with no M3 value** (sample indices 4, 6, 12, 16, 19, 24, 28, 29):
+  - M1 log10 Pc min / median / max: −258939 / −52260 / −2847.4;
+  - all M1 converged;
+  - M3 not informative, escalated, n = 1e7; its relative SE at 1e7 min / median / max 0.005119 / 0.010793 / 0.023067.
+- **The 22 events with an M3 value:**
+  - M1 log10 Pc min / median / max: −91541.7 / −842.994 / −23.4397;
+  - M3 informative for all 22;
+  - 18 at n = 1e6, relative SE min / median / max 5.548e-5 / 0.001171 / 0.004873;
+  - 4 escalated to 1e7, relative SE 0.002544 / 0.003728 / 0.004806.
+- **Not recorded in the table:**
+  - the relative SE at 1e6 of escalated events (only the final value is kept);
+  - any HBR or sigma column.
+
+**Self-convergence** (`pcv_self_convergence.csv`):
+- **Included:** all events in every stratum. n_nonfinite_pairs is 0 everywhere, and e_s uses only finite pairs (runner line 211).
+- **official:** floor e_s 0.04710491521764182, tau_s 0.14131474565292546; every other stratum tau_s 0.01, with e_s:
+  - (−30, −15] 7.739e-6;
+  - (−15, −10] 4.194e-7;
+  - (−10, −6] 1.883e-7;
+  - (−6, 0] 3.298e-7.
+- **e3:** tau_s 0.01 in every stratum, with e_s floor 1.145e-4; (−30, −15] 7.540e-7; (−15, −10] 4.476e-7; (−10, −6] 4.968e-8; (−6, 0] 6.110e-7.
+- **The max grid difference is not in this table.** It was not computed, because `pcv_engine.csv` was not opened before compare.
+
+**M1 against M3 per stratum: descriptive, NOT pre-registered, no threshold applied** (`pcv_independent.csv`):
+
+| Set | Stratum | n | With both | Median abs Δ | p95 abs Δ | Max abs Δ |
+|---|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 22 | 2.9657e-4 | 1.8684e-3 | 2.3929e-3 |
+| official | (−30, −15] | 30 | 30 | 1.0577e-4 | 6.4876e-4 | 9.4767e-4 |
+| official | (−15, −10] | 30 | 30 | 7.8350e-6 | 1.5196e-4 | 4.3675e-4 |
+| official | (−10, −6] | 30 | 30 | 4.4055e-6 | 1.4158e-4 | 3.2449e-4 |
+| official | (−6, 0] | 150 | 150 | 7.3835e-6 | 1.9307e-4 | 5.7398e-4 |
+| e3 | floor (== −30) | 20 | 20 | 1.4439e-4 | 1.5374e-3 | 2.3645e-3 |
+| e3 | (−30, −15] | 20 | 20 | 4.2414e-5 | 2.4195e-4 | 4.0197e-4 |
+| e3 | (−15, −10] | 20 | 20 | 1.5765e-5 | 1.3666e-4 | 4.0636e-4 |
+| e3 | (−10, −6] | 20 | 20 | 9.4606e-6 | 5.8791e-5 | 7.1657e-5 |
+| e3 | (−6, 0] | 20 | 20 | 9.2352e-6 | 1.0210e-4 | 1.9496e-4 |
+
+- The set-level values reproduce `pcv_gate.csv`: official median 9.554863951599657e-06 on 262 events; e3 2.147582179645724e-05 on 100.
+
+**Compare semantics: code at `pcv-code-v2`** (`src/kelvins_conformal/models/pc_validation_runner.py`), verbatim:
+- **(i) Per-method fractions, lines 234–248:**
+  - `    missing = lacks & ~err                    # an engine error stays a disagreement even if the method lacks a value`
+  - `    eff[err] = math.inf                       # engine error: a disagreement (item 9 as amended)`
+  - `        keep = ~missing`
+  - `    frac = float(np.mean(e <= tau))`
+  - The agreement test is lines 250–251: `    agree = (frac >= float(agreement["min_frac_within"]) and not bool(np.any(e > float(agreement["max_abs_any"])))` and `             and med <= float(agreement["max_median_abs"]))`.
+- **(ii) Both methods, line 283:** `    agree = bool(s1["agree"] and s3["agree"])`
+  - **There is no event-level "agrees with both" fraction.** Each method is judged on its own denominator.
+  - An event with an M1 value and no M3 value is **counted in M1's fraction and excluded from M3's**, unless the engine erred on it, in which case it stays in both as a disagreement.
+- **(iii) The 10% rule, lines 282 and 284:**
+  - `    frac_lacking = float(np.mean(l1 | l3)) if err.size else math.nan`
+  - `    not_informative = bool(err.size == 0 or frac_lacking > threshold)`
+  - **The denominator is all of the stratum's events,** engine-error events included, and the test is strictly greater than 0.10.
+- **The tau source, line 602:** `        tau = float(sc.loc[(sc["set"] == set_name) & (sc["stratum"] == stratum), "tau_s"].iloc[0])`
+
+**Pre-registered text at `c3d364b`, verbatim:**
+- **(iv) YAML,** `config/experiments/pc_validation.yaml` lines 33–34 and 36–53:
+
+```
+gate_m1_m3:
+  max_median_abs_dlog10: 0.005 # step (ii): M1 vs M3 must agree, else outcome b'
+agreement:
+  tau_floor: 0.01              # tau_s = max(tau_floor, tau_mult * e_s)
+  tau_mult: 3.0                # e_s = per-stratum 95th pct of |engine(2x) - engine(1x)|
+  min_frac_within: 0.95
+  max_abs_any: 0.1
+  max_median_abs: 0.005
+  # Item 9, AMENDED (Sidh 2026-10-24): agreement requires the engine to agree with BOTH M1 and M3,
+  # and an engine evaluation error counts as a DISAGREEMENT (it is not excluded).
+  require_both_m1_m3: true
+  engine_errors_count_as_disagreement: true
+  # SET by Sidh on 2026-10-25, before any real-data run (was OPEN, null): an event with no valid
+  # independent value (M1 non-convergence, or M3 "not informative") is EXCLUDED from that method's
+  # agreement fractions. Engine evaluation errors still count as disagreements (above). Excluded
+  # events are listed per stratum. A stratum is classed "not informative" if more than 10% of its
+  # events lack an M1 or an M3 value.
+  missing_independent_value_policy: exclude
+  list_excluded_events_per_stratum: true
+  not_informative_if_frac_missing_above: 0.10
+```
+
+- **DECISIONS.md at `c3d364b`:**
+  - 2026-10-24 confirmation, item 9: "engine evaluation errors **count as disagreements**; agreement **requires both M1 and M3**";
+  - the 2026-10-14 reconstruction, section 4: "≥ 95% of the stratum's events lie within τ_s", "no event lies beyond 0.1", "the median |Δ| is ≤ 0.005", "The floor stratum is judged on unfloored values";
+  - 2026-10-25 (c): "excluded from that method's agreement fractions" and "more than 10% of its events lack an M1 or an M3 value".
+
+**Go/no-go:**
+- **The code and the pre-registered text agree on (i) to (iv).** Neither defines an event-level joint fraction for (ii); both judge each method separately and require both.
+- The engine values entering compare are the unfloored ones (`engine_log10` = `log10_pc_unfloored`, runner line 543), as the text requires.
+
+**Expected runtime:**
+- `compare` evaluates no Pc. It reads the four stage-1 tables and classifies them, so it is expected to take seconds, plus Python start-up.
+- **The committed estimate** (`4a65ccb`, all six steps) is about 2 minutes to 1 hour. The stop rule is a run over 2x the 56.8-minute upper bound.
+
+**Not measured:** the effect on E3 and E14 is unmeasured, and this step does not measure it.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
+### 2026-10-30 — RESULTS: Pc validation, compare step (authorised in b3aef60)
+
+**Status:** RECORDED by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only. **Facts only: no interpretation, and nothing related to E3's within-tolerance fraction, to E14 or to reported risk.**
+- **Interpretation of this result is Sidh's** (decision 4 of `b3aef60`).
+- **Not run:** `m2`, `conventions`.
+- **Not changed:** code, the YAML, tags, `main`.
+
+**Run:**
+- **Command:** `kc pc-validate compare --prereg-commit c3d364b`, from tag `pcv-code-v2` (HEAD `e82322e46626212195fabfd3ef1632a473872527`), detached; tree clean.
+- **Timing:** started 2026-10-30 03:27:55 +0530, ended 03:27:59; **4 s**, exit 0 (`E:/EDI-1/logs/pcv_compare.log`).
+- **Headroom:** 14.02 GB before the start. The 5-second sampler (`E:/EDI-1/logs/pcv_stage2_commit.log`, 26 samples) recorded a minimum of 13.32 GB.
+- **The guard accepted `c3d364b`.** YAML canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`; base config hash `00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5`.
+- **Written:** `pcv_agreement.csv` (10 rows, 25 columns), `pcv_excluded.csv` (8 rows), `pcv_out_of_tolerance.csv`, and `pcv_provenance_compare.json`.
+  - `pcv_out_of_tolerance.csv` is 2 bytes, a single CRLF: **no rows and no header**, because the frame written was empty.
+
+**Results** (`pcv_agreement.csv`; policy `exclude`; engine errors count as disagreements):
+
+| Set | Stratum | Events | With M1 | With M3 | Lacking M1 or M3 | Engine errors | tau_s | vs M1: within / n | vs M3: within / n | agree_m1 | agree_m3 | Both | Classification |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 30 | 22 | 8 / 30 = 0.2667 | 0 | 0.1413 | 30 / 30 | 22 / 22 | **False** | True | False | **not informative** |
+| official | (−30, −15] | 30 | 30 | 30 | 0 / 30 | 0 | 0.01 | 30 / 30 | 30 / 30 | True | True | True | agree |
+| official | (−15, −10] | 30 | 30 | 30 | 0 / 30 | 0 | 0.01 | 30 / 30 | 30 / 30 | True | True | True | agree |
+| official | (−10, −6] | 30 | 30 | 30 | 0 / 30 | 0 | 0.01 | 30 / 30 | 30 / 30 | True | True | True | agree |
+| official | (−6, 0] | 150 | 150 | 150 | 0 / 150 | 0 | 0.01 | 150 / 150 | 150 / 150 | True | True | True | agree |
+| e3 | floor (== −30) | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−30, −15] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−15, −10] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−10, −6] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+| e3 | (−6, 0] | 20 | 20 | 20 | 0 / 20 | 0 | 0.01 | 20 / 20 | 20 / 20 | True | True | True | agree |
+
+- **Gate outcome carried in each row:** pass (both sets).
+- **Engine errors:** none in any stratum.
+- **Out-of-tolerance events** (|d| > tau_s): **0** for M1 and for M3 in every stratum, so `pcv_out_of_tolerance.csv` is empty.
+- **Excluded events:** 8, all official floor, method M3, listed in `pcv_excluded.csv`. Sample indices 4, 6, 12, 16, 19, 24, 28, 29; each reason is "M3 not informative" at n = 1e7.
+
+**Official floor stratum, denominators stated:**
+- **The 10% rule:** 8 of 30 events lack an M1 or an M3 value. 8 / 30 = 0.26666666666666666 > 0.10, so the classification as the rule computes it is **"not informative"**.
+- **vs M1:** denominator 30 (no M1 missing); 30 within tau_s = 0.14131474565292546.
+  - median |d| 6.270981532452424e-05; **max |d| 0.1152001978480257**;
+  - **`agree_m1` = False:** the max exceeds `max_abs_any` = 0.1, so "no event lies beyond 0.1" fails.
+- **vs M3:** denominator 22 (8 excluded); 22 within tau_s.
+  - median |d| 0.0002986139894538; max |d| 0.0038119065866339;
+  - `agree_m3` = True.
+- **The one event with |d| > 0.1 against any method** (recomputed in the verification below): official floor, sample index 28, `test_858`.
+  - |engine − M1| = 0.1152; it has no M3 value.
+  - **It is not in `pcv_out_of_tolerance.csv`,** because that file lists |d| > tau_s and 0.1152 ≤ 0.1413.
+  - It is in `pcv_excluded.csv` for M3.
+  - No other event in either set has |d| > 0.1 against M1 or M3.
+
+**95% Clopper–Pearson intervals on the within-tau fractions: DESCRIPTIVE, not a criterion.** Every fraction is 1:
+- 30 / 30: [0.8843, 1];
+- 22 / 22 (official floor, M3): [0.8456, 1];
+- 150 / 150: [0.9757, 1];
+- 20 / 20: [0.8316, 1].
+
+**Independent verification** (outside the repository; does not import the runner):
+- **Script:** `E:/EDI-1/scratch/verify_pcv_compare.py`, SHA-256 `999c25bb12fed7e6b80948fbc1fd077a74743076250f7c79bc517d3c1399eaff`.
+- **What it recomputes,** from `pcv_engine.csv`, `pcv_independent.csv` and the tau_s of `pcv_self_convergence.csv`, every column of `pcv_agreement.csv`:
+  - counts, missing counts, fractions, medians, maxima;
+  - the per-method and both-method flags, the fraction lacking, the not-informative flag, the classification;
+  - the out-of-tolerance and excluded lists.
+- **Result:** **0 mismatches.** The out-of-tolerance list (0) and the excluded list (8) are equal. The same holds on the rerun's tables.
+- **The first version of the script reported 22 differences, all in the last digits of floats,** and no difference in any count, flag or classification. The cause was that version itself: it parsed the CSVs with pandas' default float parser, whereas the runner uses `float_precision="round_trip"`. With round-trip parsing, and recomputed floats passed through the writer's own `to_csv` before an exact comparison, there are 0 mismatches.
+- **Output:** `E:/EDI-1/scratch/pcv_compare_verify.json`, SHA-256 `1a9cdff2d3a8bd890d033d3aae8a4788239b91880353b72fbf771e24ee5dc1d8`.
+
+**Determinism:**
+- **Rerun:** compare ran again at the same HEAD with the same `--prereg-commit`, into `E:/EDI-1/runs/pcv_stage2_rerun/tables`, through a copy of `config/default.yaml` that differs only in `paths.tables_dir`.
+  - Its inputs were the four stage-1 tables copied from the stage-1 rerun folder, each byte-identical to the repository copy.
+  - Timing: 03:29:46 to 03:29:51 +0530, 5 s, exit 0 (`E:/EDI-1/logs/pcv_compare_rerun.log`).
+- **`pcv_agreement.csv`, `pcv_excluded.csv` and `pcv_out_of_tolerance.csv` are byte-identical** across the two runs.
+- **`pcv_provenance_compare.json` differs only in `base_config_hash`, `written_utc` and the table paths.**
+
+**Hashes:**
+- **`reports/hashes/PCV-stage2.sha256.csv`:** 4 files, status `first-recorded`, with the stage-1 columns plus `identical_across_two_runs`. Written by `E:/EDI-1/scratch/hash_pcv_stage2.py` (SHA-256 `450160982887881f0d065ea11505b36988669c5e8b24d55decda18dec3c2f1f5`).
+- **`reports/hashes/PCV-stage1.sha256.csv`:** `identical_across_two_runs` added in a separate commit (`5974a1e`). True for the 6 CSV tables and False for the 3 JSON sidecars; status unchanged.
+
+| File | SHA-256 | Identical across two runs |
+|---|---|---|
+| `pcv_agreement.csv` | `c4be913591000627a15e204135ebb4657becd0e426074e743c5bbc0e424092e3` | True |
+| `pcv_excluded.csv` | `b224de59608e78555fc82f512bb0c5cc954e17c5cd7838f2c937b769d993e737` | True |
+| `pcv_out_of_tolerance.csv` | `7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6` | True |
+| `pcv_provenance_compare.json` | `81ee55172eee98e090933bbd6d7956e878d8d2bdc97e1ca657a8446fca987a4f` | False |
+
+**Not measured:** the effect on E3 and E14 is unmeasured.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
+### 2026-10-30 — Pc validation: m2 stopped at pre-run check; a-priori skip defect
+
+**Status:** RECORDED by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only. **Facts only, recorded before any fix.**
+- **Not run:** `m2`, `conventions`.
+- **Not changed:** code, the YAML, tags; no amendment, no merge, nothing touching `main`.
+- **Not opened in this round:** `test_data_private.csv`, `train_data.csv`, `pcv_engine.csv`.
+- **Where the facts below about the 370 sampled events come from:** the pre-run check of the previous round, which read `pcv_independent.csv` only.
+
+**The defect:**
+- **Pre-registered text:**
+  - DECISIONS.md at `c3d364b`, line 4211 (2026-10-24 confirmation, item 8): "a priori "not informative" if 100/Pc_M1 exceeds the cap".
+  - Line 3484–3485 (2026-10-14 reconstruction): "treating an event as "not informative" without sampling when 100/Pc_M1 exceeds the cap".
+  - YAML at `c3d364b`: line 81 `  cap: 100000000               # per-event sample cap`; line 82 `  min_hits_target: 100         # stop once relative SE <= 10% (~100 hits)`.
+- **Code at `pcv-code-v2`,** `src/kelvins_conformal/labelnoise/pc_independent.py`:
+  - line 277: `    if prior_log10_pc is not None and math.isfinite(prior_log10_pc):`
+  - line 278: `        if min_hits / (10.0 ** prior_log10_pc) > cap:`
+  - line 279: `            return M2Result(0, 0, math.nan, math.inf, False, "not informative (a priori)")`
+- **What happens:** for M1 below about −323.3, `10.0 ** prior_log10_pc` underflows to exactly 0.0, and line 278 raises `ZeroDivisionError`. The text gives "not informative (a priori)" for these events, since 100/Pc_M1 far exceeds the cap.
+- **Nothing catches it:**
+  - `step_m2` calls `pi.pc_m2(...)` at `pc_validation_runner.py` lines 651–653 with no exception handling;
+  - the `pc-validate` command in `cli.py` catches only `OutputLockError`, `PreregGuardError` and `OpenDecisionError`.
+  - **So the `m2` step would abort at the first affected event, before writing any table.** `pcv_m2.csv` is written only at the end of the step.
+- **Synthetic reproduction** (the tag's `src` exported with `git archive`; geometry mx 5000, my 0, sx 10, sy 10, hbr 5; cap 100, min_hits 100; no real data):
+  - prior −5.0, −6.0, −6.5, −300.0 and −323.0: `'not informative (a priori)'`;
+  - prior −324.0 and −2847.4: `ZeroDivisionError: float division by zero`;
+  - `10.0**-323.0` = 1e-323, and `10.0**-324.0` = 0.0.
+- **Test coverage:** the M2 unit tests at the tag pass a prior only once, −12.0 (`tests/test_pc_independent.py` line 155). **No test covers M1 below −323.**
+
+**Affected sampled events** (M1 log10 Pc below the underflow point, from `pcv_independent.csv`):
+- **30 of the 370:** 22 in the official floor stratum and 8 in the E3 floor stratum; 0 elsewhere.
+- **The first in table order** is official floor, sample index 1, M1 −2426.749.
+
+**M2 eligibility under the pre-registered rule,** evaluated in log space (an event is skipped a priori when M1 < −6):
+
+| Set | Stratum | Events | Eligible | Skipped a priori | Would raise at line 278 |
+|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 0 | 30 | 22 |
+| official | (−30, −15] | 30 | 0 | 30 | 0 |
+| official | (−15, −10] | 30 | 1 | 29 | 0 |
+| official | (−10, −6] | 30 | 1 | 29 | 0 |
+| official | (−6, 0] | 150 | 130 | 20 | 0 |
+| e3 | floor (== −30) | 20 | 0 | 20 | 8 |
+| e3 | (−30, −15] | 20 | 0 | 20 | 0 |
+| e3 | (−15, −10] | 20 | 0 | 20 | 0 |
+| e3 | (−10, −6] | 20 | 4 | 16 | 0 |
+| e3 | (−6, 0] | 20 | 17 | 3 | 0 |
+
+- **In total, 153 eligible and 217 skipped.** No M1 lies within 0.01 of −6. The smallest eligible M1 is −5.9731631915116.
+- **M2's scope:** only 130 of the 150 official (−6, 0] events, 17 of the 20 E3 (−6, 0] events, and 6 others (official (−15, −10] 1, official (−10, −6] 1, E3 (−10, −6] 4) are eligible.
+- **`compare` does not read `pcv_m2.csv`.** Its inputs are `pcv_engine.csv`, `pcv_self_convergence.csv`, `pcv_independent.csv` and `pcv_gate.csv` (runner line 593), so the compare result (`af60835`) does not depend on M2.
+
+**Provenance of the M3 0.5% target:**
+- **The earlier wording:** the reconstructed YAML (`8d322fd`, 2026-10-14T23:40:32+05:30), line 47, read `  rel_se_escalate: 0.01        # rerun once at n_escalated if relative SE > 1% [to be re-confirmed by Sidh]`.
+  - The reconstructed DECISIONS text gives no number. Lines 3476–3477 say the sample size and the escalation rule "are in the YAML [to be re-confirmed by Sidh]".
+  - The confirmation entry numbers its checklist "as in the 2026-10-23 checkpoint", which is not a repository file.
+- **The change:** commit `d181408` (2026-10-24T13:17:22+05:30) replaced that line with `rel_se_target: 0.005` and the comment "Item 7, AMENDED (Sidh 2026-10-24): target relative SE 0.5%".
+  - In the same commit, DECISIONS item 7 reads: "**amended**: target relative SE **0.5%**. 1e6 samples, rerun once at 1e7 if missed. An event still above 0.5% at 1e7 is **"not informative"** for M3".
+- **The 0.5% supersedes the 1%.** `d181408` is an ancestor of `c3d364b` and precedes the first real-data step (stage 1 `sample`, 2026-10-30 03:09:21 +0530) by six days.
+
+**The M2 comparator:**
+- **No pre-registered text names one.** The text says only "judged within 3 standard errors" (DECISIONS line 3482), "judged within 3 SE" (line 4211), and `  n_se: 3.0                    # judged within 3 SE, in log10 via the delta method` (YAML line 84).
+- The nearest context is the order heading "3. **Engine vs independent.**" (line 3493).
+- **The implementation** (`pc_independent.py` lines 295–299, called at runner line 654) judges M2 against the **unfloored engine value** (`engine_log10` = `log10_pc_unfloored`). It requires |log10 p_hat − engine| ≤ 3·rel_se/ln 10, and gives None when M2 is not informative.
+
+**Decisions recorded by Sidh in sending this instruction:**
+1. **This stop is recorded in DECISIONS.md as facts, before any fix.**
+2. **The fix will evaluate the skip rule in log space:** log10(min_hits) − M1 > log10(cap).
+   - It will not use exception handling, and it will not change the cap rule or the skip policy.
+   - **The fix is NOT made in this round.**
+3. **Before any fix, the rest of the pipeline is audited on synthetic deep-tail inputs,** so that one amendment and one new tag cover everything found.
+4. **The M2 comparator** (the unfloored engine value, within 3 SE in log10) **is an implementation choice that the text does not name.** It is recorded here, before any `m2` run.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
+### 2026-10-31 — PRE-REGISTRATION: Pc validation input-only validity count (370 sampled rows)
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-31 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- **No script exists at the time of this commit.**
+- **This is a data-validity check only.** It reads no risk, label or reported value and no `pcv_engine.csv`. No `m2` or `conventions` step is run, and the Pc engine is not run.
+- **The one risk-derived item it reads** is the `stratum` label from the sample tables. That label is a band of reported risk, is needed for the per-stratum reporting, and was already published in the stage-1 entries. The reported value itself is not read.
+
+**Sidh's decisions recorded with this entry:**
+- **Order:** this count is pre-registered, then run. **The fix of D1 and D2 (`0c34eb5`) proceeds only if the count finds zero invalid rows.** If it finds any, the work stops after a facts-only results entry.
+- **U9 and U10 stay loud failures.** No skip logic is added.
+- **The guard** will follow the C3a precedent and require the new amendment headings.
+- **No `m2` or `conventions` run** in this round.
+
+**Rows: the target CDM rows of all 370 sampled events.**
+- **Official set, 270 rows:** the `event_uid` values of `reports/tables/pcv_sample_official.csv`, taken from `test_data_private.csv`, where `event_uid` = "test_" + `event_id`. That file holds one row per event.
+- **E3 set, 100 rows:** the rows of `reports/tables/pcv_sample_e3.csv`, taken from `train_data.csv` (in `train_data.zip`) by the E3 join on (`event_uid`, `time_to_tca`), where `event_uid` = "train_" + `event_id`.
+- **Sample tables:** read with `usecols` = `event_uid`, `time_to_tca`, `stratum`. **`reported` is not read.** Their SHA-256 must equal the stage-1 record (`75940f08…` official, `045d3000…` E3) before they are used.
+- **Join rule, fixed now.** Every CSV is read with `float_precision="round_trip"`, whereas the runner reads the training file with pandas' default parser. So a `time_to_tca` may differ in its last bits between the sample table and a round-trip read.
+  - An exact match on (`event_uid`, `time_to_tca`) is tried first.
+  - A sample row with no exact match is matched within the same `event_uid` to the single row with |Δ`time_to_tca`| ≤ 1e-9. The number of rows matched this way is reported.
+  - For the official set, the row is found by `event_uid`, and its `time_to_tca` is checked the same way.
+  - **Any sample row with zero matches or more than one match stops the script.** It reports no count, and that is recorded as a failed run.
+
+**Columns read from the raw files** (`usecols`, nothing else):
+- **Join keys, used for row identity only:** `event_id`, `time_to_tca`.
+- **The engine's 20 `REQUIRED_FIELDS`** (`pc_foster.py` lines 35–41):
+  - `relative_position_r`, `relative_position_t`, `relative_position_n`;
+  - `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`;
+  - `t_sigma_r`, `t_sigma_t`, `t_sigma_n`, `t_ct_r`, `t_cn_r`, `t_cn_t`;
+  - `c_sigma_r`, `c_sigma_t`, `c_sigma_n`, `c_ct_r`, `c_cn_r`, `c_cn_t`;
+  - `t_span`, `c_span`.
+- **Plus `t_j2k_sma`,** 21 input columns in all. The correlation fields C3a reads, and the `t_*` equivalents the engine uses, are already among the 20.
+- **Not read:** `true_risk`, `risk`, `max_risk_estimate`, `max_risk_scaling`, and every other column. So this count says nothing about C4's scaling factor.
+- **Numeric parsing:** `pandas.to_numeric(errors="coerce")`, as `data._coerce_types` does. An unparseable value becomes NaN and counts as non-finite.
+
+**Definition of an invalid row.** A row is invalid if any of these holds:
+1. **`non_finite`:** any of the 21 input columns is non-finite (NaN, +inf or −inf);
+2. **`sma_nonpositive`:** `t_j2k_sma` ≤ 0;
+3. **`sigma_nonpositive`:** any of the six sigma columns ≤ 0;
+4. **`ang_mom_zero_or_nonfinite`:** the chaser's angular-momentum magnitude is exactly 0 or non-finite, computed with the source formulation:
+   - position (1000·`t_j2k_sma` + `relative_position_r`, `relative_position_t`, `relative_position_n`) in metres;
+   - velocity (`relative_velocity_r`, √(μ/`t_j2k_sma`)·1000 + `relative_velocity_t`, `relative_velocity_n`) in m/s;
+   - μ = 398600.4418 km³/s² (validation YAML, `constants.mu_earth_km3_s2`);
+   - magnitude = |pos × vel|. Where `t_j2k_sma` ≤ 0 or is non-finite, the magnitude is taken as NaN, so criterion 4 also holds.
+
+A row may meet several criteria; it is counted once in the total.
+
+**Reporting:**
+- **Per set and stratum:** n rows, n invalid, and the count for each of the four criteria.
+- **The sample indices of any invalid rows,** with their criteria.
+- **The number of rows matched by the tolerance rule,** per set.
+- **No input value is reported,** and no comparison with any Pc, risk or label is made.
+
+**Selftest, required before the real rows are read** (synthetic only, built into the script):
+- **Rows, each with its exact expected criteria:**
+  - a clean row (none);
+  - a known zero-angular-momentum row, where position and velocity are parallel, all inputs finite (`ang_mom_zero_or_nonfinite` only);
+  - a NaN in a column that does not enter the angular momentum, such as `t_span` (`non_finite` only);
+  - +inf in a column that does enter it (`non_finite` and `ang_mom_zero_or_nonfinite`);
+  - `t_j2k_sma` = 0 and `t_j2k_sma` = −1 (`sma_nonpositive` and `ang_mom_zero_or_nonfinite`);
+  - a zero sigma and a negative sigma (`sigma_nonpositive` only);
+  - finite inputs whose cross product overflows (`ang_mom_zero_or_nonfinite` only).
+- **The join:** a one-bit difference in `time_to_tca` is matched and counted; a sample row with no match, and one with two matches, each stop the script.
+- **Mutation:** dropping the non-finite check must make the selftest fail. The script is then restored byte for byte, with a SHA-256 check.
+
+**The script** will be `E:/EDI-1/scratch/pcv_input_validity_check.py`, outside the repository. Its SHA-256 goes in the results entry.
+
+**Go or no-go:** if the count of invalid rows is not exactly 0 in every set and stratum, the work stops after a facts-only results entry. The fix does not proceed.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
+
+
+### 2026-10-31 — Pc validation: m2 a-priori skip and non-finite M1 - amendment
+
+**Status:** AMENDMENT, recorded by Claude Code on 2026-10-31 at Sidh's instruction. Insertion only.
+- **Pushed before any code change.** Tests come first on `pc-validation`, then the code, then a new annotated tag `pcv-code-v3`.
+- **No `m2` or `conventions` step is run** in this round.
+- **No earlier entry is edited, and the validation YAML is not edited.** No cap, threshold, policy or tau changes.
+
+**The input-only count came first** (pre-registered in `8cfa940`):
+- **Result: 0 invalid rows in every set and stratum**, across 370 rows (official 270, E3 100).
+
+| Set | Stratum | n | Invalid | non_finite | sma_nonpositive | sigma_nonpositive | ang_mom_zero_or_nonfinite |
+|---|---|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−30, −15] | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−15, −10] | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−10, −6] | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−6, 0] | 150 | 0 | 0 | 0 | 0 | 0 |
+| e3 | floor (== −30) | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−30, −15] | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−15, −10] | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−10, −6] | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−6, 0] | 20 | 0 | 0 | 0 | 0 | 0 |
+
+- **Script:** `E:/EDI-1/scratch/pcv_input_validity_check.py`, SHA-256 `1d453cb297d29a57a763ad1f8a9bd51d70939cfd683757444a217b669fdc8d5e`. Results `E:/EDI-1/scratch/pcv_input_validity_results.json`, SHA-256 `79ff30fceabc83baf111a9f1f17c151412043c2ea7ce9a55fd66e450b54472ce`. Run 2026-10-31, 00:10:32 to 00:10:41 +0530.
+- **Selftest:** 12 synthetic row cases and the join cases pass. Dropping the non-finite check fails 5 row cases (exit 1); the script was restored byte for byte.
+- **Join:** every sample row matched exactly one raw row. 160 official and 7 E3 rows matched by the pre-registered tolerance rule, because the runner read the raw files with the default float parser and this check reads them with `round_trip`.
+- **Read:** the 21 input columns, the two join keys, and `stratum` from the sample tables. No risk, label or reported value, and no `pcv_engine.csv`. This says nothing about `max_risk_scaling`, which was not read.
+
+**The deviations of the code from the pre-registered text** (recorded in `0c34eb5`; audited on synthetic inputs):
+- **The text.**
+  - DECISIONS.md at `c3d364b`, line 4211, item 8: "a priori "not informative" if 100/Pc_M1 exceeds the cap".
+  - Lines 3484–3485: "treating an event as "not informative" without sampling when 100/Pc_M1 exceeds the cap".
+  - YAML line 81 `  cap: 100000000               # per-event sample cap`; line 82 `  min_hits_target: 100         # stop once relative SE <= 10% (~100 hits)`.
+- **D1.** `pc_independent.py` line 278, `        if min_hits / (10.0 ** prior_log10_pc) > cap:`, raises `ZeroDivisionError` for M1 below about −323.3, where `10.0 ** M1` underflows to 0.0. The text gives "not informative (a priori)". This affects 30 of the 370 sampled events, and would abort the step before it writes any table.
+- **D2.** An M1 of −inf (`pc_independent.py` line 181) is not treated as exceeding the cap.
+  - `pc_m2` line 277 tests `math.isfinite(prior_log10_pc)`, so it samples to the cap and reports "not informative", not "not informative (a priori)".
+  - `step_m2` also filters it first. Runner line 653 reads `                       prior_log10_pc=r["m1_log10"] if math.isfinite(r["m1_log10"]) else None)`, so a −inf M1 reaches `pc_m2` as `None`.
+  - No sampled event has this M1: all 370 are finite.
+
+**The fix** (Sidh's decision 1), exactly:
+- **`pc_independent.py`, lines 277–278.** The skip test is evaluated in log space, and only a NaN M1 is left out of it:
+  - `    if prior_log10_pc is not None and not math.isnan(prior_log10_pc):`
+  - `        if math.log10(min_hits) - prior_log10_pc > math.log10(cap):`
+- **`pc_validation_runner.py`, line 653.** So that a −inf M1 reaches that test, the filter becomes:
+  - `                       prior_log10_pc=r["m1_log10"] if not math.isnan(r["m1_log10"]) else None)`
+  - This line is required by D2: without it, decision 1 would not take effect in the `m2` step. It changes the handling of −inf only.
+- **M1 = −inf** gives "not informative (a priori)". **M1 = NaN is unchanged:** there is no prior, and M2 samples as before.
+- **No exception handling is added.** No cap, threshold, policy or tau changes.
+
+**Equivalence for finite M1 above −323:**
+- The old and new tests were compared on 7,230,001 values of M1 in [−323, 0], including 2,000,000 random values in [−6.001, −5.999], at the pre-registered min_hits 100 and cap 1e8: **0 differences.**
+- **One exception exists at the boundary, from rounding.** Within 20 representable values of −6, the two tests differ at exactly one float: M1 = −6.000000000000001, where the old test skips and the new test samples. At M1 = −6.0 exactly, both sample.
+- **No sampled M1 lies within 0.01 of −6** (`0c34eb5`), so no sampled event's outcome changes for this reason. The smallest eligible M1 is −5.9731631915116.
+- The eligibility table of `0c34eb5` stands: 153 eligible, 217 skipped a priori.
+
+**What the fix touches:**
+- `pc_m2` is called only by `step_m2` and by the synthetic timing script. Stage 1 and `compare` do not call it, so their tables and hashes are unaffected.
+- `compare` does not read `pcv_m2.csv`.
+
+**Known behaviours, NOT changed by this amendment** (audit of 2026-10-30; decisions 2 and 3):
+
+| # | Behaviour |
+|---|---|
+| U1 | `pc_m2` with a NaN prior (M1 not converged) samples to the cap, with no skip |
+| U2 | `m2_consistent` returns False for an engine value of −inf or NaN; `step_m2` passes None for a non-finite engine value |
+| U3 | `self_convergence_e_s` drops a pair with one grid finite and the other −inf; it is counted in `n_nonfinite_pairs` |
+| U4 | `tau_s(nan)` returns 0.01; the step does not call it with NaN |
+| U5 | `classify_stratum` with a NaN difference where the method has a value keeps it in the denominator; the median becomes NaN and agree is False |
+| U6 | `c1_expectation_report` drops ±inf and NaN silently |
+| U7 | `finding_flags` does not flag a NaN change, and flags ±inf |
+| U8 | C4a and C4b with a NaN `max_risk_scaling` return None, recorded as `excluded_k_nonpositive` |
+| U9 | C3a, C3a_R and C3b with `t_j2k_sma` ≤ 0 raise (`ZeroDivisionError` or `ValueError`), uncaught in `step_conventions` |
+| U10 | C3a with zero chaser angular momentum raises `ValueError`, uncaught in `step_conventions` |
+| U11 | M1 and M3 with a zero principal sigma raise, uncaught in `step_gate` |
+
+**Decisions recorded by Sidh:**
+1. **The fix is limited to D1 and D2,** as set out above.
+2. **U1–U8 and U11 are NOT changed.** They are listed here as known untested behaviours.
+3. **U9 and U10 stay as loud failures (raise).** No skip logic is added. The count above found no row that would trigger them among the 370 sampled rows.
+
+**The guard** will additionally require, at `--prereg-commit`, the heading of the stop entry (`0c34eb5`) and the heading of this amendment, following the C3a precedent. `c3d364b` will therefore be refused from `pcv-code-v3` on. The commit to use is Sidh's to choose.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
