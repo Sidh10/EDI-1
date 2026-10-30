@@ -5781,6 +5781,91 @@ A row may meet several criteria; it is counted once in the total.
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
 
 
+### 2026-10-31 — Pc validation: m2 a-priori skip and non-finite M1 - amendment
+
+**Status:** AMENDMENT, recorded by Claude Code on 2026-10-31 at Sidh's instruction. Insertion only.
+- **Pushed before any code change.** Tests come first on `pc-validation`, then the code, then a new annotated tag `pcv-code-v3`.
+- **No `m2` or `conventions` step is run** in this round.
+- **No earlier entry is edited, and the validation YAML is not edited.** No cap, threshold, policy or tau changes.
+
+**The input-only count came first** (pre-registered in `8cfa940`):
+- **Result: 0 invalid rows in every set and stratum**, across 370 rows (official 270, E3 100).
+
+| Set | Stratum | n | Invalid | non_finite | sma_nonpositive | sigma_nonpositive | ang_mom_zero_or_nonfinite |
+|---|---|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−30, −15] | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−15, −10] | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−10, −6] | 30 | 0 | 0 | 0 | 0 | 0 |
+| official | (−6, 0] | 150 | 0 | 0 | 0 | 0 | 0 |
+| e3 | floor (== −30) | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−30, −15] | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−15, −10] | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−10, −6] | 20 | 0 | 0 | 0 | 0 | 0 |
+| e3 | (−6, 0] | 20 | 0 | 0 | 0 | 0 | 0 |
+
+- **Script:** `E:/EDI-1/scratch/pcv_input_validity_check.py`, SHA-256 `1d453cb297d29a57a763ad1f8a9bd51d70939cfd683757444a217b669fdc8d5e`. Results `E:/EDI-1/scratch/pcv_input_validity_results.json`, SHA-256 `79ff30fceabc83baf111a9f1f17c151412043c2ea7ce9a55fd66e450b54472ce`. Run 2026-10-31, 00:10:32 to 00:10:41 +0530.
+- **Selftest:** 12 synthetic row cases and the join cases pass. Dropping the non-finite check fails 5 row cases (exit 1); the script was restored byte for byte.
+- **Join:** every sample row matched exactly one raw row. 160 official and 7 E3 rows matched by the pre-registered tolerance rule, because the runner read the raw files with the default float parser and this check reads them with `round_trip`.
+- **Read:** the 21 input columns, the two join keys, and `stratum` from the sample tables. No risk, label or reported value, and no `pcv_engine.csv`. This says nothing about `max_risk_scaling`, which was not read.
+
+**The deviations of the code from the pre-registered text** (recorded in `0c34eb5`; audited on synthetic inputs):
+- **The text.**
+  - DECISIONS.md at `c3d364b`, line 4211, item 8: "a priori "not informative" if 100/Pc_M1 exceeds the cap".
+  - Lines 3484–3485: "treating an event as "not informative" without sampling when 100/Pc_M1 exceeds the cap".
+  - YAML line 81 `  cap: 100000000               # per-event sample cap`; line 82 `  min_hits_target: 100         # stop once relative SE <= 10% (~100 hits)`.
+- **D1.** `pc_independent.py` line 278, `        if min_hits / (10.0 ** prior_log10_pc) > cap:`, raises `ZeroDivisionError` for M1 below about −323.3, where `10.0 ** M1` underflows to 0.0. The text gives "not informative (a priori)". This affects 30 of the 370 sampled events, and would abort the step before it writes any table.
+- **D2.** An M1 of −inf (`pc_independent.py` line 181) is not treated as exceeding the cap.
+  - `pc_m2` line 277 tests `math.isfinite(prior_log10_pc)`, so it samples to the cap and reports "not informative", not "not informative (a priori)".
+  - `step_m2` also filters it first. Runner line 653 reads `                       prior_log10_pc=r["m1_log10"] if math.isfinite(r["m1_log10"]) else None)`, so a −inf M1 reaches `pc_m2` as `None`.
+  - No sampled event has this M1: all 370 are finite.
+
+**The fix** (Sidh's decision 1), exactly:
+- **`pc_independent.py`, lines 277–278.** The skip test is evaluated in log space, and only a NaN M1 is left out of it:
+  - `    if prior_log10_pc is not None and not math.isnan(prior_log10_pc):`
+  - `        if math.log10(min_hits) - prior_log10_pc > math.log10(cap):`
+- **`pc_validation_runner.py`, line 653.** So that a −inf M1 reaches that test, the filter becomes:
+  - `                       prior_log10_pc=r["m1_log10"] if not math.isnan(r["m1_log10"]) else None)`
+  - This line is required by D2: without it, decision 1 would not take effect in the `m2` step. It changes the handling of −inf only.
+- **M1 = −inf** gives "not informative (a priori)". **M1 = NaN is unchanged:** there is no prior, and M2 samples as before.
+- **No exception handling is added.** No cap, threshold, policy or tau changes.
+
+**Equivalence for finite M1 above −323:**
+- The old and new tests were compared on 7,230,001 values of M1 in [−323, 0], including 2,000,000 random values in [−6.001, −5.999], at the pre-registered min_hits 100 and cap 1e8: **0 differences.**
+- **One exception exists at the boundary, from rounding.** Within 20 representable values of −6, the two tests differ at exactly one float: M1 = −6.000000000000001, where the old test skips and the new test samples. At M1 = −6.0 exactly, both sample.
+- **No sampled M1 lies within 0.01 of −6** (`0c34eb5`), so no sampled event's outcome changes for this reason. The smallest eligible M1 is −5.9731631915116.
+- The eligibility table of `0c34eb5` stands: 153 eligible, 217 skipped a priori.
+
+**What the fix touches:**
+- `pc_m2` is called only by `step_m2` and by the synthetic timing script. Stage 1 and `compare` do not call it, so their tables and hashes are unaffected.
+- `compare` does not read `pcv_m2.csv`.
+
+**Known behaviours, NOT changed by this amendment** (audit of 2026-10-30; decisions 2 and 3):
+
+| # | Behaviour |
+|---|---|
+| U1 | `pc_m2` with a NaN prior (M1 not converged) samples to the cap, with no skip |
+| U2 | `m2_consistent` returns False for an engine value of −inf or NaN; `step_m2` passes None for a non-finite engine value |
+| U3 | `self_convergence_e_s` drops a pair with one grid finite and the other −inf; it is counted in `n_nonfinite_pairs` |
+| U4 | `tau_s(nan)` returns 0.01; the step does not call it with NaN |
+| U5 | `classify_stratum` with a NaN difference where the method has a value keeps it in the denominator; the median becomes NaN and agree is False |
+| U6 | `c1_expectation_report` drops ±inf and NaN silently |
+| U7 | `finding_flags` does not flag a NaN change, and flags ±inf |
+| U8 | C4a and C4b with a NaN `max_risk_scaling` return None, recorded as `excluded_k_nonpositive` |
+| U9 | C3a, C3a_R and C3b with `t_j2k_sma` ≤ 0 raise (`ZeroDivisionError` or `ValueError`), uncaught in `step_conventions` |
+| U10 | C3a with zero chaser angular momentum raises `ValueError`, uncaught in `step_conventions` |
+| U11 | M1 and M3 with a zero principal sigma raise, uncaught in `step_gate` |
+
+**Decisions recorded by Sidh:**
+1. **The fix is limited to D1 and D2,** as set out above.
+2. **U1–U8 and U11 are NOT changed.** They are listed here as known untested behaviours.
+3. **U9 and U10 stay as loud failures (raise).** No skip logic is added. The count above found no row that would trigger them among the 370 sampled rows.
+
+**The guard** will additionally require, at `--prereg-commit`, the heading of the stop entry (`0c34eb5`) and the heading of this amendment, following the C3a precedent. `c3d364b` will therefore be refused from `pcv-code-v3` on. The commit to use is Sidh's to choose.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
