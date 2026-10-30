@@ -264,6 +264,25 @@ def test_flag_rule_never_flags_c3a_r_c3b_c0_or_c1(conv):
     assert not pvr.finding_flags(s, threshold_pp=10.0)[s["convention"] == conv].any()
 
 
+# --- known behaviours kept as loud failures (amendment of 2026-10-31, U9 and U10) ---------------------
+@pytest.mark.parametrize("conv", ["C3a", "C3a_R", "C3b"])
+@pytest.mark.parametrize("sma,exc", [(0.0, ZeroDivisionError), (-1.0, ValueError)])
+def test_c3_with_nonpositive_semi_major_axis_stays_a_loud_failure(conv, sma, exc):
+    row = _row()
+    row["t_j2k_sma"] = sma
+    with pytest.raises(exc):
+        pvr.apply_convention(row, conv, mu_km3_s2=398600.4418)
+
+
+def test_c3a_with_zero_chaser_angular_momentum_stays_a_loud_failure():
+    mu = 398600.4418
+    row = _row(v=(30.0, 0.0, 0.0))
+    row["relative_velocity_t"] = -math.sqrt(mu / row["t_j2k_sma"]) * 1000.0     # chaser velocity along R
+    row.update({"relative_position_t": 0.0, "relative_position_n": 0.0})        # chaser position along R
+    with pytest.raises(ValueError, match="N axis is undefined"):
+        pvr.apply_convention(row, "C3a", mu_km3_s2=mu)
+
+
 def test_c4_scales_variance_or_sigma_and_skips_nonpositive_k():
     row = _row()
     assert pvr.apply_convention(row, "C4a", mu_km3_s2=398600.4418)[1] == 4.0
@@ -450,6 +469,46 @@ def test_steps_run_end_to_end_on_synthetic_cdms_through_the_guard(synthetic_run)
         prov = json.loads((tables / f"pcv_provenance_{step.replace('-', '_')}.json").read_text(encoding="utf-8"))
         assert len(prov["pc_validation_yaml_sha256"]) == 64
         assert prov["prereg_commit"] == (open_sha if step in ("sample", "self-convergence", "gate") else set_sha)
+
+
+# --- step_m2 in the deep tail (amendment of 2026-10-31) ------------------------------------------------
+def test_m2_step_completes_on_deep_tail_floor_like_rows_and_labels_them_a_priori(synthetic_run, monkeypatch):
+    from kelvins_conformal import data as data_mod
+
+    cfg, tables, prereg = synthetic_run
+    official = data_mod.official_test_target_cdms(cfg)
+    deep = official.index % 2 == 0                 # far beyond any Pc a double can hold
+    official.loc[deep, ["relative_position_r", "relative_position_t", "relative_position_n"]] = [5.0e4, 5.0e4, -5.0e4]
+    for obj in "tc":
+        official.loc[deep, [f"{obj}_sigma_r", f"{obj}_sigma_t", f"{obj}_sigma_n"]] = 10.0
+        official.loc[deep, [f"{obj}_ct_r", f"{obj}_cn_r", f"{obj}_cn_t"]] = 0.0
+    monkeypatch.setattr(data_mod, "official_test_target_cdms", lambda cfg: official.copy())
+    repo, sha, yp = prereg("exclude")
+    for step in ("sample", "self-convergence", "gate", "m2"):
+        pvr.run_step(cfg, step, yp, prereg_commit=sha, repo=repo)
+    ind = pvr._read_csv(tables / "pcv_independent.csv")
+    m2 = pvr._read_csv(tables / "pcv_m2.csv")
+    assert len(m2) == len(ind) == 27
+    both = ind.merge(m2, on=["set", "sample_index", "event_uid", "stratum"], validate="one_to_one")
+    below = both[both["m1_log10"] < -324.0]
+    assert len(below) > 0
+    assert set(below["status"]) == {"not informative (a priori)"}
+    assert (below["n"] == 0).all() and (below["hits"] == 0).all()
+
+
+def test_m2_step_treats_a_minus_inf_m1_as_a_priori_and_a_nan_m1_as_no_prior(synthetic_run):
+    cfg, tables, prereg = synthetic_run
+    repo, sha, yp = prereg("exclude")
+    for step in ("sample", "self-convergence", "gate"):
+        pvr.run_step(cfg, step, yp, prereg_commit=sha, repo=repo)
+    ind = pvr._read_csv(tables / "pcv_independent.csv")
+    ind.loc[0, "m1_log10"] = -math.inf             # as the CSV round trip carries it
+    ind.loc[1, "m1_log10"] = math.nan
+    ind.to_csv(tables / "pcv_independent.csv", index=False)
+    pvr.run_step(cfg, "m2", yp, prereg_commit=sha, repo=repo)
+    m2 = pvr._read_csv(tables / "pcv_m2.csv")
+    assert m2.loc[0, "status"] == "not informative (a priori)" and m2.loc[0, "n"] == 0
+    assert m2.loc[1, "status"] != "not informative (a priori)" and m2.loc[1, "n"] > 0
 
 
 # --- the pre-registration guard (Sidh, 2026-10-25) --------------------------------------------------

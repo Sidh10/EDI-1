@@ -163,6 +163,54 @@ def test_m2_cap_reached_without_enough_hits_is_not_informative():
     assert not r.informative and r.n == 100_000
 
 
+# --- the a-priori skip in the deep tail (amendment of 2026-10-31) ---------------------------------
+# The pre-registered cap and hit target. EASY has Pc ~ 0.005, so a run reaches 100 hits in its first chunk:
+# n > 0 shows the event was sampled, and n == 0 that it was skipped.
+CAP, MIN_HITS = 100_000_000, 100
+EASY = iso(0.0, 0.0, 100.0, 10.0)
+A_PRIORI = "not informative (a priori)"
+
+
+def _m2(prior):
+    return pi.pc_m2(EASY, seed=1, chunk=100_000, cap=CAP, min_hits=MIN_HITS, max_rel_se=0.10, prior_log10_pc=prior)
+
+
+@pytest.mark.parametrize("prior", [-324.0, -1e4, -3e5, -2.2e17, -math.inf])
+def test_m2_deep_tail_prior_is_a_priori_without_sampling_or_raising(prior):
+    r = _m2(prior)
+    assert r.status == A_PRIORI and r.n == 0 and r.hits == 0 and not r.informative
+    assert math.isnan(r.p_hat) and r.rel_se == math.inf
+
+
+@pytest.mark.parametrize("prior", [-323.0, -100.0, -12.0, -6.01])
+def test_m2_priors_below_minus_6_still_skip_as_before(prior):
+    r = _m2(prior)
+    assert r.status == A_PRIORI and r.n == 0
+
+
+@pytest.mark.parametrize("prior", [-5.99, -6.0, -2.0])
+def test_m2_priors_at_or_above_minus_6_still_run_as_before(prior):
+    r = _m2(prior)
+    assert r.status == "informative" and r.n > 0 and r.hits >= MIN_HITS
+
+
+def test_m2_nan_prior_samples_exactly_as_with_no_prior():
+    assert _m2(math.nan) == _m2(None)
+
+
+def test_m2_positive_infinite_prior_still_samples():
+    assert _m2(math.inf) == _m2(None)
+
+
+def test_m2_log_space_rule_equals_the_previous_rule_above_minus_323():
+    # The rule of tag pcv-code-v2, away from the one-bit boundary case the amendment records.
+    rng = np.random.default_rng(20261031)
+    priors = np.r_[rng.uniform(-323.0, 0.0, 150), rng.uniform(-6.5, -5.5, 150), -6.0 - 1e-9, -6.0 + 1e-9]
+    for prior in priors.tolist():
+        previous = MIN_HITS / (10.0 ** prior) > CAP
+        assert (_m2(prior).status == A_PRIORI) is previous, prior
+
+
 # --- M1 vs M3 on anisotropic synthetic cases: the pre-registered gate ---------------------------
 ANISO = [
     (0.0, 0.0, 100.0, 30.0, 10.0),
