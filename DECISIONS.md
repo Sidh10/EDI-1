@@ -5709,6 +5709,78 @@ agreement:
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
 
 
+### 2026-10-31 — PRE-REGISTRATION: Pc validation input-only validity count (370 sampled rows)
+
+**Status:** PRE-REGISTERED by Claude Code on 2026-10-31 at Sidh's instruction, **before the check is written or run**. Insertion only.
+- **No script exists at the time of this commit.**
+- **This is a data-validity check only.** It reads no risk, label or reported value and no `pcv_engine.csv`. No `m2` or `conventions` step is run, and the Pc engine is not run.
+- **The one risk-derived item it reads** is the `stratum` label from the sample tables. That label is a band of reported risk, is needed for the per-stratum reporting, and was already published in the stage-1 entries. The reported value itself is not read.
+
+**Sidh's decisions recorded with this entry:**
+- **Order:** this count is pre-registered, then run. **The fix of D1 and D2 (`0c34eb5`) proceeds only if the count finds zero invalid rows.** If it finds any, the work stops after a facts-only results entry.
+- **U9 and U10 stay loud failures.** No skip logic is added.
+- **The guard** will follow the C3a precedent and require the new amendment headings.
+- **No `m2` or `conventions` run** in this round.
+
+**Rows: the target CDM rows of all 370 sampled events.**
+- **Official set, 270 rows:** the `event_uid` values of `reports/tables/pcv_sample_official.csv`, taken from `test_data_private.csv`, where `event_uid` = "test_" + `event_id`. That file holds one row per event.
+- **E3 set, 100 rows:** the rows of `reports/tables/pcv_sample_e3.csv`, taken from `train_data.csv` (in `train_data.zip`) by the E3 join on (`event_uid`, `time_to_tca`), where `event_uid` = "train_" + `event_id`.
+- **Sample tables:** read with `usecols` = `event_uid`, `time_to_tca`, `stratum`. **`reported` is not read.** Their SHA-256 must equal the stage-1 record (`75940f08…` official, `045d3000…` E3) before they are used.
+- **Join rule, fixed now.** Every CSV is read with `float_precision="round_trip"`, whereas the runner reads the training file with pandas' default parser. So a `time_to_tca` may differ in its last bits between the sample table and a round-trip read.
+  - An exact match on (`event_uid`, `time_to_tca`) is tried first.
+  - A sample row with no exact match is matched within the same `event_uid` to the single row with |Δ`time_to_tca`| ≤ 1e-9. The number of rows matched this way is reported.
+  - For the official set, the row is found by `event_uid`, and its `time_to_tca` is checked the same way.
+  - **Any sample row with zero matches or more than one match stops the script.** It reports no count, and that is recorded as a failed run.
+
+**Columns read from the raw files** (`usecols`, nothing else):
+- **Join keys, used for row identity only:** `event_id`, `time_to_tca`.
+- **The engine's 20 `REQUIRED_FIELDS`** (`pc_foster.py` lines 35–41):
+  - `relative_position_r`, `relative_position_t`, `relative_position_n`;
+  - `relative_velocity_r`, `relative_velocity_t`, `relative_velocity_n`;
+  - `t_sigma_r`, `t_sigma_t`, `t_sigma_n`, `t_ct_r`, `t_cn_r`, `t_cn_t`;
+  - `c_sigma_r`, `c_sigma_t`, `c_sigma_n`, `c_ct_r`, `c_cn_r`, `c_cn_t`;
+  - `t_span`, `c_span`.
+- **Plus `t_j2k_sma`,** 21 input columns in all. The correlation fields C3a reads, and the `t_*` equivalents the engine uses, are already among the 20.
+- **Not read:** `true_risk`, `risk`, `max_risk_estimate`, `max_risk_scaling`, and every other column. So this count says nothing about C4's scaling factor.
+- **Numeric parsing:** `pandas.to_numeric(errors="coerce")`, as `data._coerce_types` does. An unparseable value becomes NaN and counts as non-finite.
+
+**Definition of an invalid row.** A row is invalid if any of these holds:
+1. **`non_finite`:** any of the 21 input columns is non-finite (NaN, +inf or −inf);
+2. **`sma_nonpositive`:** `t_j2k_sma` ≤ 0;
+3. **`sigma_nonpositive`:** any of the six sigma columns ≤ 0;
+4. **`ang_mom_zero_or_nonfinite`:** the chaser's angular-momentum magnitude is exactly 0 or non-finite, computed with the source formulation:
+   - position (1000·`t_j2k_sma` + `relative_position_r`, `relative_position_t`, `relative_position_n`) in metres;
+   - velocity (`relative_velocity_r`, √(μ/`t_j2k_sma`)·1000 + `relative_velocity_t`, `relative_velocity_n`) in m/s;
+   - μ = 398600.4418 km³/s² (validation YAML, `constants.mu_earth_km3_s2`);
+   - magnitude = |pos × vel|. Where `t_j2k_sma` ≤ 0 or is non-finite, the magnitude is taken as NaN, so criterion 4 also holds.
+
+A row may meet several criteria; it is counted once in the total.
+
+**Reporting:**
+- **Per set and stratum:** n rows, n invalid, and the count for each of the four criteria.
+- **The sample indices of any invalid rows,** with their criteria.
+- **The number of rows matched by the tolerance rule,** per set.
+- **No input value is reported,** and no comparison with any Pc, risk or label is made.
+
+**Selftest, required before the real rows are read** (synthetic only, built into the script):
+- **Rows, each with its exact expected criteria:**
+  - a clean row (none);
+  - a known zero-angular-momentum row, where position and velocity are parallel, all inputs finite (`ang_mom_zero_or_nonfinite` only);
+  - a NaN in a column that does not enter the angular momentum, such as `t_span` (`non_finite` only);
+  - +inf in a column that does enter it (`non_finite` and `ang_mom_zero_or_nonfinite`);
+  - `t_j2k_sma` = 0 and `t_j2k_sma` = −1 (`sma_nonpositive` and `ang_mom_zero_or_nonfinite`);
+  - a zero sigma and a negative sigma (`sigma_nonpositive` only);
+  - finite inputs whose cross product overflows (`ang_mom_zero_or_nonfinite` only).
+- **The join:** a one-bit difference in `time_to_tca` is matched and counted; a sample row with no match, and one with two matches, each stop the script.
+- **Mutation:** dropping the non-finite check must make the selftest fail. The script is then restored byte for byte, with a SHA-256 check.
+
+**The script** will be `E:/EDI-1/scratch/pcv_input_validity_check.py`, outside the repository. Its SHA-256 goes in the results entry.
+
+**Go or no-go:** if the count of invalid rows is not exactly 0 in every set and stratum, the work stops after a facts-only results entry. The fix does not proceed.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
