@@ -5944,6 +5944,99 @@ A row may meet several criteria; it is counted once in the total.
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
 
 
+### 2026-10-31 — RESULTS: Pc validation, m2 step and parser comparison (authorised and pre-registered in 1011121)
+
+**Status:** RECORDED by Claude Code on 2026-10-31 at Sidh's instruction. Insertion only. **Facts only: no interpretation, and nothing related to E3, to E14 or to reported risk.**
+- **Interpretation of this result is Sidh's** (decision 5 of `1011121`).
+- **Not run:** `conventions`.
+- **Not changed:** code, the YAML, tags, `main`.
+
+**Run:**
+- **Command:** `kc pc-validate m2 --prereg-commit 718bc7c`, from tag `pcv-code-v3` (HEAD `9451035db95c208c218c729bfbc74cb45b58fee9`), detached; tree clean.
+- **Timing:** 2026-10-31 00:59:32 to 01:05:02 +0530; **330 s**, exit 0 (`E:/EDI-1/logs/pcv_m2.log`). The stop limit was about 18.8 min.
+- **Headroom:** 15.99 GB before the start. The 5-second sampler (`E:/EDI-1/logs/pcv_stage3_commit.log`, 142 samples, covering both runs) recorded a minimum of 14.53 GB.
+- **The guard accepted `718bc7c`.** YAML canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`; base config hash `00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5`.
+- **Inputs:** `pcv_engine.csv`, `pcv_independent.csv` and the two sample tables from stage 1, unchanged (their SHA-256 values match `PCV-stage1.sha256.csv`).
+- **Written:** `pcv_m2.csv` (370 rows, 11 columns) and `pcv_provenance_m2.json`.
+
+**Results** (`pcv_m2.csv`). "Not informative" here means the cap was reached with fewer than 100 hits. "Consistent" is `consistent_with_engine`: the unfloored engine value within 3 SE in log10.
+
+| Set | Stratum | Events | Eligible | Skipped a priori | Informative | Not informative | Consistent: True | Consistent: False |
+|---|---|---|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 0 | 30 | 0 | 0 | 0 | 0 |
+| official | (−30, −15] | 30 | 0 | 30 | 0 | 0 | 0 | 0 |
+| official | (−15, −10] | 30 | 1 | 29 | 1 | 0 | 1 | 0 |
+| official | (−10, −6] | 30 | 1 | 29 | 1 | 0 | 1 | 0 |
+| official | (−6, 0] | 150 | 130 | 20 | 129 | 1 | 129 | 0 |
+| e3 | floor (== −30) | 20 | 0 | 20 | 0 | 0 | 0 | 0 |
+| e3 | (−30, −15] | 20 | 0 | 20 | 0 | 0 | 0 | 0 |
+| e3 | (−15, −10] | 20 | 0 | 20 | 0 | 0 | 0 | 0 |
+| e3 | (−10, −6] | 20 | 4 | 16 | 4 | 0 | 4 | 0 |
+| e3 | (−6, 0] | 20 | 17 | 3 | 17 | 0 | 17 | 0 |
+| **all** | | **370** | **153** | **217** | **152** | **1** | **152** | **0** |
+
+**Informative events:**
+
+| Set | Stratum | Hits min / median / max | Relative SE min / median / max | n min / median / max |
+|---|---|---|---|---|
+| official | (−15, −10] | 161 / 161 / 161 | 0.07881 / 0.07881 / 0.07881 | 2e7 / 2e7 / 2e7 |
+| official | (−10, −6] | 118 / 118 / 118 | 0.09206 / 0.09206 / 0.09206 | 3e7 / 3e7 / 3e7 |
+| official | (−6, 0] | 100 / 144 / 28012 | 0.00597 / 0.08333 / 0.10000 | 1e7 / 2e7 / 9e7 |
+| e3 | (−10, −6] | 100 / 108.5 / 118 | 0.09206 / 0.09604 / 0.10000 | 2e7 / 5e7 / 7e7 |
+| e3 | (−6, 0] | 100 / 141 / 6754 | 0.01216 / 0.08421 / 0.10000 | 1e7 / 2e7 / 9e7 |
+
+**The one not-informative event:** official (−6, 0], sample index 157, `test_1492`: 92 hits at n = 1e8, relative SE 0.104257.
+
+**The 30 deep-tail events** (M1 below the underflow point; 22 official floor, 8 E3 floor): **all are labelled "not informative (a priori)", with n = 0.** No event was sampled for lack of a skip, and the step did not raise.
+
+**95% Clopper–Pearson intervals: DESCRIPTIVE, not a criterion.**
+- Informative of eligible: official (−6, 0] 129 / 130 [0.9579, 0.9998]; e3 (−6, 0] 17 / 17 [0.8049, 1]; e3 (−10, −6] 4 / 4 [0.3976, 1]; official (−15, −10] and (−10, −6], each 1 / 1 [0.025, 1].
+- Consistent of informative: official (−6, 0] 129 / 129 [0.9718, 1]; e3 (−6, 0] 17 / 17 [0.8049, 1]; e3 (−10, −6] 4 / 4 [0.3976, 1]; official (−15, −10] and (−10, −6], each 1 / 1 [0.025, 1].
+
+**Independent verification** (outside the repository; does not import the runner or `pc_independent`):
+- **Script:** `E:/EDI-1/scratch/verify_pcv_m2.py`, SHA-256 `83ad7c83c267148eaf27c1a61aa2d30d5e5a7be8785f885df10e5c61b2b2cbe5`. Output `E:/EDI-1/scratch/pcv_m2_verify.json`, SHA-256 `018b2f32d4a67ae267f5545ae0f573eca772a192abe3352155354c70ed38ef2e`.
+- **Read:** `pcv_m2.csv`; the keys and `m1_log10` of `pcv_independent.csv`; the keys and `engine_log10` of `pcv_engine.csv`, by `usecols`, so `reported` was not read. The engine value is needed to recompute `consistent_with_engine`. Every CSV used `round_trip`.
+- **Recomputed on all 370 rows and compared exactly:** the a-priori skip, n and hits for skipped rows, `p_hat`, `rel_se`, the status, the stopping rule, and `consistent_with_engine`.
+- **Result: 0 mismatches.** Eligible 153 and skipped 217, as expected. The same holds on the rerun's table.
+
+**Determinism:**
+- **Rerun:** `m2` ran again at the same HEAD with the same `--prereg-commit`, into `E:/EDI-1/runs/pcv_stage3_rerun/tables`, through a copy of `config/default.yaml` differing only in `paths.tables_dir`. Its four input tables were copied from the stage-1 rerun folder, each byte-identical to the repository copy. Timing: 01:06:00 to 01:11:12 +0530, 312 s, exit 0 (`E:/EDI-1/logs/pcv_m2_rerun.log`).
+- **`pcv_m2.csv` is byte-identical across the two runs.**
+- **`pcv_provenance_m2.json` differs only in `base_config_hash`, `written_utc` and the table path.**
+
+**Hashes:** `reports/hashes/PCV-stage3.sha256.csv`, 2 files, status `first-recorded`, with the stage-2 columns including `identical_across_two_runs`. Written by `E:/EDI-1/scratch/hash_pcv_stage3.py` (SHA-256 `04ed93468e07b98b3cbc18c41b46c0fb5f4727dbff043c6970786d66a554bf05`).
+
+| File | SHA-256 | Identical across two runs |
+|---|---|---|
+| `pcv_m2.csv` | `9fb564664eddfe36bdffa794a3a5fda0567ec371d69c2cec42b3946b8450812b` | True |
+| `pcv_provenance_m2.json` | `6d49f4ced9bee51b5a71767bd92f234390e7779ee111162bade40707e9878e71` | False |
+
+**Parser comparison** (pre-registered in `1011121`):
+- **Script:** `E:/EDI-1/scratch/pcv_parser_compare.py`, SHA-256 `8bb43d0986465db08efad38f80933be83355da841864f2a7e806e28dd7e7ed9d`. Results `E:/EDI-1/scratch/pcv_parser_compare_results.json`, SHA-256 `4d9ed8318265be6cc23c56034bc57a826270cd95a2e0899587ae705967d82a67`. Run 2026-10-31, 00:58:48 to 00:59:07 +0530, before the `m2` step.
+- **Selftest:** on 8,004 synthetic values, 2,317 differed between the parsers, and the script's count and largest ULP equalled an independent count with Python's `float()`. **Mutation:** with both parses set to `round_trip`, the selftest fails (exit 1); the script was restored byte for byte.
+- **Read:** the 21 input columns and the keys, by `usecols`. No risk, label or reported column. Every sample row matched exactly once under the loader's parse.
+
+| Set | Input values | Differ | Largest relative difference | Largest difference in ULP | Zero or non-finite, compared for equality | Of those, differ |
+|---|---|---|---|---|---|---|
+| official | 5,670 | 1,028 | 9.279e-14 | 834 | 33 | 0 |
+| e3 | 2,100 | 386 | 1.039e-13 | 888 | 6 | 0 |
+| **total** | **7,770** | **1,414** | **1.039e-13** | **888** | 39 | 0 |
+
+- **Per column, official / e3 values that differ:**
+  - relative position and velocity (6 columns), `t_span`, `c_span`: 0 / 0;
+  - `t_j2k_sma`: 8 / 5;
+  - `t_sigma_r`, `_t`, `_n`: 11, 36, 8 / 6, 13, 4;
+  - `c_sigma_r`, `_t`, `_n`: 33, 31, 46 / 10, 10, 8;
+  - `t_ct_r`, `t_cn_r`, `t_cn_t`: 103, 182, 218 / 57, 50, 85;
+  - `c_ct_r`, `c_cn_r`, `c_cn_t`: 83, 86, 183 / 37, 29, 72.
+- **Largest ULP per kind of column:** sigmas 2, `t_j2k_sma` 1, correlations 888 (`t_ct_r`, E3). The 888 is larger than the "one ULP" of the repository's comment in `robustness_runner.py`.
+- **`time_to_tca`:** differs in **160 of 270 official rows and 7 of 100 E3 rows, equal to the tolerance-matched counts of Part A.** The explanation in `1011121` holds. Raw text length, min / median / max: official 9 / 19 / 22, e3 16 / 17 / 19.
+- **Under the loader's parse, all 370 rows match exactly.** Every validation step uses that parse, so the rows are the same in all of them.
+- **Not measured:** the effect of these differences on any Pc, M1, M2, M3 or table. No value was recomputed.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
