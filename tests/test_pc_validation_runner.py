@@ -374,14 +374,17 @@ def _git_test(repo, *args):
     return out.stdout.decode("ascii", "replace").strip()
 
 
-# The three headings the guard requires (amendment of 2026-10-27): the confirmation entry (d181408), the
-# C3a designation amendment (as introduced in fb4f957) and the second-branch amendment (8d64986).
+# The five headings the guard requires: the confirmation entry (d181408), the C3a designation amendment (as
+# introduced in fb4f957), the second-branch amendment (8d64986), and, from the amendment of 2026-10-31, the m2
+# stop entry (0c34eb5) and the m2 amendment (7d94d25).
 CONFIRMATION_LINE = "### 2026-10-24 — PRE-REGISTRATION CONFIRMED (Sidh): Pc engine independent validation — test copy"
 DESIGNATION_LINE = ("### 2026-10-26 — AMENDMENT to the Pc validation pre-registration: C3a designated the "
                     "documented convention (Sidh)")
 SECOND_BRANCH_LINE = ("### 2026-10-27 — AMENDMENT to the Pc validation pre-registration: C3a: second branch of "
                       "the sensitivity rule")
-REQUIRED_LINES = (CONFIRMATION_LINE, DESIGNATION_LINE, SECOND_BRANCH_LINE)
+M2_STOP_LINE = "### 2026-10-30 — Pc validation: m2 stopped at pre-run check; a-priori skip defect"
+M2_AMENDMENT_LINE = "### 2026-10-31 — Pc validation: m2 a-priori skip and non-finite M1 - amendment"
+REQUIRED_LINES = (CONFIRMATION_LINE, DESIGNATION_LINE, SECOND_BRANCH_LINE, M2_STOP_LINE, M2_AMENDMENT_LINE)
 
 
 def decisions_with(lines):
@@ -566,7 +569,7 @@ def test_guard_refuses_when_decisions_lacks_the_confirmation_heading(tmp_path):
         pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
 
 
-def test_guard_passes_with_the_confirmation_and_both_c3a_amendment_headings(tmp_path):
+def test_guard_passes_with_the_confirmation_and_all_amendment_headings(tmp_path):
     pcv, _ = pvr.load_pcv_config()
     repo, sha, yp = make_prereg_repo(tmp_path / "repo", pcv, decisions=decisions_with(REQUIRED_LINES))
     assert pvr.verify_prereg(sha, yaml_path=yp, repo=repo)["prereg_commit"] == sha
@@ -574,8 +577,10 @@ def test_guard_passes_with_the_confirmation_and_both_c3a_amendment_headings(tmp_
 
 @pytest.mark.parametrize("missing,match", [(CONFIRMATION_LINE, "confirmation heading"),
                                            (DESIGNATION_LINE, "C3a designation amendment"),
-                                           (SECOND_BRANCH_LINE, "second-branch amendment")],
-                         ids=["confirmation", "c3a-designation", "second-branch"])
+                                           (SECOND_BRANCH_LINE, "second-branch amendment"),
+                                           (M2_STOP_LINE, "m2 stop entry"),
+                                           (M2_AMENDMENT_LINE, "m2 amendment")],
+                         ids=["confirmation", "c3a-designation", "second-branch", "m2-stop", "m2-amendment"])
 def test_guard_refuses_when_any_required_heading_is_missing(tmp_path, missing, match):
     pcv, _ = pvr.load_pcv_config()
     lines = [ln for ln in REQUIRED_LINES if ln != missing]
@@ -587,10 +592,12 @@ def test_guard_refuses_when_any_required_heading_is_missing(tmp_path, missing, m
 def test_guard_amendment_headings_must_be_heading_lines_not_mentions(tmp_path):
     # Quoting a heading inside body text does not satisfy the guard; it must be the entry's own heading.
     pcv, _ = pvr.load_pcv_config()
-    body = decisions_with([CONFIRMATION_LINE, DESIGNATION_LINE]) + "see " + SECOND_BRANCH_LINE[4:] + chr(10)
-    repo, sha, yp = make_prereg_repo(tmp_path / "repo", pcv, decisions=body)
-    with pytest.raises(pvr.PreregGuardError, match="second-branch amendment"):
-        pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
+    for line, match in ((SECOND_BRANCH_LINE, "second-branch amendment"), (M2_AMENDMENT_LINE, "m2 amendment")):
+        kept = [ln for ln in REQUIRED_LINES if ln != line]
+        body = decisions_with(kept) + "see " + line[4:] + chr(10)
+        repo, sha, yp = make_prereg_repo(tmp_path / match.replace(" ", "_"), pcv, decisions=body)
+        with pytest.raises(pvr.PreregGuardError, match=match):
+            pvr.verify_prereg(sha, yaml_path=yp, repo=repo)
 
 
 def test_the_required_amendment_headings_are_those_in_the_repository():
@@ -601,9 +608,13 @@ def test_the_required_amendment_headings_are_those_in_the_repository():
     assert DESIGNATION_LINE in lines and SECOND_BRANCH_LINE in lines
     assert pvr.C3A_DESIGNATION_HEADING == DESIGNATION_LINE
     assert pvr.C3A_SECOND_BRANCH_HEADING == SECOND_BRANCH_LINE
-    got = subprocess.run(["git", "show", "fb4f957", "--", "DECISIONS.md"], cwd=REPO_ROOT, capture_output=True)
-    if got.returncode == 0:                         # the designation heading as introduced in fb4f957
-        assert ("+" + DESIGNATION_LINE) in got.stdout.decode("utf-8").splitlines()
+    assert M2_STOP_LINE in lines and M2_AMENDMENT_LINE in lines
+    assert pvr.M2_STOP_HEADING == M2_STOP_LINE
+    assert pvr.M2_AMENDMENT_HEADING == M2_AMENDMENT_LINE
+    for commit, line in (("fb4f957", DESIGNATION_LINE), ("0c34eb5", M2_STOP_LINE), ("7d94d25", M2_AMENDMENT_LINE)):
+        got = subprocess.run(["git", "show", commit, "--", "DECISIONS.md"], cwd=REPO_ROOT, capture_output=True)
+        if got.returncode == 0:                     # each heading as introduced in its own commit
+            assert ("+" + line) in got.stdout.decode("utf-8").splitlines()
 
 
 def test_guard_refuses_an_unknown_commit(guard_repo):
