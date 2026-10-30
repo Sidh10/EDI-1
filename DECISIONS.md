@@ -5866,6 +5866,84 @@ A row may meet several criteria; it is counted once in the total.
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
 
 
+### 2026-10-31 — Pc validation: m2 authorised at pcv-code-v3
+
+**Status:** AUTHORISATION (Sidh), recorded by Claude Code on 2026-10-31 at Sidh's instruction. Insertion only.
+- **Pushed BEFORE the `m2` step runs** and before the parser comparison below has a script.
+- **Scope:** only `kc pc-validate m2 --prereg-commit 718bc7c`, from tag `pcv-code-v3` (`9451035`), detached.
+- **Not authorised:** `conventions`; any change to code, the YAML or tags; any amendment; any merge; anything touching `main`.
+
+**Decisions recorded by Sidh in sending this instruction:**
+1. **`pcv-code-v3` is the code for the remaining validation steps.**
+2. **`--prereg-commit` is `718bc7c`.**
+3. **Only the `m2` step is authorised for running.**
+4. **The `max_risk_scaling` count is not done.** C4 already records k ≤ 0 and NaN as excluded rows.
+5. **Interpretation of any result is deferred to Sidh.**
+
+**The M2 comparator, carried over from `0c34eb5`:** the unfloored engine value, within 3 SE in log10. It is an implementation choice that the pre-registered text does not name, stated here before the run.
+
+**Runtime estimate:** the committed M2 cost (`4a65ccb`) is "M2 0.37 s per 1e7 chunk, 3.69 s to the 1e8 cap". For the 153 eligible events, that is at most 153 × 3.69 s = 564.6 s, or 9.4 min, plus data loading. **The stop limit is 2x that, about 18.8 min.** The 217 skipped events are not sampled.
+
+**The loader and its parser** (`src/kelvins_conformal/data.py` at `pcv-code-v3`):
+- line 87: `            return pd.read_csv(io.TextIOWrapper(fh, encoding="utf-8"))`
+- lines 95–97: `    return pd.read_csv(`, `        cfg.path("raw_dir") / "kelvins_competition_data" / "test_data_private.csv"`, `    )`
+- **Neither sets `float_precision`, so both use pandas' default fast parser.** The repository already notes its behaviour, in `robustness_runner.py` line 656: "pandas' default fast parser can read a 17-digit" and line 657 "float back one ULP away from the double that was written."
+- **Why 167 of 370 rows needed the tolerance join in Part A** (160 official, 7 E3):
+  - the sample tables hold the double the default parser produced, written back exactly by `to_csv`;
+  - Part A read the raw files with `round_trip`, which gives the exact double for the same text;
+  - where those two doubles differ in their last bits, the exact-match join finds no row, and the pre-registered tolerance rule matched it.
+  - That explanation is checked by the comparison below.
+- **Every step goes through the same loader, so the rows are the same everywhere.**
+  - `step_sample` calls `official_test_target_cdms` and `_read_train` (runner lines 498, 506).
+  - `_sample_rows`, used by `self-convergence`, `gate`, `m2` and `conventions`, calls the same two (lines 479, 483).
+  - Official rows are found by `event_uid` alone (line 479).
+  - E3 rows are merged on (`event_uid`, `time_to_tca`), loader parse against loader parse, so they match exactly (lines 485–486).
+  - The engine and M1, M2 and M3 all receive those rows.
+
+**PRE-REGISTRATION: parser comparison, input columns only.** No script exists at the time of this commit. It runs after this push and before the `m2` step.
+- **Question:** for the 370 target rows, how far does the loader's parse differ from an exact parse?
+- **Rows:** the same 370 as `8cfa940`. Official by `event_uid`; E3 by an exact (`event_uid`, `time_to_tca`) match under the loader's parse, as the runner does it. Any sample row without exactly one match stops the script.
+- **Columns:** `event_id` and `time_to_tca` as keys, and the same 21 input columns as `8cfa940`, by `usecols`. **No risk, label or reported column.** `max_risk_scaling` and `max_risk_estimate` are not read. From the sample tables: `event_uid`, `time_to_tca`, `stratum` only, read with `round_trip`.
+- **Two parses of the same files:**
+  - **loader parse:** `pandas.read_csv` with no `float_precision`, as `data.py` does. This is the one deliberate use of the default parser, because that parser is what is being measured;
+  - **exact parse:** `float_precision="round_trip"`.
+  - Both then go through `pandas.to_numeric(errors="coerce")`, as `_coerce_types` does. Rows are aligned by file position, and `event_id` must be equal row by row.
+- **Reported, per set and in total:**
+  - of 21 × 370 = 7,770 values, how many differ between the two parses, and that count per column;
+  - the largest relative difference |loader − exact| / |exact|, and the largest difference in units in the last place;
+  - values that are non-finite in either parse, or where the exact value is 0, are compared for equality and counted separately;
+  - **for `time_to_tca`:** the same count per set, which should equal 160 and 7 if the explanation above is right; and the length of its raw text, min / median / max, per set.
+- **Not done:** no Pc, engine, M1, M2 or M3 value is recomputed. The effect of the differences on any result is not measured.
+- **Selftest:** on a synthetic CSV written to a scratch folder, the script's count of differing values and of ULPs must equal an independent count made with Python's `float()` on the same text, for a set containing at least one value where the two parsers differ.
+- **Mutation:** making both parses use `round_trip` must make the selftest fail. The script is restored byte for byte.
+- **The script** will be `E:/EDI-1/scratch/pcv_parser_compare.py`, outside the repository. Its SHA-256 goes in the results entry.
+
+**Conventions step: description for the next stage.** Read-only; the step is not run and not authorised.
+- **(i) Events, rows and tables** (runner at `pcv-code-v3`, lines 665–719):
+  - **Reads:** `pcv_engine.csv` (line 666, required to exist), and through `_sample_rows` the full rows of the 370 sampled events, in both sets.
+  - **Evaluates** each event once per convention, through `convention_ids`: C0, C1, C3a, C3a_R, C3b, C4a, C4b.
+  - **Writes:** `pcv_conventions.csv`, `pcv_convention_summary.csv`, `pcv_c1_expectation.csv` (lines 717–719), plus its provenance sidecar.
+- **(ii) "Overall within-0.5 agreement."**
+  - **Text:** DECISIONS.md at `718bc7c`, line 4286: "Agreement is the fraction within ±0.5 log10 of `risk` (C0, C1, C3a, C3b) or of `max_risk_estimate` (C4a, C4b), reported per set (official-test sample; E3's 100) and per stratum". Line 4377: "If any convention other than C1 changes overall within-0.5 agreement, in either set, by more than 10 percentage points relative to C0". **The text does not define how strata are weighted in "overall".**
+  - **Code:** lines 694–696: `    overall = (used.groupby(["set", "convention"], sort=False)`, `               .agg(n=("within_tol", "size"), n_errors=("error", lambda e: int((e != "").sum())),`, `                    frac_within=("within_tol", "mean")).reset_index().assign(stratum="ALL"))`.
+  - **So "overall" is the pooled, unweighted mean over a set's rows.** In the official set, that means 150 of 270 rows come from (−6, 0]. In the E3 set, each stratum has 20 of 100. It is not weighted to the population.
+  - `within_tol` (line 689) uses the floored `log10_pc` and the anchor, with tolerance `reported_tolerance` 0.5. For C4a and C4b, rows with k ≤ 0 or NaN are left out of `used`.
+- **(iii) The 10 pp rule.**
+  - **Text:** line 4377 as above; the amendment `8d64986`: "The 10 pp flag rule (`conventions_material_change_pp`) applies to C3a"; "C0, C1 (the negative control, under its own insensitivity rule), C3a_R and C3b are never flagged"; "C0, C1 and C4 (C4a, C4b) are unchanged. This includes C4's flag rule."
+  - **YAML** line 119: `conventions_material_change_pp: 10.0     # a change in overall within-0.5 agreement > 10 pp (conventions other than C1) is a finding; flags E3's partial hold and E14 for Sidh's review`. The comment is superseded by `8d64986`; the value stands.
+  - **Code:** `FLAG_RULE_CONVENTIONS: tuple[str, ...] = ("C3a", "C4a", "C4b")` (line 63), used by `finding_flags` on the ALL rows, on the change against C0.
+  - **C1:** exempt; its insensitivity rule (line 4385, "less than 10 percentage points") is computed at line 708, and its expectation report at lines 712–716. **C3a_R and C3b:** no rule.
+  - **A rule the code does not compute.** Lines 4392–4393: "C4a vs C4b are reported side by side against `max_risk_estimate`. If they differ by more than 10 pp, that is a finding on scaling semantics". The runner has no such comparison. Both fractions are in `pcv_convention_summary.csv`, so it can be read from that table.
+  - **C4's change against C0** compares fractions with different anchors: `max_risk_estimate` for C4, and `reported` for C0.
+- **(iv) Runtime:** the committed estimate (`4a65ccb`) has no separate figure for this step. Its formula (`pc_validation_timing.py` lines 127–129) adds `n_conv * t["engine_1x_s"]["median"]` per event, with the median 3.1 ms. With `n_conv` = 7 now, that is 370 × 7 × 3.1 ms = about 8 s, plus data loading. The study-wide range stays about 2 minutes to 1 hour.
+- **(v) Input columns not already covered.**
+  - Stage 1 and the count cover the 20 `REQUIRED_FIELDS` and `t_j2k_sma`.
+  - The step additionally uses **`max_risk_scaling`** (C4's k) and **`max_risk_estimate`** (C4's anchor), and `reported`, which comes from `true_risk` or `risk` (the anchor for C0, C1, C3a, C3a_R and C3b).
+  - Those are the columns the previous checks did not read.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
