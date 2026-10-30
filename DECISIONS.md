@@ -5634,6 +5634,81 @@ agreement:
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
 
 
+### 2026-10-30 — Pc validation: m2 stopped at pre-run check; a-priori skip defect
+
+**Status:** RECORDED by Claude Code on 2026-10-30 at Sidh's instruction. Insertion only. **Facts only, recorded before any fix.**
+- **Not run:** `m2`, `conventions`.
+- **Not changed:** code, the YAML, tags; no amendment, no merge, nothing touching `main`.
+- **Not opened in this round:** `test_data_private.csv`, `train_data.csv`, `pcv_engine.csv`.
+- **Where the facts below about the 370 sampled events come from:** the pre-run check of the previous round, which read `pcv_independent.csv` only.
+
+**The defect:**
+- **Pre-registered text:**
+  - DECISIONS.md at `c3d364b`, line 4211 (2026-10-24 confirmation, item 8): "a priori "not informative" if 100/Pc_M1 exceeds the cap".
+  - Line 3484–3485 (2026-10-14 reconstruction): "treating an event as "not informative" without sampling when 100/Pc_M1 exceeds the cap".
+  - YAML at `c3d364b`: line 81 `  cap: 100000000               # per-event sample cap`; line 82 `  min_hits_target: 100         # stop once relative SE <= 10% (~100 hits)`.
+- **Code at `pcv-code-v2`,** `src/kelvins_conformal/labelnoise/pc_independent.py`:
+  - line 277: `    if prior_log10_pc is not None and math.isfinite(prior_log10_pc):`
+  - line 278: `        if min_hits / (10.0 ** prior_log10_pc) > cap:`
+  - line 279: `            return M2Result(0, 0, math.nan, math.inf, False, "not informative (a priori)")`
+- **What happens:** for M1 below about −323.3, `10.0 ** prior_log10_pc` underflows to exactly 0.0, and line 278 raises `ZeroDivisionError`. The text gives "not informative (a priori)" for these events, since 100/Pc_M1 far exceeds the cap.
+- **Nothing catches it:**
+  - `step_m2` calls `pi.pc_m2(...)` at `pc_validation_runner.py` lines 651–653 with no exception handling;
+  - the `pc-validate` command in `cli.py` catches only `OutputLockError`, `PreregGuardError` and `OpenDecisionError`.
+  - **So the `m2` step would abort at the first affected event, before writing any table.** `pcv_m2.csv` is written only at the end of the step.
+- **Synthetic reproduction** (the tag's `src` exported with `git archive`; geometry mx 5000, my 0, sx 10, sy 10, hbr 5; cap 100, min_hits 100; no real data):
+  - prior −5.0, −6.0, −6.5, −300.0 and −323.0: `'not informative (a priori)'`;
+  - prior −324.0 and −2847.4: `ZeroDivisionError: float division by zero`;
+  - `10.0**-323.0` = 1e-323, and `10.0**-324.0` = 0.0.
+- **Test coverage:** the M2 unit tests at the tag pass a prior only once, −12.0 (`tests/test_pc_independent.py` line 155). **No test covers M1 below −323.**
+
+**Affected sampled events** (M1 log10 Pc below the underflow point, from `pcv_independent.csv`):
+- **30 of the 370:** 22 in the official floor stratum and 8 in the E3 floor stratum; 0 elsewhere.
+- **The first in table order** is official floor, sample index 1, M1 −2426.749.
+
+**M2 eligibility under the pre-registered rule,** evaluated in log space (an event is skipped a priori when M1 < −6):
+
+| Set | Stratum | Events | Eligible | Skipped a priori | Would raise at line 278 |
+|---|---|---|---|---|---|
+| official | floor (== −30) | 30 | 0 | 30 | 22 |
+| official | (−30, −15] | 30 | 0 | 30 | 0 |
+| official | (−15, −10] | 30 | 1 | 29 | 0 |
+| official | (−10, −6] | 30 | 1 | 29 | 0 |
+| official | (−6, 0] | 150 | 130 | 20 | 0 |
+| e3 | floor (== −30) | 20 | 0 | 20 | 8 |
+| e3 | (−30, −15] | 20 | 0 | 20 | 0 |
+| e3 | (−15, −10] | 20 | 0 | 20 | 0 |
+| e3 | (−10, −6] | 20 | 4 | 16 | 0 |
+| e3 | (−6, 0] | 20 | 17 | 3 | 0 |
+
+- **In total, 153 eligible and 217 skipped.** No M1 lies within 0.01 of −6. The smallest eligible M1 is −5.9731631915116.
+- **M2's scope:** only 130 of the 150 official (−6, 0] events, 17 of the 20 E3 (−6, 0] events, and 6 others (official (−15, −10] 1, official (−10, −6] 1, E3 (−10, −6] 4) are eligible.
+- **`compare` does not read `pcv_m2.csv`.** Its inputs are `pcv_engine.csv`, `pcv_self_convergence.csv`, `pcv_independent.csv` and `pcv_gate.csv` (runner line 593), so the compare result (`af60835`) does not depend on M2.
+
+**Provenance of the M3 0.5% target:**
+- **The earlier wording:** the reconstructed YAML (`8d322fd`, 2026-10-14T23:40:32+05:30), line 47, read `  rel_se_escalate: 0.01        # rerun once at n_escalated if relative SE > 1% [to be re-confirmed by Sidh]`.
+  - The reconstructed DECISIONS text gives no number. Lines 3476–3477 say the sample size and the escalation rule "are in the YAML [to be re-confirmed by Sidh]".
+  - The confirmation entry numbers its checklist "as in the 2026-10-23 checkpoint", which is not a repository file.
+- **The change:** commit `d181408` (2026-10-24T13:17:22+05:30) replaced that line with `rel_se_target: 0.005` and the comment "Item 7, AMENDED (Sidh 2026-10-24): target relative SE 0.5%".
+  - In the same commit, DECISIONS item 7 reads: "**amended**: target relative SE **0.5%**. 1e6 samples, rerun once at 1e7 if missed. An event still above 0.5% at 1e7 is **"not informative"** for M3".
+- **The 0.5% supersedes the 1%.** `d181408` is an ancestor of `c3d364b` and precedes the first real-data step (stage 1 `sample`, 2026-10-30 03:09:21 +0530) by six days.
+
+**The M2 comparator:**
+- **No pre-registered text names one.** The text says only "judged within 3 standard errors" (DECISIONS line 3482), "judged within 3 SE" (line 4211), and `  n_se: 3.0                    # judged within 3 SE, in log10 via the delta method` (YAML line 84).
+- The nearest context is the order heading "3. **Engine vs independent.**" (line 3493).
+- **The implementation** (`pc_independent.py` lines 295–299, called at runner line 654) judges M2 against the **unfloored engine value** (`engine_log10` = `log10_pc_unfloored`). It requires |log10 p_hat − engine| ≤ 3·rel_se/ln 10, and gives None when M2 is not informative.
+
+**Decisions recorded by Sidh in sending this instruction:**
+1. **This stop is recorded in DECISIONS.md as facts, before any fix.**
+2. **The fix will evaluate the skip rule in log space:** log10(min_hits) − M1 > log10(cap).
+   - It will not use exception handling, and it will not change the cap rule or the skip policy.
+   - **The fix is NOT made in this round.**
+3. **Before any fix, the rest of the pipeline is audited on synthetic deep-tail inputs,** so that one amendment and one new tag cover everything found.
+4. **The M2 comparator** (the unfloored engine value, within 3 SE in log10) **is an implementation choice that the text does not name.** It is recorded here, before any `m2` run.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-10-30).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
