@@ -6137,6 +6137,127 @@ The script uses only the C0 rows of the E3 set, and prints only these checks. **
 **Recorded by:** Claude Code, at Sidh's instruction (2026-11-01).
 
 
+### 2026-11-01 — RESULTS: Pc validation, conventions step (definitions fixed in 60445bb)
+
+**Status:** RECORDED by Claude Code on 2026-11-01 at Sidh's instruction. Insertion only. **Facts only. Rule outcomes are stated as facts; nothing is said about what any result means for E3, E14, Gate 3 or Contribution 2.**
+- **Interpretation is Sidh's** (decision 8 of `60445bb`).
+- **Not changed:** code, the YAML, tags, conventions, thresholds, `main`.
+
+**Run:**
+- **Command:** `kc pc-validate conventions --prereg-commit 718bc7c`, from tag `pcv-code-v3` (HEAD `9451035db95c208c218c729bfbc74cb45b58fee9`), detached; tree clean.
+- **Timing:** 2026-11-01 21:02:50 to 21:03:24 +0530; **34 s**, exit 0 (`E:/EDI-1/logs/pcv_conventions.log`). The stop limit was 76 s.
+- **Headroom:** 10.22 GB before the start. The 5-second sampler (`E:/EDI-1/logs/pcv_stage4_commit.log`, 27 samples, covering both runs) recorded a minimum of 8.90 GB.
+- **The guard accepted `718bc7c`.** YAML canonical SHA-256 `7c59124f9934cb89934e81b4cc90a3223e14f7ba9d85c4c9b2ae966260977a72`; base config hash `00d1cb2ddd3bf10c415095aebaf67dcb863eb2a5dc4dc930744dad51566b67f5`.
+- **Written:** `pcv_conventions.csv` (2,590 rows, 12 columns), `pcv_convention_summary.csv` (84 rows, 10 columns), `pcv_c1_expectation.csv` (10 rows, 6 columns), `pcv_provenance_conventions.json`.
+
+**The reproduction gate passed, before any other convention was looked at** (`pcv_conv_descriptive.py repro`, C0 rows of the E3 set only):
+- 100 rows, `sample_index` 0 to 99, no error, none excluded;
+- `event_uid` equal by position; `anchor_value` equal to the E3 table's `reported` exactly;
+- **max |`log10_pc` − `recomputed`| = 0.0** (tolerance 1e-9);
+- `within_tol` equal on every row;
+- **within-0.5 count 65 of 100; excluding floor-to-floor, 46 of 81.**
+
+**Primary overall within-0.5 agreement, as coded** (`pcv_convention_summary.csv`, rows with stratum ALL). No row was excluded (`excluded_k_nonpositive` 0 everywhere) and there were no engine errors in any convention, set or stratum.
+
+| Set | Convention | Rows | Within | Primary overall | Change vs C0 (pp) | 95% CP (descriptive) | `finding_flag_e3_e14` |
+|---|---|---|---|---|---|---|---|
+| official | C0 | 270 | 190 | 0.7037 | 0 | [0.6454, 0.7575] | no |
+| official | C1 | 270 | 66 | 0.2444 | −45.926 | [0.1944, 0.3002] | no (exempt) |
+| official | C3a | 270 | 261 | 0.9667 | +26.296 | [0.9377, 0.9846] | **yes** |
+| official | C3a_R | 270 | 246 | 0.9111 | +20.741 | [0.8706, 0.9422] | no (no rule) |
+| official | C3b | 270 | 123 | 0.4556 | −24.815 | [0.3951, 0.5170] | no (no rule) |
+| official | C4a | 270 | 236 | 0.8741 | +17.037 | [0.8285, 0.9112] | **yes** |
+| official | C4b | 270 | 138 | 0.5111 | −19.259 | [0.4498, 0.5722] | **yes** |
+| e3 | C0 | 100 | 65 | 0.6500 | 0 | [0.5482, 0.7427] | no |
+| e3 | C1 | 100 | 33 | 0.3300 | −32.000 | [0.2392, 0.4312] | no (exempt) |
+| e3 | C3a | 100 | 97 | 0.9700 | +32.000 | [0.9148, 0.9938] | **yes** |
+| e3 | C3a_R | 100 | 79 | 0.7900 | +14.000 | [0.6971, 0.8651] | no (no rule) |
+| e3 | C3b | 100 | 40 | 0.4000 | −25.000 | [0.3033, 0.5028] | no (no rule) |
+| e3 | C4a | 100 | 88 | 0.8800 | +23.000 | [0.7998, 0.9364] | **yes** |
+| e3 | C4b | 100 | 31 | 0.3100 | −34.000 | [0.2213, 0.4103] | **yes** |
+
+- C4a and C4b are measured against `max_risk_estimate`, the others against `reported`. Their change against C0 compares fractions with different anchors (recorded in `1011121`).
+
+**Per-stratum within-0.5 agreement** (`frac_within`; official n = 30, 30, 30, 30, 150; e3 n = 20 each). 95% Clopper–Pearson intervals for each are in `pcv_conv_verify.json` (descriptive).
+
+| Set | Convention | floor (== −30) | (−30, −15] | (−15, −10] | (−10, −6] | (−6, 0] |
+|---|---|---|---|---|---|---|
+| official | C0 | 0.9333 | 0.2333 | 0.5667 | 0.6333 | 0.7933 |
+| official | C1 | 0.9333 | 0.0333 | 0.0333 | 0.3333 | 0.1733 |
+| official | C3a | 1.0000 | 0.9667 | 0.9667 | 0.9333 | 0.9667 |
+| official | C3a_R | 1.0000 | 0.6667 | 0.9000 | 0.8000 | 0.9667 |
+| official | C3b | 1.0000 | 0.1000 | 0.4667 | 0.3333 | 0.4400 |
+| official | C4a | 0.9333 | 0.9333 | 0.8667 | 0.8333 | 0.8600 |
+| official | C4b | 0.0000 | 0.0000 | 0.0333 | 0.5667 | 0.8000 |
+| e3 | C0 | 1.0000 | 0.4000 | 0.4500 | 0.6500 | 0.7500 |
+| e3 | C1 | 0.9500 | 0.2500 | 0.2000 | 0.1500 | 0.1000 |
+| e3 | C3a | 1.0000 | 1.0000 | 0.9000 | 0.9500 | 1.0000 |
+| e3 | C3a_R | 1.0000 | 0.5000 | 0.5500 | 0.9000 | 1.0000 |
+| e3 | C3b | 1.0000 | 0.1500 | 0.2000 | 0.3500 | 0.3000 |
+| e3 | C4a | 0.8500 | 1.0000 | 0.7500 | 0.9500 | 0.8500 |
+| e3 | C4b | 0.0000 | 0.0000 | 0.1000 | 0.7500 | 0.7000 |
+
+**Descriptive figures: no flag attaches to them** (`E:/EDI-1/scratch/pcv_conv_descriptive_overall.csv`, SHA-256 `b20837f571f7628f9283193279ce37abd98314cc970fbfffa2d4b98ed6c985f6`):
+
+| Set | Convention | Population-weighted overall | Floor-to-floor pairs | Excluding floor-to-floor: within / rows | Excluding floor-to-floor |
+|---|---|---|---|---|---|
+| official | C0 | 0.8518 | 28 | 162 / 242 | 0.6694 |
+| official | C1 | 0.7514 | 28 | 38 / 242 | 0.1570 |
+| official | C3a | 0.9909 | 30 | 231 / 240 | 0.9625 |
+| official | C3a_R | 0.9657 | 30 | 216 / 240 | 0.9000 |
+| official | C3b | 0.8523 | 30 | 93 / 240 | 0.3875 |
+| official | C4a | 0.9195 | 0 | 236 / 270 | 0.8741 |
+| official | C4b | 0.0831 | 0 | 138 / 270 | 0.5111 |
+| e3 | C0 | 0.6500 | 19 | 46 / 81 | 0.5679 |
+| e3 | C1 | 0.3300 | 19 | 14 / 81 | 0.1728 |
+| e3 | C3a | 0.9700 | 20 | 77 / 80 | 0.9625 |
+| e3 | C3a_R | 0.7900 | 20 | 59 / 80 | 0.7375 |
+| e3 | C3b | 0.4000 | 20 | 20 / 80 | 0.2500 |
+| e3 | C4a | 0.8800 | 0 | 88 / 100 | 0.8800 |
+| e3 | C4b | 0.3100 | 0 | 31 / 100 | 0.3100 |
+
+**The C1 reports:**
+- **Insensitivity rule, as the code computes it** (`c1_insensitive_to_hbr`): **False in both sets** (change −45.926 pp official, −32.000 pp e3).
+- **Expectation report** (`pcv_c1_expectation.csv`; median log10 Pc(C1) − log10 Pc(C0), unfloored, against +0.602; no pass or fail):
+
+| Set | floor (== −30) | (−30, −15] | (−15, −10] | (−10, −6] | (−6, 0] |
+|---|---|---|---|---|---|
+| official | 4.995083 | 0.641010 | 0.604437 | 0.603036 | 0.602204 |
+| e3 | 0.759696 | 0.612202 | 0.609663 | 0.602370 | 0.602266 |
+
+**The C4a vs C4b rule** (`E:/EDI-1/scratch/pcv_conv_c4_rule.csv`, SHA-256 `6f8405a79d714a8363d59041708c2f9887b165079caed23eae2e5f3e7f6562d8`), on the primary overall:
+- **official:** 0.8741 vs 0.5111, a difference of **36.296 pp**; exceeds 10 pp: **yes**.
+- **e3:** 0.8800 vs 0.3100, a difference of **57.000 pp**; exceeds 10 pp: **yes**.
+- Per-stratum differences (descriptive), pp, floor to (−6, 0]: official 93.33, 93.33, 83.33, 26.67, 6.00; e3 85.00, 100.00, 65.00, 20.00, 15.00.
+
+**Scripts:**
+- `E:/EDI-1/scratch/pcv_conv_descriptive.py`, SHA-256 `982743b2f26e114f1a917c96827e0b78cc1cd98fa1a5f7810e0fb2487d781092`.
+  - Selftest passes. **Mutation:** replacing `&` with `|` in the floor-to-floor test fails it (exit 1); restored byte for byte.
+- `E:/EDI-1/scratch/verify_pcv_conventions.py`, SHA-256 `28bb2e0d758d4428799f0133ade4f2b5ee879d644e89d9cd4506cad23f75c86d`.
+  - Selftest passes. **Mutation:** replacing `<=` with `<` in the within-0.5 test fails it (exit 1); restored byte for byte.
+
+**Independent verification from the raw inputs:**
+- The script took the 370 rows through the tag's loader, `apply_convention` and `recompute_pc_for_row`, without calling `step_conventions`, `_sample_rows`, `engine_eval`, `finding_flags` or `c1_expectation_report`.
+- **Result: 0 mismatches.** All 2,590 rows of `pcv_conventions.csv`, every compared column of `pcv_convention_summary.csv`, and `pcv_c1_expectation.csv` are equal exactly.
+- Output: `E:/EDI-1/scratch/pcv_conv_verify.json`, SHA-256 `e53d247f699b815893361273590303853854d1a10551af528651bcba92d0fbf2`.
+
+**Determinism:**
+- **Rerun:** the step ran again at the same HEAD with the same `--prereg-commit`, into `E:/EDI-1/runs/pcv_stage4_rerun/tables`, through a copy of `config/default.yaml` differing only in `paths.tables_dir`. Its three input tables were copied from the stage-1 rerun folder, each byte-identical to the repository copy. Timing: 21:04:23 to 21:05:00 +0530, 37 s, exit 0 (`E:/EDI-1/logs/pcv_conventions_rerun.log`).
+- **All 3 CSV tables are byte-identical** across the two runs.
+- **`pcv_provenance_conventions.json` differs only in `base_config_hash`, `written_utc` and the table paths.**
+
+**Hashes:** `reports/hashes/PCV-stage4.sha256.csv`, 4 files, status `first-recorded`, with the stage-3 columns including `identical_across_two_runs`. Written by `E:/EDI-1/scratch/hash_pcv_stage4.py` (SHA-256 `f4e87e9632c13d7c8ac6605fb79a7907a9680258e6f52081e922bb2b426d9e5b`).
+
+| File | SHA-256 | Identical across two runs |
+|---|---|---|
+| `pcv_conventions.csv` | `a83d82e4408e05ebc3e0be786f306700421537aab544bbfdf83c46c7068f13f5` | True |
+| `pcv_convention_summary.csv` | `44ee7c5f2ef777ab027b13064fdfe94b0c54a702414f2f4edfa81b7de6e8ff66` | True |
+| `pcv_c1_expectation.csv` | `72b5249a9de295a74e0cf6341730c1dc3d565238249765dca8157f39e95b57f8` | True |
+| `pcv_provenance_conventions.json` | `1a8a472b671a19008de45d534e7d94c73d69bc1c83e506aea481d25217cb76c8` | False |
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-11-01).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
