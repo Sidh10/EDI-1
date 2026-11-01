@@ -6037,6 +6037,106 @@ A row may meet several criteria; it is counted once in the total.
 **Recorded by:** Claude Code, at Sidh's instruction (2026-10-31).
 
 
+### 2026-11-01 — Pc validation: conventions step - definitions fixed before the run
+
+**Status:** PRE-REGISTRATION and AUTHORISATION (Sidh), recorded by Claude Code on 2026-11-01 at Sidh's instruction, **before any script below exists and before the `conventions` step runs.** Insertion only.
+- **Scope:** only `kc pc-validate conventions --prereg-commit 718bc7c`, from tag `pcv-code-v3` (`9451035`), detached.
+- **Not authorised:** any change to code, the YAML or tags; any amendment of conventions or thresholds; any merge; anything touching `main`.
+- **Interpretation is deferred to Sidh.**
+
+**Decisions recorded by Sidh in sending this instruction:**
+1. **The `m2` outcome is accepted as the pre-registered result.**
+2. **The loader and the code comment are not changed in this round.**
+3. **The primary "overall within-0.5 agreement" is the pooled unweighted mean over the set's rows, exactly as coded** (runner lines 694–696).
+   - On the E3 set, with 20 rows per stratum, it equals E3's original definition.
+   - **On the official set the sample is 30/30/30/30/150, so the top stratum is 55.6% of the sample (150 of 270) against 6.9% of the population (150 of 2,167).** The primary official figure is not an estimate for the official population.
+4. **Descriptive only, not triggering any flag:**
+   - (a) a population-weighted overall: weights 1673/108/138/98/150 over 2,167 for the official strata, equal weights for E3;
+   - (b) the overall excluding floor-to-floor pairs, as E3 reported separately (56.8% against 65.0%).
+5. **The 10 pp flag rule applies to the PRIMARY figure, per set ("either set"), for C3a, C4a and C4b,** as `FLAG_RULE_CONVENTIONS` has it. C1 keeps its insensitivity rule; C3a_R and C3b have no rule. Nothing about this changes.
+6. **The pre-registered rule "C4a vs C4b differ by more than 10 pp" is computed from `pcv_convention_summary.csv` by a pre-registered scratch script.** No code change and no new tag.
+7. **A reproduction check gates interpretation.**
+8. **Only the `conventions` step is authorised for running.**
+
+**What is known at this point:**
+- **E3's 65.0% within ±0.5 log10 (56.8% excluding floor-to-floor) was known when the convention list was drafted,** as the 2026-10-24 confirmation entry states, and is known now.
+- **No conventions result exists at the time of this commit.** No `pcv_conventions.csv`, `pcv_convention_summary.csv` or `pcv_c1_expectation.csv` has been written, and no script below exists.
+- **One qualification:** C0 is the unchanged engine, and `pcv_engine.csv` (stage 1) holds both the floored engine value and `reported` for the 370 rows. That table was loaded by the stage-2 verification script, which did not use `reported`. **No within-0.5 figure has been computed from it for any row or set,** and none is computed before the run.
+
+**Code and text quoted (Step 1). The code agrees with decisions (3)–(6).**
+
+**(a) The summary, `pc_validation_runner.py` at `pcv-code-v3`:**
+- line 689: `    df["within_tol"] = (df["log10_pc"] - df["anchor_value"]).abs() <= tol`
+- line 690: `    used = df[~df["excluded_k_nonpositive"]]`
+- per stratum, lines 691–693: `    summ = (used.groupby(["set", "convention", "stratum"], sort=False)`, `            .agg(n=("within_tol", "size"), n_errors=("error", lambda e: int((e != "").sum())),`, `                 frac_within=("within_tol", "mean")).reset_index())`
+- overall, lines 694–696: `    overall = (used.groupby(["set", "convention"], sort=False)`, `               .agg(n=("within_tol", "size"), n_errors=("error", lambda e: int((e != "").sum())),`, `                    frac_within=("within_tol", "mean")).reset_index().assign(stratum="ALL"))`
+- change against C0, lines 698–700: `    c0 = summ[summ["convention"] == "C0"].set_index(["set", "stratum"])["frac_within"]`, `    summ["change_vs_c0_pp"] = [100.0 * (f - c0.get((s, st), math.nan))`, `                               for s, st, f in zip(summ["set"], summ["stratum"], summ["frac_within"], strict=False)]`
+- flag, line 707: `    summ["finding_flag_e3_e14"] = finding_flags(summ, threshold_pp=thr)`
+
+**(b) The C4a-vs-C4b rule,** DECISIONS.md at `718bc7c`, lines 4392–4394, verbatim: "**C4a vs C4b** are reported side by side against `max_risk_estimate`. If they differ by more than 10 pp, that is a finding on scaling semantics, flagged against E14's Q-LBL-02 resolution for Sidh's review."
+- **The text names no metric and no set.** It sits in the decision rule whose metric is within-0.5 agreement, reported per set.
+
+**(c) Floor-to-floor and the 56.8%:**
+- `notebooks/00b_pc_spike.ipynb`, cell 9 line 3: `floor = cfg.target.floor_sentinel_value`; `config/default.yaml` line 52: `  floor_sentinel_value: -30.0   # [verify] against the observed minimum in E1`.
+- Cell 11 line 24: `comp["both_at_floor"] = np.isclose(comp["reported"], floor) & np.isclose(comp["recomputed"], floor)`, where line 14 sets `recomputed=r.log10_pc`, the floored value.
+- Cell 15 line 14: `err_block(ok[~ok["both_at_floor"]], "excluding floor-to-floor matches")`; cell 19 lines 3–4: `nf = ok[~ok["both_at_floor"]]`, `prop_nf = float(nf["within_tol"].mean())`.
+- DECISIONS.md at `718bc7c`, line 617: "**56.8%** excluding floor-to-floor matches (CI [0.457, 0.679])".
+
+**(d) The runner reports neither figure.** `pc_validation_runner.py` at the tag contains no floor-to-floor exclusion and no population weighting.
+
+**(e) The regenerated E3 table,** `reports/tables/e3_full_comparison.csv`, SHA-256 `4a2863cd013e0c3e3f3cbd37c4eaeb1a400bf81f48e637b5fcc95845b4aa471a`:
+- 100 rows, 20 per stratum, all with status `ok`;
+- `within_tol` true on 65; `both_at_floor` true on 19; of the other 81, `within_tol` true on 46 (46 / 81 = 56.8%);
+- tolerance 0.5: `config/default.yaml` line 239 `    abs_log10_risk: 0.5      # |recomputed - reported| in log10 units, per CDM`, and validation YAML line 90 `reported_tolerance: 0.5`;
+- grid: `recompute_pc_for_row` defaults, 200 × 360 (cell 11 line 13), the same as validation YAML lines 29–30;
+- `pcv_sample_e3.csv` holds the same rows in the same order, so `sample_index` equals the row position. `event_uid` is not unique in it, so rows are aligned by position, not by `event_uid` alone.
+
+**Definitions fixed here:**
+- **Primary overall:** the `frac_within` of the rows with `stratum` = ALL in `pcv_convention_summary.csv`.
+- **Population-weighted overall (descriptive):** Σ w_s · `frac_within`_s over the five strata of a set, from the per-stratum summary rows.
+  - **official:** floor (== −30) 1673/2167, (−30, −15] 108/2167, (−15, −10] 138/2167, (−10, −6] 98/2167, (−6, 0] 150/2167.
+  - **e3:** 1/5 each.
+- **Excluding floor-to-floor (descriptive):** among the rows used, a row is a floor-to-floor pair if `np.isclose(anchor_value, -30.0) & np.isclose(log10_pc, -30.0)`, with numpy's default tolerances, as cell 11 line 24 does. `log10_pc` is the floored value. The figure is the mean of `within_tol` over the remaining rows. An engine-error row (NaN) is not a pair and stays in.
+  - E3 defined this on `reported`. For C4a and C4b the anchor is `max_risk_estimate`; applying the same test to that anchor is a choice made here.
+- **C4a vs C4b rule:** |`frac_within`(C4a) − `frac_within`(C4b)| × 100 on the primary overall, per set. **It holds if that exceeds 10 in either set.** Equal to 10 does not hold. Per-stratum differences are listed as descriptive and enter no rule.
+
+**The reproduction check (the gate),** script A below, mode `repro`. It runs right after the step, before any other convention is looked at. **All of these must hold:**
+1. the E3 table and `pcv_sample_e3.csv` have the recorded SHA-256 values;
+2. `pcv_conventions.csv` has exactly 100 rows with `set` = e3 and `convention` = C0, with `sample_index` 0 to 99, no `error`, none excluded;
+3. by position, `event_uid` equals the E3 table's, and `anchor_value` equals its `reported` exactly;
+4. **|`log10_pc` − `recomputed`| ≤ 1e-9 log10 on every row.** This tolerance is fixed by reasoning, not from data: the same engine, grid and loader give the same doubles, and the measured parser difference is at most 1.04e-13 relative on values capped at −30, so anything above 1e-9 would be a real difference;
+5. `within_tol` equals the E3 table's on every row;
+6. **the within-0.5 count is 65 of 100;**
+7. excluding floor-to-floor, it is 46 of 81.
+
+The script uses only the C0 rows of the E3 set, and prints only these checks. **If any fails: stop, report the facts, and do not continue.**
+
+**Script A: `E:/EDI-1/scratch/pcv_conv_descriptive.py`,** modes `selftest`, `repro`, `run`. It reads tables only, with `float_precision="round_trip"`.
+- **`run` inputs:** `pcv_conventions.csv`, `pcv_convention_summary.csv`.
+- **Output 1,** `E:/EDI-1/scratch/pcv_conv_descriptive_overall.csv`, one row per set and convention: `set`, `convention`, `n_used`, `n_within`, `overall_primary`, `overall_pop_weighted`, `n_floor_to_floor`, `n_excl_floor_to_floor`, `n_within_excl_floor_to_floor`, `overall_excl_floor_to_floor`.
+- **Output 2,** `E:/EDI-1/scratch/pcv_conv_c4_rule.csv`, one row per set and stratum including ALL: `set`, `stratum`, `frac_c4a`, `frac_c4b`, `abs_diff_pp`, `exceeds_10pp` (ALL rows only; empty otherwise).
+- **It also checks** that its own pooled mean equals `overall_primary`.
+- **Selftest (synthetic):** hand-computed weights, floor-to-floor counts and the C4 rule, including a difference of exactly 10 pp; the repro check must pass on a matching table, and fail on a deviation above 1e-9, a changed count, and a changed `event_uid`.
+- **Mutation:** replacing `&` with `|` in the floor-to-floor test must make the selftest fail. The script is restored byte for byte.
+
+**Script B: `E:/EDI-1/scratch/verify_pcv_conventions.py`,** modes `selftest`, `run`.
+- **It recomputes from the raw inputs.** With the repository at the tag (it asserts HEAD `9451035`), it takes the 370 rows through the tag's own loader (`official_test_target_cdms`, `_read_train`, `_coerce_types`), joins them itself to the sample tables, applies the tag's `apply_convention`, and evaluates the tag's `recompute_pc_for_row` at 200 × 360.
+- **It does not call** `step_conventions`, `_sample_rows`, `engine_eval`, `finding_flags` or `c1_expectation_report`. It computes the within-0.5 flags, per-stratum and overall agreement, changes against C0, excluded counts, error counts, the flag column, the C1 insensitivity column and the C1 expectation report with its own code.
+- **The loader's default parser is used here on purpose,** because the check must reproduce what the step read. Tables are read with `round_trip`.
+- **Compared exactly** (after the writer's own serialization) with `pcv_conventions.csv`, `pcv_convention_summary.csv` and `pcv_c1_expectation.csv`. Any difference is reported.
+- **It adds 95% Clopper–Pearson intervals to every agreement fraction: DESCRIPTIVE, not a criterion.** Output `E:/EDI-1/scratch/pcv_conv_verify.json`.
+- **Selftest (synthetic):** a difference of exactly 0.5 counts as within; an excluded row leaves the denominator; an error row stays in it; hand-computed change against C0 and flags; Clopper–Pearson against the closed form for k = n.
+- **Mutation:** replacing `<=` with `<` in the within-0.5 test must make the selftest fail. The script is restored byte for byte.
+
+**Runtime and stop limit:** the estimate is 370 × 7 × 3.1 ms, about 8 s, plus data loading, about 30 s from stage 1 (`self-convergence` took 35 s with about 9 s of engine time). **The stop limit is 2x that, 76 s.**
+
+**Determinism:** if the step takes under 30 minutes, it is rerun into a separate folder and the tables compared byte for byte. `reports/hashes/PCV-stage4.sha256.csv` follows the stage-3 columns.
+
+**Not measured:** the effect on E3 and E14 remains unmeasured at this commit.
+
+**Recorded by:** Claude Code, at Sidh's instruction (2026-11-01).
+
+
 ## Gate Outcomes
 
 *(Populated at each gate: date, gate number, decision — GO / PIVOT / NO-GO, summary evidence, decided by.)*
